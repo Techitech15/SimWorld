@@ -1,5 +1,5 @@
 // Generates every MVP sprite listed in section 12 of the design document.
-// Output: public/assets/sprites/**.png (transparent PNG, <=32 colours per sprite,
+// Output: src/assets/**.png (transparent PNG, <=32 colours per sprite,
 // 1px dark outline on object sprites).
 //
 // Run with: npm run sprites
@@ -8,13 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Canvas, mulberry32 } from './png.mjs';
 
-const OUT_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'public',
-  'assets',
-  'sprites',
-);
+const OUT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'assets');
 
 const TILE = 32;
 

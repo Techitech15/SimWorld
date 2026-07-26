@@ -4,10 +4,11 @@ RimWorld 風の 2D ブラウザ入植地シミュレーション（MVP）。設�
 
 ```bash
 npm install
-npm run sprites   # ドット絵アセットを再生成（public/assets/sprites 配下）
-npm run dev       # http://localhost:5173
-npm test          # ヘッドレスシミュレーションのテスト
-npm run build     # 型チェック + 本番ビルド
+npm run sprites       # ドット絵アセットを再生成（src/assets 配下）
+npm run dev           # http://localhost:5173
+npm test              # ヘッドレスシミュレーションのテスト
+npm run build         # 型チェック + 本番ビルド
+npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダブルクリックで起動できる
 ```
 
 ## 操作
@@ -53,7 +54,7 @@ npm run build     # 型チェック + 本番ビルド
 | 7. 経路探索       | `src/core/pathfinding.ts`（4方向グリッドA\*）、`src/core/movement.ts`（経路キャッシュ）、`src/core/derived.ts`（PathIndex） |
 | 8. セーブ／ロード | `src/persistence/saveFile.ts`, `indexeddb.ts`                                                                               |
 | 9. MVP機能        | 60×60マップ・地形3種・入植者3人・仕事5種・建築6種・資源3種・速度3段                                                         |
-| 12. ドット絵      | `tools/generate-sprites.mjs` が 26 枚を決定論的に生成                                                                       |
+| 12. ドット絵      | `tools/generate-sprites.mjs` が 26 枚を決定論的に生成（`src/assets`）                                                       |
 
 ## ジョブのライフサイクル（6章）
 
@@ -102,6 +103,16 @@ npm run build     # 型チェック + 本番ビルド
 | `src/core/jobs.test.ts`        | Week 4: 大量の伐採指定でも2人が同じ木に向かわない。Week 6: 資材を運搬して壁が完成する       |
 | `src/core/survival.test.ts`    | Week 5: 無操作で食事・睡眠を取り餓死しない。Week 7: 4日放置しても生産チェーンが回り続ける   |
 | `src/core/state.test.ts`       | 3章: tick が前の状態を書き換えない（購読側の差分検知の前提）                                |
+
+## 配布
+
+`npm run build:single` は 2 つのファイルを出力する。スプライトはビルド時に data URI として
+バンドルへ取り込まれるため（`vite.config.ts` の `assetsInlineLimit`）、どちらもネットワーク接続を一切必要としない。
+
+| 出力                       | 用途                                                                      |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `dist/simworld.html`       | 単体で完結した HTML。ブラウザで直接開ける（サーバ不要）                   |
+| `dist/simworld-embed.html` | `<html>`/`<body>` を持つホストへ埋め込む用の断片（Artifact・iframe など） |
 
 ## フェーズ2以降
 

@@ -2,32 +2,8 @@
 // stays crisp at any zoom level (section 12).
 import { Assets, Rectangle, Texture } from 'pixi.js';
 import { TILE_SIZE } from '../core/constants';
-
-const BASE = `${import.meta.env.BASE_URL ?? '/'}assets/sprites`;
-
-export const SPRITE_URLS = {
-  grass: `${BASE}/terrain/grass.png`,
-  forest1: `${BASE}/terrain/forest_1.png`,
-  forest2: `${BASE}/terrain/forest_2.png`,
-  stone: `${BASE}/terrain/stone.png`,
-  wall: `${BASE}/buildings/wall.png`,
-  wallBlueprint: `${BASE}/buildings/wall_blueprint.png`,
-  floor: `${BASE}/buildings/floor.png`,
-  doorClosed: `${BASE}/buildings/door_closed.png`,
-  doorOpen: `${BASE}/buildings/door_open.png`,
-  bed: `${BASE}/buildings/bed.png`,
-  farm0: `${BASE}/buildings/farm_0.png`,
-  farm1: `${BASE}/buildings/farm_1.png`,
-  farm2: `${BASE}/buildings/farm_2.png`,
-  storage: `${BASE}/buildings/storage_marker.png`,
-  wood: `${BASE}/resources/wood.png`,
-  stoneItem: `${BASE}/resources/stone.png`,
-  food: `${BASE}/resources/food.png`,
-  colonistWalk: `${BASE}/colonist/walk.png`,
-  colonistWork: `${BASE}/colonist/work.png`,
-} as const;
-
-export type SpriteKey = keyof typeof SPRITE_URLS;
+import { sprites } from '../assets/sprites';
+import type { SpriteKey } from '../assets/sprites';
 
 export interface GameTextures {
   tiles: Record<SpriteKey, Texture>;
@@ -44,7 +20,7 @@ function slice(sheet: Texture, x: number, y: number): Texture {
 }
 
 export async function loadTextures(): Promise<GameTextures> {
-  const entries = Object.entries(SPRITE_URLS) as [SpriteKey, string][];
+  const entries = Object.entries(sprites) as [SpriteKey, string][];
   const loaded = await Promise.all(entries.map(([, url]) => Assets.load<Texture>(url)));
 
   const tiles = {} as Record<SpriteKey, Texture>;
