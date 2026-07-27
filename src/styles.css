@@ -91,6 +91,27 @@ button.active {
   display: block;
 }
 
+.game-canvas__error {
+  position: absolute;
+  inset: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-content: start;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--crit);
+  border-radius: 8px;
+}
+
+.game-canvas__error p {
+  margin: 0;
+  max-width: 46ch;
+}
+
 /* --- top bar ------------------------------------------------------------- */
 .topbar {
   display: flex;

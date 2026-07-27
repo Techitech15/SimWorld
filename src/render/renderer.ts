@@ -61,6 +61,12 @@ export class GameRenderer {
   async init(host: HTMLElement): Promise<void> {
     this.host = host;
     if (this.destroyed) return; // destroyed before we even got going
+
+    // An embedded host can still be laid out at zero height on the first frame;
+    // starting then would size the canvas to 0x0 and render nothing.
+    await waitForSize(host);
+    if (this.destroyed) return;
+
     await this.app.init({
       background: 0x11131a,
       resizeTo: host,
@@ -94,8 +100,24 @@ export class GameRenderer {
 
     this.buildTerrainSprites();
     this.attachInput();
+    this.observeHostSize(host);
     this.app.ticker.add(() => this.renderFrame());
     this.started = true;
+  }
+
+  /**
+   * `resizeTo` only reacts to window resizes, but an embedded host can change
+   * size on its own (a resizable panel, a split view).
+   */
+  private observeHostSize(host: HTMLElement): void {
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (this.destroyed || !this.started) return;
+      const { clientWidth, clientHeight } = host;
+      if (clientWidth > 0 && clientHeight > 0) this.app.renderer.resize(clientWidth, clientHeight);
+    });
+    observer.observe(host);
+    this.disposers.push(() => observer.disconnect());
   }
 
   /**
@@ -525,6 +547,26 @@ export class GameRenderer {
     this.camera.x = x * TILE_SIZE - this.app.renderer.width / (2 * this.camera.zoom);
     this.camera.y = y * TILE_SIZE - this.app.renderer.height / (2 * this.camera.zoom);
   }
+}
+
+/** Resolve once the element has a non-zero box, or after a short grace period. */
+function waitForSize(host: HTMLElement, timeoutMs = 2000): Promise<void> {
+  if (host.clientWidth > 0 && host.clientHeight > 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      observer?.disconnect();
+      resolve();
+    };
+    const timer = setTimeout(done, timeoutMs);
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            if (host.clientWidth > 0 && host.clientHeight > 0) done();
+          });
+    observer?.observe(host);
+  });
 }
 
 function tilesInRect(a: { x: number; y: number }, b: { x: number; y: number }): string[] {

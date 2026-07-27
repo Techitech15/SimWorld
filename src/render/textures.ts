@@ -1,6 +1,13 @@
 // Texture loading. Everything is nearest-neighbour filtered so 32px pixel art
 // stays crisp at any zoom level (section 12).
-import { Assets, Rectangle, Texture } from 'pixi.js';
+//
+// The sprites are decoded through <img> rather than PixiJS's asset loader on
+// purpose: that loader fetches the URL and calls createImageBitmap, and a
+// `fetch()` of a data: URI is governed by the page's CSP `connect-src`. Bundled
+// builds inline every sprite as a data URI, so under a strict CSP (a sandboxed
+// iframe, an embed) the whole map would silently fail to load while the rest of
+// the UI kept working. Decoding an <img> only needs `img-src`.
+import { ImageSource, Rectangle, Texture } from 'pixi.js';
 import { TILE_SIZE } from '../core/constants';
 import { sprites } from '../assets/sprites';
 import type { SpriteKey } from '../assets/sprites';
@@ -12,6 +19,38 @@ export interface GameTextures {
   colonistWork: Texture[];
 }
 
+async function decodeImage(url: string): Promise<HTMLImageElement> {
+  const image = new Image();
+  image.src = url;
+  // decode() rejects with a useless message in some browsers, so fall back to
+  // the load/error events, which say which sprite actually failed.
+  try {
+    await image.decode();
+  } catch {
+    await new Promise<void>((resolve, reject) => {
+      if (image.complete && image.naturalWidth > 0) {
+        resolve();
+        return;
+      }
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error(`failed to load sprite: ${url.slice(0, 64)}`));
+    });
+  }
+  if (image.naturalWidth === 0)
+    throw new Error(`sprite decoded to an empty image: ${url.slice(0, 64)}`);
+  return image;
+}
+
+function textureFromImage(image: HTMLImageElement): Texture {
+  return new Texture({
+    source: new ImageSource({
+      resource: image,
+      scaleMode: 'nearest',
+      alphaMode: 'premultiply-alpha-on-upload',
+    }),
+  });
+}
+
 function slice(sheet: Texture, x: number, y: number): Texture {
   return new Texture({
     source: sheet.source,
@@ -21,13 +60,11 @@ function slice(sheet: Texture, x: number, y: number): Texture {
 
 export async function loadTextures(): Promise<GameTextures> {
   const entries = Object.entries(sprites) as [SpriteKey, string][];
-  const loaded = await Promise.all(entries.map(([, url]) => Assets.load<Texture>(url)));
+  const images = await Promise.all(entries.map(([, url]) => decodeImage(url)));
 
   const tiles = {} as Record<SpriteKey, Texture>;
   entries.forEach(([key], i) => {
-    const texture = loaded[i];
-    texture.source.scaleMode = 'nearest';
-    tiles[key] = texture;
+    tiles[key] = textureFromImage(images[i]);
   });
 
   const walkSheet = tiles.colonistWalk;
