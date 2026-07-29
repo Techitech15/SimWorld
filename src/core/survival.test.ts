@@ -58,6 +58,9 @@ describe('needs', () => {
       if (busy === 0) idleTicks++;
     });
 
+    // stage B of docs/design-animals.md: wolves start turning up on day 2, and
+    // an unattended colony still has to be alive four days later
+    expect(Object.keys(harness.state.colonists)).toHaveLength(3);
     for (const id in harness.state.colonists) {
       const colonist = harness.state.colonists[id];
       expect(colonist.needs.hunger).toBeLessThan(HUNGER_THRESHOLD + 45);

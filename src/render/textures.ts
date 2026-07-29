@@ -9,6 +9,7 @@
 // the UI kept working. Decoding an <img> only needs `img-src`.
 import { ImageSource, Rectangle, Texture } from 'pixi.js';
 import { TILE_SIZE } from '../core/constants';
+import type { AnimalSpecies } from '../core/types';
 import { sprites } from '../assets/sprites';
 import type { SpriteKey } from '../assets/sprites';
 
@@ -17,6 +18,8 @@ export interface GameTextures {
   /** [direction][frame]; direction order matches the sheet: down, left, right, up */
   colonistWalk: Texture[][];
   colonistWork: Texture[];
+  /** two-frame walk cycle per species, drawn facing right and mirrored in code */
+  animals: Record<AnimalSpecies, Texture[]>;
 }
 
 async function decodeImage(url: string): Promise<HTMLImageElement> {
@@ -80,5 +83,11 @@ export async function loadTextures(): Promise<GameTextures> {
   const workSheet = tiles.colonistWork;
   const colonistWork = [slice(workSheet, 0, 0), slice(workSheet, TILE_SIZE, 0)];
 
-  return { tiles, colonistWalk, colonistWork };
+  const animals = {} as Record<AnimalSpecies, Texture[]>;
+  for (const species of ['deer', 'boar', 'chicken', 'wolf'] as AnimalSpecies[]) {
+    const sheet = tiles[species];
+    animals[species] = [slice(sheet, 0, 0), slice(sheet, TILE_SIZE, 0)];
+  }
+
+  return { tiles, colonistWalk, colonistWork, animals };
 }

@@ -11,6 +11,9 @@ import type { GameState, Job, JobId, JobType, TileId } from '../types';
 /** Identity of the work a job represents; two jobs never share one. */
 function jobKey(job: Job): string {
   switch (job.type) {
+    case 'hunt':
+    case 'handle':
+      return `${job.type}:${job.targetEntityId}`;
     case 'haul':
       // a delivery is identified by "this blueprint still needs this resource",
       // which stays stable even after the source stack is picked up
@@ -148,6 +151,24 @@ export function runJobGenerator(state: GameState): void {
     }
   }
 
+  // --- designated animals: hunt / tame / slaughter ---------------------------
+  for (const animalId in state.animals) {
+    const animal = state.animals[animalId];
+    if (!animal.designation) continue;
+    // a designation that no longer makes sense (a tamed animal marked for
+    // taming, a wild one marked for slaughter) is simply skipped
+    if (animal.designation === 'tame' && animal.tame) continue;
+    if (animal.designation === 'slaughter' && !animal.tame) continue;
+    const type: JobType = animal.designation === 'hunt' ? 'hunt' : 'handle';
+    const key = `${type}:${animalId}`;
+    if (has(key)) continue;
+    createJob(state, type, {
+      targetTileId: tileIdOf(animal.position.x, animal.position.y),
+      targetEntityId: animalId,
+    });
+    claim(key);
+  }
+
   // --- loose items on the ground -> storage ---------------------------------
   for (const itemId in state.items) {
     const item = state.items[itemId];
@@ -193,6 +214,14 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     case 'build': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       return !!building && building.isBlueprint;
+    }
+    case 'hunt':
+    case 'handle': {
+      const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;
+      if (!animal || !animal.designation) return false;
+      if (job.type === 'hunt') return animal.designation === 'hunt';
+      if (animal.designation === 'tame') return !animal.tame;
+      return animal.tame; // slaughter
     }
     case 'haul': {
       const item = job.targetEntityId ? state.items[job.targetEntityId] : undefined;

@@ -14,6 +14,10 @@
 //   Colonist.activity       - need-driven eat/sleep behaviour (section 5)
 //   Colonist.workPriorities - per-colonist priorities, implied by
 //                             setJobPriority(colonistId, jobType, priority)
+//
+// The animal layer (docs/design-animals.md) adds `Animal`, `Tile.forage`,
+// `Colonist.health` and the pasture zone. It follows the same rules: plain
+// data, ID references, nothing that JSON cannot represent.
 
 export type TileId = string; // `${x},${y}`
 export type ColonistId = string;
@@ -21,6 +25,7 @@ export type BuildingId = string;
 export type ItemId = string;
 export type JobId = string;
 export type ZoneId = string;
+export type AnimalId = string;
 
 export interface Vector2 {
   x: number;
@@ -44,6 +49,11 @@ export interface Tile {
   itemIds: ItemId[];
   /** [ext] chop/mine designation, or null */
   designation: Designation | null;
+  /**
+   * [ext] grazeable growth on grass tiles, 0..1. Grazing consumes it and it
+   * regrows over a day, which is the whole of the overgrazing puzzle.
+   */
+  forage: number;
 }
 
 export type ResourceType = 'wood' | 'stone' | 'food';
@@ -71,7 +81,9 @@ export type ColonistActivity =
   | { kind: 'none' }
   | { kind: 'moving'; targetTileId: TileId } // player-issued move order
   | { kind: 'eating'; itemId: ItemId | null; ticksRemaining: number }
-  | { kind: 'sleeping'; bedId: BuildingId | null };
+  | { kind: 'sleeping'; bedId: BuildingId | null }
+  /** [ext] running from a predator. Colonists never fight back (design-animals.md 5) */
+  | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number };
 
 export interface CarriedStack {
   type: ResourceType;
@@ -89,6 +101,12 @@ export interface Colonist {
   pathTargetTileId: TileId | null;
   needs: ColonistNeeds;
   currentJobId: JobId | null;
+  /**
+   * [ext] 0..100. Deliberately a single number: no body parts, no illness and
+   * no medical jobs (docs/design-animals.md 1). Predators are the only source
+   * of damage; rest is the only source of healing; 0 means death.
+   */
+  health: number;
   /** [ext] */
   carrying: CarriedStack | null;
   /** [ext] */
@@ -122,9 +140,17 @@ export interface Building {
   sown: boolean;
 }
 
-export type JobType = 'chop' | 'mine' | 'farm' | 'build' | 'haul';
+export type JobType = 'chop' | 'mine' | 'farm' | 'build' | 'haul' | 'hunt' | 'handle';
 
-export const JOB_TYPES: JobType[] = ['chop', 'mine', 'farm', 'build', 'haul'];
+export const JOB_TYPES: JobType[] = [
+  'chop',
+  'mine',
+  'farm',
+  'build',
+  'haul',
+  'hunt',
+  'handle',
+];
 
 export type JobState = 'pending' | 'reserved' | 'active' | 'completed' | 'failed' | 'cancelled';
 
@@ -162,8 +188,64 @@ export interface Job {
 
 export interface Zone {
   id: ZoneId;
-  type: 'storage';
+  /** [ext] 'pasture' keeps tamed animals in one place and bounds the herd size */
+  type: 'storage' | 'pasture';
   tileIds: TileId[];
+}
+
+// --- animal layer (docs/design-animals.md) ----------------------------------
+
+export type AnimalSpecies = 'deer' | 'boar' | 'chicken' | 'wolf';
+
+/** What the player has marked this animal for; mirrors Tile.designation. */
+export type AnimalDesignation = 'hunt' | 'tame' | 'slaughter';
+
+/**
+ * Animal behaviour. Like ColonistActivity this sits *outside* the job system:
+ * it is not work the player prioritises, it is what the creature does on its own.
+ */
+export type AnimalActivity =
+  | { kind: 'idle' }
+  | { kind: 'grazing'; ticksRemaining: number }
+  | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number }
+  | { kind: 'stalking'; targetKind: 'animal' | 'colonist'; targetId: string }
+  | {
+      kind: 'attacking';
+      targetKind: 'animal' | 'colonist';
+      targetId: string;
+      nextBiteTick: number;
+    };
+
+export interface Animal {
+  id: AnimalId;
+  species: AnimalSpecies;
+  name: string;
+  position: Vector2;
+  /** only held while chasing or heading home; wandering and fleeing use single steps */
+  path: Vector2[] | null;
+  pathExpiresAtTick: number | null;
+  /** 0 (full) .. 100 (starving), same linear decay as colonists */
+  hunger: number;
+  health: number;
+  bornAtTick: number;
+  tame: boolean;
+  /** tamed animals only: which pasture they belong to */
+  pastureZoneId: ZoneId | null;
+  activity: AnimalActivity;
+  designation: AnimalDesignation | null;
+  /** set while a hunt/handle job holds this animal (the reservation is the real lock) */
+  reservedByJobId: JobId | null;
+  gestationUntilTick: number | null;
+  /** ticks of pursuit left before a predator gives up */
+  pursuitUntilTick: number | null;
+  /**
+   * A predator that gave up will not pick a new target until this tick. Without
+   * it a wolf re-targets the same colonist the moment its pursuit expires, which
+   * turns "flee and survive" into "flee until you die".
+   */
+  huntCooldownUntilTick: number | null;
+  /** next tick this animal may lay an egg / be milked */
+  nextProduceTick: number | null;
 }
 
 /** Section 6: reservations are part of the job lifecycle, not a side table. */
@@ -184,6 +266,8 @@ export interface GameState {
   items: Record<ItemId, Item>;
   jobs: Record<JobId, Job>;
   zones: Record<ZoneId, Zone>;
+  /** [ext] wild and tamed creatures (docs/design-animals.md) */
+  animals: Record<AnimalId, Animal>;
   reservations: Record<string, Reservation>;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;

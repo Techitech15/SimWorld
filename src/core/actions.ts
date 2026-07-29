@@ -4,7 +4,7 @@
 // Each function takes a state, returns the next state, and never runs simulation
 // logic itself - a placed blueprint simply exists, and the JobGenerator picks it
 // up on the next tick.
-import { BUILDING_COSTS, BUILDING_HP } from './constants';
+import { BUILDING_COSTS, BUILDING_HP, SPECIES } from './constants';
 import type { SimContext } from './derived';
 import {
   addLog,
@@ -12,11 +12,13 @@ import {
   nextId,
   own,
   tileIdOf,
+  updateAnimal,
   updateBuilding,
   updateColonist,
   updateTile,
 } from './state';
 import type {
+  AnimalDesignation,
   BuildingType,
   ColonistId,
   Designation,
@@ -24,6 +26,7 @@ import type {
   JobType,
   TileId,
   Vector2,
+  Zone,
 } from './types';
 import { releaseByJob } from './jobs/reservations';
 
@@ -145,33 +148,49 @@ export function cancelBlueprint(state: GameState, tileIds: TileId[]): GameState 
 
 /** Storage zones cost nothing, so they are created finished (section 9). */
 export function placeStorageZone(state: GameState, tileIds: TileId[]): GameState {
+  return placeZone(state, 'storage', tileIds);
+}
+
+/**
+ * Pasture zones bound where tamed animals graze, and their area caps the herd
+ * (docs/design-animals.md 4). Like storage zones they are free and immediate.
+ */
+export function placePastureZone(state: GameState, tileIds: TileId[]): GameState {
+  return placeZone(state, 'pasture', tileIds);
+}
+
+function placeZone(state: GameState, type: Zone['type'], tileIds: TileId[]): GameState {
   const next = edit(state);
-  const zoneId = Object.keys(next.zones)[0] ?? nextId(next, 'z');
-  const zone = next.zones[zoneId] ?? {
-    id: zoneId,
-    type: 'storage' as const,
-    tileIds: [],
-  };
+  const existingId = Object.keys(next.zones).find((id) => next.zones[id].type === type);
+  const zoneId = existingId ?? nextId(next, 'z');
+  const zone: Zone = next.zones[zoneId] ?? { id: zoneId, type, tileIds: [] };
   const added: TileId[] = [];
   for (const tileId of tileIds) {
     const tile = next.tiles[tileId];
-    if (!tile || tile.buildingId || zone.tileIds.includes(tileId)) continue;
+    if (!tile || zone.tileIds.includes(tileId)) continue;
     if (!tile.walkable) continue;
-    const id = nextId(next, 'b');
-    own(next, 'buildings');
-    next.buildings[id] = {
-      id,
-      type: 'storageZoneMarker',
-      tileId,
-      isBlueprint: false,
-      hpCurrent: BUILDING_HP.storageZoneMarker,
-      hpMax: BUILDING_HP.storageZoneMarker,
-      requiredResources: [],
-      buildProgress: 1,
-      growth: 0,
-      sown: false,
-    };
-    updateTile(next, tileId, { buildingId: id });
+    // a pasture is just marked ground: grass has to stay grazeable, so unlike a
+    // storage zone it does not drop a marker building on the tile
+    if (type === 'storage') {
+      if (tile.buildingId) continue;
+      const id = nextId(next, 'b');
+      own(next, 'buildings');
+      next.buildings[id] = {
+        id,
+        type: 'storageZoneMarker',
+        tileId,
+        isBlueprint: false,
+        hpCurrent: BUILDING_HP.storageZoneMarker,
+        hpMax: BUILDING_HP.storageZoneMarker,
+        requiredResources: [],
+        buildProgress: 1,
+        growth: 0,
+        sown: false,
+      };
+      updateTile(next, tileId, { buildingId: id });
+    } else if (tile.terrain !== 'grass') {
+      continue; // nothing to graze on stone or under trees
+    }
     added.push(tileId);
   }
   if (added.length === 0) return state;
@@ -180,6 +199,32 @@ export function placeStorageZone(state: GameState, tileIds: TileId[]): GameState
     [zoneId]: { ...zone, tileIds: [...zone.tileIds, ...added] },
   };
   return next;
+}
+
+/**
+ * Mark animals inside a dragged rectangle for hunting, taming or slaughter.
+ * The JobGenerator turns the designation into a job on the next tick, exactly
+ * like a chop or mine designation does.
+ */
+export function designateAnimals(
+  state: GameState,
+  tileIds: TileId[],
+  designation: AnimalDesignation | null,
+): GameState {
+  const next = edit(state);
+  const targets = new Set(tileIds);
+  let changed = false;
+  for (const animalId in next.animals) {
+    const animal = next.animals[animalId];
+    if (!targets.has(tileIdOf(animal.position.x, animal.position.y))) continue;
+    if (designation === 'tame' && (animal.tame || SPECIES[animal.species].tameChance <= 0)) continue;
+    if (designation === 'slaughter' && !animal.tame) continue;
+    if (designation === 'hunt' && animal.tame) continue;
+    if (animal.designation === designation) continue;
+    updateAnimal(next, animalId, { designation });
+    changed = true;
+  }
+  return changed ? next : state;
 }
 
 /**

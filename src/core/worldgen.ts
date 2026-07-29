@@ -2,15 +2,19 @@
 import {
   BUILDING_HP,
   COLONIST_COLORS,
+  COLONIST_MAX_HEALTH,
   COLONIST_NAMES,
   MAP_HEIGHT,
   MAP_WIDTH,
+  SPECIES,
   STACK_MAX,
 } from './constants';
-import { valueNoise2D } from './rng';
+import { mulberry32, valueNoise2D } from './rng';
 import { createEmptyState, nextId, own, tileIdOf, updateTile } from './state';
 import { JOB_TYPES } from './types';
 import type {
+  Animal,
+  AnimalSpecies,
   Building,
   BuildingType,
   Colonist,
@@ -38,6 +42,8 @@ function makeTile(x: number, y: number, terrain: Tile['terrain']): Tile {
     buildingId: null,
     itemIds: [],
     designation: null,
+    // only grass carries grazeable growth; it starts fully grown
+    forage: terrain === 'grass' ? 1 : 0,
   };
 }
 
@@ -185,6 +191,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
       path: null,
       pathTargetTileId: null,
       needs: { hunger: 20 + i * 5, sleep: 10 + i * 5 },
+      health: COLONIST_MAX_HEALTH,
       currentJobId: null,
       carrying: null,
       activity: { kind: 'none' },
@@ -193,5 +200,95 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     state.colonists[id] = colonist;
   }
 
+  spawnInitialWildlife(state, seed, { x: cx, y: cy });
+
   return state;
+}
+
+const ANIMAL_NAMES = [
+  'Ash',
+  'Birch',
+  'Clover',
+  'Dusk',
+  'Ember',
+  'Fern',
+  'Ginger',
+  'Hazel',
+  'Ivy',
+  'Juniper',
+  'Kestrel',
+  'Larch',
+  'Moss',
+  'Nettle',
+  'Olive',
+  'Pip',
+  'Quill',
+  'Rowan',
+  'Sorrel',
+  'Thistle',
+];
+
+export function createAnimal(
+  state: GameState,
+  species: AnimalSpecies,
+  x: number,
+  y: number,
+  options: { tame?: boolean; pastureZoneId?: string | null; bornAtTick?: number } = {},
+): Animal {
+  const id = nextId(state, 'a');
+  const index = Number(id.slice(1));
+  const animal: Animal = {
+    id,
+    species,
+    name: `${ANIMAL_NAMES[index % ANIMAL_NAMES.length]}`,
+    position: { x, y },
+    path: null,
+    pathExpiresAtTick: null,
+    hunger: 20,
+    health: SPECIES[species].maxHealth,
+    bornAtTick: options.bornAtTick ?? -SPECIES[species].adultAtTicks, // spawns adult
+    tame: options.tame ?? false,
+    pastureZoneId: options.pastureZoneId ?? null,
+    activity: { kind: 'idle' },
+    designation: null,
+    reservedByJobId: null,
+    gestationUntilTick: null,
+    pursuitUntilTick: null,
+    huntCooldownUntilTick: null,
+    nextProduceTick: null,
+  };
+  state.animals[id] = animal;
+  return animal;
+}
+
+/**
+ * Scatter the starting herds. Predators are deliberately absent at world
+ * generation: they only arrive from day 2 (docs/design-animals.md 6).
+ */
+function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
+  const rnd = mulberry32(seed + 4241);
+  for (const species of ['deer', 'boar', 'chicken'] as AnimalSpecies[]) {
+    for (let i = 0; i < SPECIES[species].initialCount; i++) {
+      const spot = findSpawnTile(state, rnd, camp, species === 'chicken' ? 6 : 12);
+      if (spot) createAnimal(state, species, spot.x, spot.y);
+    }
+  }
+}
+
+/** A walkable tile at least `minDistance` away from the camp centre. */
+export function findSpawnTile(
+  state: GameState,
+  rnd: () => number,
+  camp: { x: number; y: number },
+  minDistance: number,
+): { x: number; y: number } | null {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const x = Math.floor(rnd() * MAP_WIDTH);
+    const y = Math.floor(rnd() * MAP_HEIGHT);
+    const tile = state.tiles[tileIdOf(x, y)];
+    if (!tile?.walkable || tile.buildingId) continue;
+    if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < minDistance) continue;
+    return { x, y };
+  }
+  return null;
 }

@@ -4,7 +4,13 @@
 // never touches the DOM, PixiJS or React, which is what makes the headless tests
 // in src/core/*.test.ts possible. SimContext holds only derived caches
 // (section 7) that are rebuilt rather than saved.
-import { CROP_GROWTH_PER_TICK } from './constants';
+import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
+import {
+  CROP_GROWTH_PER_TICK,
+  FLEE_DURATION_TICKS,
+  FLEE_TRIGGER_DISTANCE,
+  TICKS_PER_STEP,
+} from './constants';
 import { rebuildRegions } from './derived';
 import type { SimContext } from './derived';
 import { runAssignment } from './jobs/assign';
@@ -26,6 +32,11 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   // generator and the candidate filter look at it this same tick
   runNeeds(next, ctx);
   runMoveOrders(next, ctx);
+  // the ecology runs before job assignment so a colonist never gets handed work
+  // in the same tick a predator sent them running
+  runAnimals(next, ctx);
+  runFleeing(next);
+  healColonists(next);
   runJobGenerator(next);
   runAssignment(next, ctx);
   runExecution(next, ctx);
@@ -39,6 +50,42 @@ export function tickMany(state: GameState, ctx: SimContext, count: number): Game
   let current = state;
   for (let i = 0; i < count; i++) current = tickOnce(current, ctx);
   return current;
+}
+
+/**
+ * A colonist under attack runs, and keeps running until the timer expires or
+ * the predator is gone. They never fight back (docs/design-animals.md 5).
+ */
+function runFleeing(state: GameState): void {
+  for (const colonistId in state.colonists) {
+    const colonist = state.colonists[colonistId];
+    if (colonist.activity.kind !== 'fleeing') continue;
+    const threat = state.animals[colonist.activity.fromAnimalId];
+    if (!threat) {
+      updateColonist(state, colonistId, { activity: { kind: 'none' } });
+      continue;
+    }
+    // The timer only starts running down once the predator is no longer on top
+    // of them. Otherwise the colonist calmly goes back to work after 120 ticks,
+    // takes another bite, and the wolf eventually wins by attrition.
+    if (nearestPredator(state, colonist.position, FLEE_TRIGGER_DISTANCE)) {
+      updateColonist(state, colonistId, {
+        activity: { ...colonist.activity, untilTick: state.tick + FLEE_DURATION_TICKS },
+      });
+    } else if (state.tick >= colonist.activity.untilTick) {
+      updateColonist(state, colonistId, { activity: { kind: 'none' } });
+      continue;
+    }
+    if (state.tick % TICKS_PER_STEP !== 0) continue;
+
+    const step = fleeStep(state, colonist.position, threat.position);
+    if (!step) continue;
+    updateColonist(state, colonistId, {
+      position: step,
+      path: null,
+      pathTargetTileId: null,
+    });
+  }
 }
 
 /** Player-issued move orders (section 10, week 3): walk there, then go idle. */

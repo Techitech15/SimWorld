@@ -14,6 +14,18 @@ export interface SimContext {
   /** flat grid of connected-walkable-region labels, -1 when unwalkable */
   regions: Int32Array;
   regionsDirty: boolean;
+  /**
+   * A* calls the herd may still make this tick. Reset at the start of every
+   * animal phase so a large herd can never crowd out colonist pathfinding
+   * (docs/design-animals.md 7).
+   */
+  animalPathBudget: number;
+  /**
+   * Grass tiles that have been grazed below full. Regrowing only these keeps
+   * the per-tick cost proportional to how much grazing actually happened,
+   * instead of sweeping all 3,600 tiles every tick.
+   */
+  forageDepleted: Set<TileId>;
 }
 
 export function createSimContext(state: GameState): SimContext {
@@ -21,10 +33,22 @@ export function createSimContext(state: GameState): SimContext {
     pathIndex: {},
     regions: new Int32Array(MAP_WIDTH * MAP_HEIGHT).fill(-1),
     regionsDirty: true,
+    animalPathBudget: 0,
+    forageDepleted: new Set(),
   };
   rebuildPathIndex(ctx, state);
   rebuildRegions(ctx, state);
+  rebuildForageIndex(ctx, state);
   return ctx;
+}
+
+/** Derived like the PathIndex: rebuilt after a load, never saved. */
+export function rebuildForageIndex(ctx: SimContext, state: GameState): void {
+  ctx.forageDepleted = new Set();
+  for (const tileId in state.tiles) {
+    const tile = state.tiles[tileId];
+    if (tile.terrain === 'grass' && tile.forage < 1) ctx.forageDepleted.add(tileId);
+  }
 }
 
 /** Section 8: after a load the PathIndex is rebuilt from the saved paths. */

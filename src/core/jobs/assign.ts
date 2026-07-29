@@ -11,7 +11,7 @@ import { CANDIDATE_PATH_ATTEMPTS } from '../constants';
 import { isReachable } from '../derived';
 import type { SimContext } from '../derived';
 import { setDestination } from '../movement';
-import { manhattan, updateColonist, updateItem, updateJob } from '../state';
+import { manhattan, updateAnimal, updateColonist, updateItem, updateJob } from '../state';
 import { findStorageDestination } from '../storage';
 import type { Colonist, GameState, Item, Job, Vector2 } from '../types';
 import { deliveryKey, isReserved, releaseByJob, reserveAll } from './reservations';
@@ -39,6 +39,15 @@ export function jobWorkSite(
       if (!item) return null;
       return { position: { ...item.position }, adjacent: false };
     }
+    // Animals move, so the work site is wherever the creature is *now*. Hunting
+    // is ranged, which is why the hunter does not have to corner the prey
+    // (docs/design-animals.md 3).
+    case 'hunt':
+    case 'handle': {
+      const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;
+      if (!animal) return null;
+      return { position: { ...animal.position }, adjacent: true };
+    }
     default:
       return null;
   }
@@ -52,6 +61,8 @@ function reservationTargets(state: GameState, job: Job, colonist: Colonist): str
       return job.targetTileId ? [job.targetTileId] : null;
     case 'farm':
     case 'build':
+    case 'hunt':
+    case 'handle':
       return job.targetEntityId ? [job.targetEntityId] : null;
     case 'haul': {
       const item: Item | undefined = job.targetEntityId
@@ -172,6 +183,9 @@ export function tryReserve(
   }
   if (job.type === 'haul' && job.targetEntityId) {
     updateItem(state, job.targetEntityId, { reservedByJobId: job.id });
+  }
+  if ((job.type === 'hunt' || job.type === 'handle') && job.targetEntityId) {
+    updateAnimal(state, job.targetEntityId, { reservedByJobId: job.id });
   }
 
   // stage 3 only reserves; the execute stage promotes `reserved` -> `active`

@@ -4,9 +4,10 @@
 // literally JSON.stringify. PathIndex is derived and therefore not saved;
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
+import { COLONIST_MAX_HEALTH } from '../core/constants';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -23,7 +24,31 @@ export type Migration = (old: unknown) => unknown;
  * A save whose version has no migration path is rejected outright rather than
  * loaded half-broken.
  */
-export const migrations: Record<number, Migration> = {};
+export const migrations: Record<number, Migration> = {
+  /**
+   * 1 -> 2: the animal layer (docs/design-animals.md 7). A version 1 save knows
+   * nothing about animals, forage or colonist health, so the migration fills in
+   * the values a freshly generated world would have had: no animals yet, grass
+   * fully grown, everybody healthy. Nothing existing is rewritten, so a v1 save
+   * keeps its colonies, jobs and reservations exactly as they were.
+   */
+  1: (old) => {
+    const state = old as Partial<GameState>;
+    const tiles: GameState['tiles'] = {};
+    for (const tileId in state.tiles ?? {}) {
+      const tile = state.tiles![tileId];
+      tiles[tileId] = {
+        ...tile,
+        forage: tile.terrain === 'grass' ? 1 : 0,
+      };
+    }
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      colonists[id] = { ...state.colonists![id], health: COLONIST_MAX_HEALTH };
+    }
+    return { ...state, tiles, colonists, animals: {} };
+  },
+};
 
 export function createSaveFile(state: GameState, now: string = new Date().toISOString()): SaveFile {
   return {

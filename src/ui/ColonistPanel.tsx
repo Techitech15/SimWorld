@@ -12,6 +12,8 @@ function activityLabel(colonist: Colonist, state: GameState): string {
       return 'sleeping';
     case 'moving':
       return 'walking';
+    case 'fleeing':
+      return 'fleeing!';
     default:
       break;
   }
@@ -26,14 +28,18 @@ function NeedBar({
   label,
   value,
   threshold,
+  invert = false,
 }: {
   icon: string;
   label: string;
   value: number;
   threshold: number;
+  /** needs fill up as they get worse; health empties instead */
+  invert?: boolean;
 }): React.JSX.Element {
   const pct = Math.round(value);
-  const state = pct >= 95 ? 'critical' : pct >= threshold ? 'warning' : 'ok';
+  const severity = invert ? 100 - pct : pct;
+  const state = severity >= 95 ? 'critical' : severity >= threshold ? 'warning' : 'ok';
   return (
     <div className="need">
       <img src={icon} alt={label} title={label} width={18} height={18} />
@@ -73,6 +79,13 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
         label="Hunger"
         value={colonist.needs.hunger}
         threshold={HUNGER_THRESHOLD}
+      />
+      <NeedBar
+        icon={icons.health}
+        label="Health"
+        value={colonist.health}
+        threshold={40}
+        invert
       />
       <NeedBar
         icon={icons.sleep}

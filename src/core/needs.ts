@@ -49,8 +49,16 @@ function decayNeeds(state: GameState, colonistId: string): void {
 /** Interrupt work when a need crosses its threshold. */
 function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: string): void {
   const colonist = state.colonists[colonistId];
-  // a player move order is interruptible; eating and sleeping are not
-  if (colonist.activity.kind === 'eating' || colonist.activity.kind === 'sleeping') return;
+  // a player move order is interruptible; eating and sleeping are not, and
+  // neither is running from a predator - lying down to sleep with a wolf on your
+  // heels is how a colony loses people (docs/design-animals.md 5)
+  if (
+    colonist.activity.kind === 'eating' ||
+    colonist.activity.kind === 'sleeping' ||
+    colonist.activity.kind === 'fleeing'
+  ) {
+    return;
+  }
 
   const wantsFood = colonist.needs.hunger >= HUNGER_THRESHOLD;
   const wantsSleep = colonist.needs.sleep >= SLEEP_THRESHOLD;

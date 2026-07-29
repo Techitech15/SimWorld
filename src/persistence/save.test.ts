@@ -3,7 +3,9 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { setDesignation } from '../core/actions';
+import { COLONIST_MAX_HEALTH } from '../core/constants';
 import { createEmptyState } from '../core/state';
+import type { GameState } from '../core/types';
 import { createHarness, nearestTilesWithTerrain } from '../core/testUtils';
 import { createSimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
@@ -91,6 +93,42 @@ describe('save file versioning', () => {
     } finally {
       delete migrations[0];
     }
+  });
+
+  it('migrates a version 1 save into the animal layer', () => {
+    // A v1 save as it was actually written: no animals, no forage, no health.
+    const harness = createHarness(67);
+    harness.run(200);
+    const v1 = JSON.parse(JSON.stringify(harness.state)) as Record<string, unknown>;
+    delete v1.animals;
+    for (const id in v1.tiles as Record<string, Record<string, unknown>>) {
+      delete (v1.tiles as Record<string, Record<string, unknown>>)[id].forage;
+    }
+    for (const id in v1.colonists as Record<string, Record<string, unknown>>) {
+      delete (v1.colonists as Record<string, Record<string, unknown>>)[id].health;
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 1,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-07-26T00:00:00.000Z',
+      state: v1 as unknown as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    const state = migrated.state;
+    expect(state.animals).toEqual({});
+    for (const id in state.tiles) {
+      const tile = state.tiles[id];
+      expect(tile.forage).toBe(tile.terrain === 'grass' ? 1 : 0);
+    }
+    for (const id in state.colonists) {
+      expect(state.colonists[id].health).toBe(COLONIST_MAX_HEALTH);
+    }
+    // and it keeps ticking: a migrated save is a real save, not a shell
+    const ctx = createSimContext(state);
+    const after = tickMany(state, ctx, 200);
+    expect(after.tick).toBe(harness.state.tick + 200);
   });
 
   it('rejects malformed json and missing fields', () => {

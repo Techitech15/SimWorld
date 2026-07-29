@@ -32,6 +32,7 @@ export const sprites = {
   farm1: spriteUrl('buildings/farm_1.png'),
   farm2: spriteUrl('buildings/farm_2.png'),
   storage: spriteUrl('buildings/storage_marker.png'),
+  pasture: spriteUrl('buildings/pasture_marker.png'),
   wood: spriteUrl('resources/wood.png'),
   stoneItem: spriteUrl('resources/stone.png'),
   food: spriteUrl('resources/food.png'),
@@ -42,8 +43,15 @@ export const sprites = {
   jobFarm: spriteUrl('ui/job_farm.png'),
   jobBuild: spriteUrl('ui/job_build.png'),
   jobHaul: spriteUrl('ui/job_haul.png'),
+  jobHunt: spriteUrl('ui/job_hunt.png'),
+  jobHandle: spriteUrl('ui/job_handle.png'),
   needHunger: spriteUrl('ui/need_hunger.png'),
   needSleep: spriteUrl('ui/need_sleep.png'),
+  needHealth: spriteUrl('ui/need_health.png'),
+  deer: spriteUrl('animals/deer.png'),
+  boar: spriteUrl('animals/boar.png'),
+  chicken: spriteUrl('animals/chicken.png'),
+  wolf: spriteUrl('animals/wolf.png'),
 } as const;
 
 export type SpriteKey = keyof typeof sprites;

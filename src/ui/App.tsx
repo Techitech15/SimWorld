@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { startGameLoop } from '../game/loop';
+import { AnimalPanel } from './AnimalPanel';
 import { ColonistPanel } from './ColonistPanel';
 import { EventLog } from './EventLog';
 import { GameCanvas } from './GameCanvas';
@@ -25,6 +26,7 @@ export function App(): React.JSX.Element {
           <ColonistPanel />
           <WorkPriorityTable />
           <ResourcePanel />
+          <AnimalPanel />
           <EventLog />
         </aside>
       </div>

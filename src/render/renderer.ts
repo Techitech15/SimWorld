@@ -16,6 +16,13 @@ const DIR_LEFT = 1;
 const DIR_RIGHT = 2;
 const DIR_UP = 3;
 
+interface AnimalView {
+  sprite: Sprite;
+  displayX: number;
+  displayY: number;
+  facingRight: boolean;
+}
+
 interface ColonistView {
   sprite: Sprite;
   carried: Sprite;
@@ -30,6 +37,7 @@ export class GameRenderer {
   private terrainLayer = new Container();
   private buildingLayer = new Container();
   private itemLayer = new Container();
+  private animalLayer = new Container();
   private colonistLayer = new Container();
   private overlay = new Graphics();
   private selectionOverlay = new Graphics();
@@ -44,6 +52,7 @@ export class GameRenderer {
     { base: Sprite; blueprint: Sprite | null; key: string }
   >();
   private itemSprites = new Map<string, Sprite>();
+  private animalViews = new Map<string, AnimalView>();
   private colonistViews = new Map<string, ColonistView>();
 
   private lastState: GameState | null = null;
@@ -93,6 +102,7 @@ export class GameRenderer {
       this.buildingLayer,
       this.itemLayer,
       this.overlay,
+      this.animalLayer,
       this.colonistLayer,
       this.selectionOverlay,
     );
@@ -273,6 +283,50 @@ export class GameRenderer {
     }
   }
 
+  // --- animals -------------------------------------------------------------
+  private syncAnimals(state: GameState, deltaMs: number): void {
+    const seen = new Set<string>();
+    for (const id in state.animals) {
+      const animal = state.animals[id];
+      seen.add(id);
+      let view = this.animalViews.get(id);
+      if (!view) {
+        const sprite = new Sprite(this.textures.animals[animal.species][0]);
+        sprite.anchor.set(0.5);
+        this.animalLayer.addChild(sprite);
+        view = {
+          sprite,
+          displayX: animal.position.x,
+          displayY: animal.position.y,
+          facingRight: true,
+        };
+        this.animalViews.set(id, view);
+      }
+
+      const dx = animal.position.x - view.displayX;
+      const dy = animal.position.y - view.displayY;
+      const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
+      const speed = 0.007 * deltaMs;
+      view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
+      view.displayY += Math.abs(dy) < speed ? dy : Math.sign(dy) * speed;
+      if (Math.abs(dx) > 0.02) view.facingRight = dx > 0;
+
+      const frame = moving ? Math.floor(performance.now() / 220) % 2 : 0;
+      view.sprite.texture = this.textures.animals[animal.species][frame];
+      view.sprite.x = view.displayX * TILE_SIZE + TILE_SIZE / 2;
+      view.sprite.y = view.displayY * TILE_SIZE + TILE_SIZE / 2;
+      // the art faces right; mirroring is cheaper than a second set of frames
+      view.sprite.scale.x = view.facingRight ? 1 : -1;
+      // tamed animals get a warm tint so a herd reads apart from wildlife
+      view.sprite.tint = animal.tame ? 0xffe0b0 : 0xffffff;
+    }
+    for (const [id, view] of this.animalViews) {
+      if (seen.has(id)) continue;
+      view.sprite.destroy();
+      this.animalViews.delete(id);
+    }
+  }
+
   // --- colonists -----------------------------------------------------------
   private syncColonists(state: GameState, deltaMs: number): void {
     const seen = new Set<string>();
@@ -369,10 +423,26 @@ export class GameRenderer {
       const tile = state.tiles[tileId];
       if (tile.designation) key += `${tileId}:${tile.designation};`;
     }
+    for (const zoneId in state.zones) {
+      const zone = state.zones[zoneId];
+      if (zone.type === 'pasture') key += `p:${zone.tileIds.length};`;
+    }
     if (key === this.overlayKey) return;
     this.overlayKey = key;
 
     this.overlay.clear();
+    // pasture ground goes under the designation marks
+    for (const zoneId in state.zones) {
+      const zone = state.zones[zoneId];
+      if (zone.type !== 'pasture') continue;
+      for (const tileId of zone.tileIds) {
+        const tile = state.tiles[tileId];
+        if (!tile) continue;
+        this.overlay
+          .rect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+          .fill({ color: 0x6bbf59, alpha: 0.16 });
+      }
+    }
     for (const tileId in state.tiles) {
       const tile = state.tiles[tileId];
       if (!tile.designation) continue;
@@ -383,9 +453,29 @@ export class GameRenderer {
     }
   }
 
+  /** Rings around designated animals; redrawn every frame because they move. */
+  private drawAnimalMarkers(state: GameState): void {
+    for (const id in state.animals) {
+      const animal = state.animals[id];
+      if (!animal.designation) continue;
+      const view = this.animalViews.get(id);
+      if (!view) continue;
+      const colour =
+        animal.designation === 'hunt'
+          ? 0xd6452f
+          : animal.designation === 'tame'
+            ? 0x6bbf59
+            : 0xf2a03d;
+      this.selectionOverlay
+        .circle(view.sprite.x, view.sprite.y, TILE_SIZE * 0.5)
+        .stroke({ width: 2, color: colour, alpha: 0.9 });
+    }
+  }
+
   private syncSelectionOverlay(state: GameState): void {
     const { selectedColonistId, tool } = useGameStore.getState();
     this.selectionOverlay.clear();
+    this.drawAnimalMarkers(state);
 
     if (selectedColonistId && state.colonists[selectedColonistId]) {
       const view = this.colonistViews.get(selectedColonistId);
@@ -420,6 +510,7 @@ export class GameRenderer {
       this.syncItems(state);
       this.syncDesignationOverlay(state);
     }
+    this.syncAnimals(state, deltaMs);
     this.syncColonists(state, deltaMs);
     this.syncSelectionOverlay(state);
     this.applyKeyboardPan(deltaMs);

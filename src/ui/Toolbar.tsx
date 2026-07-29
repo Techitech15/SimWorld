@@ -21,6 +21,7 @@ function costLabel(type: BuildingType): string {
 function sameTool(a: Tool, b: Tool): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'designate' && b.kind === 'designate') return a.designation === b.designation;
+  if (a.kind === 'animal' && b.kind === 'animal') return a.designation === b.designation;
   if (a.kind === 'build' && b.kind === 'build') return a.building === b.building;
   return true;
 }
@@ -63,7 +64,31 @@ export function Toolbar(): React.JSX.Element {
           ),
         )}
         {button({ kind: 'storage' }, 'Storage', icons.haul, 'Storage zone (free)')}
+        {button({ kind: 'pasture' }, 'Pasture', icons.handle, 'Pasture zone on grass (free)')}
         {button({ kind: 'cancel' }, 'Cancel', undefined, 'Remove blueprints')}
+      </div>
+
+      <div className="toolbar__group">
+        <h3>Animals</h3>
+        {button(
+          { kind: 'animal', designation: 'hunt' },
+          'Hunt',
+          icons.hunt,
+          'Mark wild animals to be hunted for meat',
+        )}
+        {button(
+          { kind: 'animal', designation: 'tame' },
+          'Tame',
+          icons.handle,
+          'Mark wild animals to be tamed (wolves cannot be tamed)',
+        )}
+        {button(
+          { kind: 'animal', designation: 'slaughter' },
+          'Slaughter',
+          icons.handle,
+          'Mark tamed animals to be slaughtered',
+        )}
+        {button({ kind: 'clearAnimal' }, 'Clear marks')}
       </div>
 
       <p className="toolbar__hint muted">

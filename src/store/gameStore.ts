@@ -10,6 +10,7 @@ import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
 import { generateWorld } from '../core/worldgen';
 import type {
+  AnimalDesignation,
   BuildingType,
   ColonistId,
   Designation,
@@ -36,6 +37,9 @@ export type Tool =
   | { kind: 'clearDesignation' }
   | { kind: 'build'; building: BuildingType }
   | { kind: 'storage' }
+  | { kind: 'pasture' }
+  | { kind: 'animal'; designation: AnimalDesignation }
+  | { kind: 'clearAnimal' }
   | { kind: 'cancel' };
 
 export interface GameStore {
@@ -111,6 +115,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         break;
       case 'storage':
         set({ state: actions.placeStorageZone(state, tileIds) });
+        break;
+      case 'pasture':
+        set({ state: actions.placePastureZone(state, tileIds) });
+        break;
+      case 'animal':
+        set({ state: actions.designateAnimals(state, tileIds, tool.designation) });
+        break;
+      case 'clearAnimal':
+        set({ state: actions.designateAnimals(state, tileIds, null) });
         break;
       case 'cancel':
         set({ state: actions.cancelBlueprint(state, tileIds) });

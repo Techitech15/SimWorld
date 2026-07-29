@@ -7,6 +7,8 @@
 // helper below replaces the individual entity object it touches.
 import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import type {
+  Animal,
+  AnimalId,
   Building,
   BuildingId,
   Colonist,
@@ -58,6 +60,7 @@ export function createEmptyState(): GameState {
     items: {},
     jobs: {},
     zones: {},
+    animals: {},
     reservations: {},
     nextIds: {},
     log: [],
@@ -101,9 +104,19 @@ export function beginTick(state: GameState): GameState {
   }
   const jobs: Record<JobId, Job> = {};
   for (const id in state.jobs) jobs[id] = { ...state.jobs[id] };
-  // colonists and jobs are small and change constantly, so they are copied up
-  // front; tiles/items/buildings/zones/reservations are copied on first write
-  const next: GameState = { ...state, colonists, jobs, log: state.log };
+  const animals: Record<AnimalId, Animal> = {};
+  for (const id in state.animals) {
+    const a = state.animals[id];
+    animals[id] = {
+      ...a,
+      position: { ...a.position },
+      path: a.path ? a.path.map((p) => ({ ...p })) : null,
+      activity: { ...a.activity },
+    };
+  }
+  // colonists, jobs and animals are small and change constantly, so they are
+  // copied up front; tiles/items/buildings/zones/reservations copy on first write
+  const next: GameState = { ...state, colonists, jobs, animals, log: state.log };
   ownedRecords.set(next, new Set());
   return next;
 }
@@ -129,6 +142,24 @@ export function updateJob(state: GameState, id: JobId, patch: Partial<Job>): Job
   const updated = { ...state.jobs[id], ...patch };
   state.jobs[id] = updated;
   return updated;
+}
+
+export function updateAnimal(state: GameState, id: AnimalId, patch: Partial<Animal>): Animal {
+  const updated = { ...state.animals[id], ...patch };
+  state.animals[id] = updated;
+  return updated;
+}
+
+export function removeAnimal(state: GameState, id: AnimalId): void {
+  if (!state.animals[id]) return;
+  const { [id]: _removed, ...rest } = state.animals;
+  state.animals = rest;
+}
+
+export function removeColonist(state: GameState, id: ColonistId): void {
+  if (!state.colonists[id]) return;
+  const { [id]: _removed, ...rest } = state.colonists;
+  state.colonists = rest;
 }
 
 export function updateBuilding(

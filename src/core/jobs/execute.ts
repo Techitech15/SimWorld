@@ -3,23 +3,29 @@
 // Every job advances by exactly one tick of work here: move along the cached
 // path, then accumulate progress once in place, then apply the effect. Failure
 // paths always go through `failJob` so a job can never leak a reservation.
+import { killAnimal } from '../animals';
 import {
   BLOCKS_MOVEMENT,
   COOLDOWN_TICKS,
   FAILED_JOB_RETENTION_TICKS,
   FOOD_PER_HARVEST,
+  HUNT_RANGE,
   MAX_RETRIES,
+  SPECIES,
   STACK_MAX,
   STONE_PER_ROCK,
+  TAME_FAIL_FLEE_TICKS,
   WOOD_PER_TREE,
   WORK_TICKS,
 } from '../constants';
 import { invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
-import { advanceTowards } from '../movement';
+import { advanceTowards, chase } from '../movement';
+import { mulberry32 } from '../rng';
 import {
   addLog,
   removeItem,
+  updateAnimal,
   updateBuilding,
   updateColonist,
   updateItem,
@@ -27,7 +33,7 @@ import {
   updateTile,
 } from '../state';
 import { addItem } from '../worldgen';
-import type { GameState } from '../types';
+import type { GameState, Job } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
 import { releaseByJob } from './reservations';
@@ -61,6 +67,11 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
 
   if (job.type === 'haul') {
     executeHaul(state, ctx, jobId, colonistId);
+    return;
+  }
+
+  if (job.type === 'hunt' || job.type === 'handle') {
+    executeAnimalJob(state, ctx, jobId, colonistId);
     return;
   }
 
@@ -138,6 +149,98 @@ function applyJobEffect(
       break;
   }
   completeJob(state, jobId, colonistId);
+}
+
+/**
+ * Hunting and animal handling (docs/design-animals.md 3).
+ *
+ * Both work the same way - close in on a creature that is moving, then put in
+ * the work ticks - so they share one function. Hunting is ranged (HUNT_RANGE),
+ * handling needs the colonist right next to the animal.
+ */
+function executeAnimalJob(
+  state: GameState,
+  ctx: SimContext,
+  jobId: string,
+  colonistId: string,
+): void {
+  const job = state.jobs[jobId];
+  const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;
+  if (!animal) {
+    cancelJob(state, ctx, jobId, colonistId, 'animal gone');
+    return;
+  }
+
+  const range = job.type === 'hunt' ? HUNT_RANGE : 1;
+  const move = chase(state, ctx, colonistId, animal.position, range);
+  if (move === 'blocked') {
+    failJob(state, ctx, jobId, colonistId, 'animal unreachable');
+    return;
+  }
+  if (move !== 'arrived') return;
+
+  const progress = job.workProgress + 1;
+  if (progress < WORK_TICKS[job.type]) {
+    updateJob(state, jobId, { workProgress: progress });
+    return;
+  }
+
+  if (job.type === 'hunt' || animal.designation === 'slaughter') {
+    killAnimal(state, animal.id, job.type === 'hunt' ? 'was hunted' : 'was slaughtered', true);
+    completeJob(state, jobId, colonistId);
+    return;
+  }
+
+  // taming: a roll per attempt, and a failure just spooks the animal
+  const rnd = mulberry32(state.tick * 31 + hashString(animal.id));
+  const profile = SPECIES[animal.species];
+  if (profile.tameChance > 0 && rnd() < profile.tameChance) {
+    const pasture = nearestPastureId(state, animal.position);
+    updateAnimal(state, animal.id, {
+      tame: true,
+      pastureZoneId: pasture,
+      designation: null,
+      activity: { kind: 'idle' },
+      nextProduceTick: state.tick + profile.produceIntervalTicks,
+    });
+    addLog(state, `${animal.name} the ${profile.label.toLowerCase()} was tamed`);
+  } else {
+    updateAnimal(state, animal.id, {
+      designation: null,
+      activity: {
+        kind: 'fleeing',
+        fromAnimalId: animal.id, // spooked, but with nothing chasing it
+        untilTick: state.tick + TAME_FAIL_FLEE_TICKS,
+      },
+    });
+    addLog(state, `${animal.name} the ${profile.label.toLowerCase()} would not be tamed`);
+  }
+  completeJob(state, jobId, colonistId);
+}
+
+function nearestPastureId(state: GameState, from: { x: number; y: number }): string | null {
+  let best: string | null = null;
+  let bestDistance = Infinity;
+  for (const zoneId in state.zones) {
+    const zone = state.zones[zoneId];
+    if (zone.type !== 'pasture') continue;
+    for (const tileId of zone.tileIds) {
+      const tile = state.tiles[tileId];
+      if (!tile) continue;
+      const distance = Math.abs(tile.x - from.x) + Math.abs(tile.y - from.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = zoneId;
+      }
+    }
+  }
+  return best;
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  return Math.abs(hash);
 }
 
 function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistId: string): void {
@@ -275,12 +378,20 @@ function dropCarried(state: GameState, colonistId: string): void {
   depositCarried(state, colonistId, colonist.position.x, colonist.position.y);
 }
 
+/** Clear the "this job holds me" marker on whatever the job targeted. */
+function releaseTargetEntity(state: GameState, job: Job): void {
+  if (!job.targetEntityId) return;
+  if (state.items[job.targetEntityId]) {
+    updateItem(state, job.targetEntityId, { reservedByJobId: null });
+  } else if (state.animals[job.targetEntityId]) {
+    updateAnimal(state, job.targetEntityId, { reservedByJobId: null });
+  }
+}
+
 export function completeJob(state: GameState, jobId: string, colonistId: string): void {
   releaseByJob(state, jobId);
   const job = state.jobs[jobId];
-  if (job?.targetEntityId && state.items[job.targetEntityId]) {
-    updateItem(state, job.targetEntityId, { reservedByJobId: null });
-  }
+  if (job) releaseTargetEntity(state, job);
   updateJob(state, jobId, { state: 'completed', reservedBy: null });
   updateColonist(state, colonistId, { currentJobId: null });
 }
@@ -299,9 +410,7 @@ export function failJob(
   void ctx;
   const job = state.jobs[jobId];
   releaseByJob(state, jobId);
-  if (job.targetEntityId && state.items[job.targetEntityId]) {
-    updateItem(state, job.targetEntityId, { reservedByJobId: null });
-  }
+  releaseTargetEntity(state, job);
   const retryCount = job.retryCount + 1;
   if (retryCount > MAX_RETRIES) {
     // the tombstone lives until this tick (see cleanupJobs in simulation.ts)
@@ -339,9 +448,7 @@ function cancelJob(
   void reason;
   releaseByJob(state, jobId);
   const job = state.jobs[jobId];
-  if (job.targetEntityId && state.items[job.targetEntityId]) {
-    updateItem(state, job.targetEntityId, { reservedByJobId: null });
-  }
+  releaseTargetEntity(state, job);
   updateJob(state, jobId, { state: 'cancelled', reservedBy: null });
   updateColonist(state, colonistId, { currentJobId: null });
   // never destroy resources: put any carried stack back on the ground

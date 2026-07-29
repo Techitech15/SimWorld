@@ -10,6 +10,8 @@ const JOB_ICON: Record<JobType, string> = {
   farm: icons.farm,
   build: icons.build,
   haul: icons.haul,
+  hunt: icons.hunt,
+  handle: icons.handle,
 };
 
 /**
