@@ -12,7 +12,6 @@ import {
   HUNT_RANGE,
   MAX_RETRIES,
   SPECIES,
-  STACK_MAX,
   STONE_PER_ROCK,
   TAME_FAIL_FLEE_TICKS,
   WOOD_PER_TREE,
@@ -33,10 +32,11 @@ import {
   updateTile,
 } from '../state';
 import { addItem } from '../worldgen';
-import type { GameState, Job } from '../types';
+import { depositCarried } from '../death';
+import type { GameState } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
-import { releaseByJob } from './reservations';
+import { releaseByJob, releaseJobTarget } from './reservations';
 
 export function runExecution(state: GameState, ctx: SimContext): void {
   for (const colonistId in state.colonists) {
@@ -359,39 +359,16 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
 }
 
 /** Put down whatever the colonist holds, splitting oversized stacks. */
-export function depositCarried(state: GameState, colonistId: string, x: number, y: number): void {
-  const colonist = state.colonists[colonistId];
-  if (!colonist.carrying) return;
-  const { type, quantity } = colonist.carrying;
-  updateColonist(state, colonistId, { carrying: null });
-  let remaining = quantity;
-  while (remaining > 0) {
-    const chunk = Math.min(remaining, STACK_MAX);
-    addItem(state, type, chunk, x, y);
-    remaining -= chunk;
-  }
-}
-
 function dropCarried(state: GameState, colonistId: string): void {
   const colonist = state.colonists[colonistId];
   if (!colonist.carrying) return;
   depositCarried(state, colonistId, colonist.position.x, colonist.position.y);
 }
 
-/** Clear the "this job holds me" marker on whatever the job targeted. */
-function releaseTargetEntity(state: GameState, job: Job): void {
-  if (!job.targetEntityId) return;
-  if (state.items[job.targetEntityId]) {
-    updateItem(state, job.targetEntityId, { reservedByJobId: null });
-  } else if (state.animals[job.targetEntityId]) {
-    updateAnimal(state, job.targetEntityId, { reservedByJobId: null });
-  }
-}
-
 export function completeJob(state: GameState, jobId: string, colonistId: string): void {
   releaseByJob(state, jobId);
   const job = state.jobs[jobId];
-  if (job) releaseTargetEntity(state, job);
+  if (job) releaseJobTarget(state, job);
   updateJob(state, jobId, { state: 'completed', reservedBy: null });
   updateColonist(state, colonistId, { currentJobId: null });
 }
@@ -410,7 +387,7 @@ export function failJob(
   void ctx;
   const job = state.jobs[jobId];
   releaseByJob(state, jobId);
-  releaseTargetEntity(state, job);
+  releaseJobTarget(state, job);
   const retryCount = job.retryCount + 1;
   if (retryCount > MAX_RETRIES) {
     // the tombstone lives until this tick (see cleanupJobs in simulation.ts)
@@ -448,7 +425,7 @@ function cancelJob(
   void reason;
   releaseByJob(state, jobId);
   const job = state.jobs[jobId];
-  releaseTargetEntity(state, job);
+  releaseJobTarget(state, job);
   updateJob(state, jobId, { state: 'cancelled', reservedBy: null });
   updateColonist(state, colonistId, { currentJobId: null });
   // never destroy resources: put any carried stack back on the ground

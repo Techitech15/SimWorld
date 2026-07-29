@@ -47,6 +47,7 @@ import {
   WILDLIFE_MIN_SPAWN_DISTANCE,
   WILDLIFE_RESPAWN_INTERVAL_TICKS,
 } from './constants';
+import { killColonist } from './death';
 import type { SimContext } from './derived';
 import { findPath } from './pathfinding';
 import { mulberry32 } from './rng';
@@ -54,7 +55,6 @@ import {
   addLog,
   manhattan,
   removeAnimal,
-  removeColonist,
   tileIdOf,
   updateAnimal,
   updateColonist,
@@ -654,8 +654,12 @@ export function damageColonist(
   if (!colonist) return;
   const health = colonist.health - amount;
   if (health <= 0) {
-    removeColonist(state, colonistId);
-    addLog(state, `${colonist.name} was killed`);
+    const killer = state.animals[fromAnimalId];
+    killColonist(
+      state,
+      colonistId,
+      killer ? `was killed by a ${SPECIES[killer.species].label.toLowerCase()}` : 'was killed',
+    );
     return;
   }
   updateColonist(state, colonistId, {

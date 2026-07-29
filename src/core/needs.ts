@@ -26,7 +26,8 @@ import {
   releaseByJob,
   reserveAll,
 } from './jobs/reservations';
-import { depositCarried, failJob } from './jobs/execute';
+import { depositCarried } from './death';
+import { failJob } from './jobs/execute';
 
 export function runNeeds(state: GameState, ctx: SimContext): void {
   for (const colonistId in state.colonists) {

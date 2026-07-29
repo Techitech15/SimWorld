@@ -65,7 +65,7 @@ export function Toolbar(): React.JSX.Element {
         )}
         {button({ kind: 'storage' }, 'Storage', icons.haul, 'Storage zone (free)')}
         {button({ kind: 'pasture' }, 'Pasture', icons.handle, 'Pasture zone on grass (free)')}
-        {button({ kind: 'cancel' }, 'Cancel', undefined, 'Remove blueprints')}
+        {button({ kind: 'cancel' }, 'Cancel', undefined, 'Remove blueprints and zone tiles')}
       </div>
 
       <div className="toolbar__group">

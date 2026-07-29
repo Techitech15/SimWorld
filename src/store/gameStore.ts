@@ -126,7 +126,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ state: actions.designateAnimals(state, tileIds, null) });
         break;
       case 'cancel':
-        set({ state: actions.cancelBlueprint(state, tileIds) });
+        // one eraser for both: blueprints under the drag, then any zone tiles
+        set({ state: actions.removeZoneTiles(actions.cancelBlueprint(state, tileIds), tileIds) });
         break;
       default:
         break;

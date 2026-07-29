@@ -28,7 +28,7 @@ import type {
   Vector2,
   Zone,
 } from './types';
-import { releaseByJob } from './jobs/reservations';
+import { releaseByJob, releaseEntity } from './jobs/reservations';
 
 /** Shallow-copy the state so store subscribers see a new object. */
 function edit(state: GameState): GameState {
@@ -144,6 +144,51 @@ export function cancelBlueprint(state: GameState, tileIds: TileId[]): GameState 
     updateTile(next, tileId, { buildingId: null });
   }
   return next;
+}
+
+/**
+ * Erase zone tiles under the dragged area.
+ *
+ * Placing a zone is free and instant, so removing one has to be too - otherwise
+ * a pasture dragged over the wrong field is permanent. A storage tile also owns
+ * its marker building and may be some colonist's drop-off, both of which have to
+ * go with it; a pasture that disappears entirely leaves its herd untethered
+ * rather than pointing at a zone that no longer exists.
+ */
+export function removeZoneTiles(state: GameState, tileIds: TileId[]): GameState {
+  const targets = new Set(tileIds);
+  let next: GameState | null = null;
+  for (const zoneId in state.zones) {
+    const zone = state.zones[zoneId];
+    const kept = zone.tileIds.filter((id) => !targets.has(id));
+    if (kept.length === zone.tileIds.length) continue;
+    next ??= edit(state);
+
+    for (const tileId of zone.tileIds) {
+      if (!targets.has(tileId)) continue;
+      releaseEntity(next, tileId); // a haul may have this tile reserved as its destination
+      const tile = next.tiles[tileId];
+      const building = tile?.buildingId ? next.buildings[tile.buildingId] : undefined;
+      if (building?.type === 'storageZoneMarker') {
+        const { [building.id]: _dropped, ...rest } = next.buildings;
+        next.buildings = rest;
+        updateTile(next, tileId, { buildingId: null });
+      }
+    }
+
+    if (kept.length > 0) {
+      next.zones = { ...next.zones, [zoneId]: { ...zone, tileIds: kept } };
+      continue;
+    }
+    const { [zoneId]: _removed, ...rest } = next.zones;
+    next.zones = rest;
+    for (const animalId in next.animals) {
+      if (next.animals[animalId].pastureZoneId === zoneId) {
+        updateAnimal(next, animalId, { pastureZoneId: null });
+      }
+    }
+  }
+  return next ?? state;
 }
 
 /** Storage zones cost nothing, so they are created finished (section 9). */
