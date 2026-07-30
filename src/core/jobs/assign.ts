@@ -29,7 +29,8 @@ export function jobWorkSite(
     }
     case 'chop':
     case 'farm':
-    case 'build': {
+    case 'build':
+    case 'deconstruct': {
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
       if (!tile) return null;
       return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable };
@@ -61,6 +62,7 @@ function reservationTargets(state: GameState, job: Job, colonist: Colonist): str
       return job.targetTileId ? [job.targetTileId] : null;
     case 'farm':
     case 'build':
+    case 'deconstruct':
     case 'hunt':
     case 'handle':
       return job.targetEntityId ? [job.targetEntityId] : null;

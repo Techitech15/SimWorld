@@ -9,6 +9,7 @@ const JOB_ICON: Record<JobType, string> = {
   mine: icons.mine,
   farm: icons.farm,
   build: icons.build,
+  deconstruct: icons.deconstruct, // not a column of its own: deconstruct is build work
   haul: icons.haul,
   hunt: icons.hunt,
   handle: icons.handle,

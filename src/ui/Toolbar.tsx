@@ -50,6 +50,12 @@ export function Toolbar(): React.JSX.Element {
         {button({ kind: 'select' }, 'Select', undefined, 'Select a colonist, then click to move')}
         {button({ kind: 'designate', designation: 'chop' }, 'Chop', icons.chop, 'Designate forest')}
         {button({ kind: 'designate', designation: 'mine' }, 'Mine', icons.mine, 'Designate stone')}
+        {button(
+          { kind: 'designate', designation: 'deconstruct' },
+          'Deconstruct',
+          icons.deconstruct,
+          'Dismantle a finished building and get half the materials back',
+        )}
         {button({ kind: 'clearDesignation' }, 'Clear')}
       </div>
 

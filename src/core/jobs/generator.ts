@@ -21,7 +21,8 @@ function jobKey(job: Job): string {
         ? `deliver:${job.destinationId}:${job.payloadType}`
         : `haul:${job.targetEntityId}`;
     case 'build':
-      return `build:${job.targetEntityId}`;
+    case 'deconstruct':
+      return `${job.type}:${job.targetEntityId}`;
     default:
       return `${job.type}:${job.targetTileId}`;
   }
@@ -83,10 +84,25 @@ export function runJobGenerator(state: GameState): void {
   const has = (key: string) => existing.has(key);
   const claim = (key: string) => existing.add(key);
 
-  // --- chop / mine designations --------------------------------------------
+  // --- chop / mine / deconstruct designations -------------------------------
   for (const tileId in state.tiles) {
     const tile = state.tiles[tileId];
     if (!tile.designation) continue;
+    if (tile.designation === 'deconstruct') {
+      // unlike chop and mine this one is about the structure, not the ground
+      const building = tile.buildingId ? state.buildings[tile.buildingId] : undefined;
+      if (!building || building.isBlueprint) continue;
+      const key = `deconstruct:${building.id}`;
+      if (has(key)) continue;
+      createJob(state, 'deconstruct', {
+        // pulling a wall down is construction work, so the Build column governs it
+        workType: 'build',
+        targetTileId: tileId,
+        targetEntityId: building.id,
+      });
+      claim(key);
+      continue;
+    }
     if (tile.designation === 'chop' && tile.terrain !== 'forest') continue;
     if (tile.designation === 'mine' && tile.terrain !== 'stone') continue;
     const type: JobType = tile.designation === 'chop' ? 'chop' : 'mine';
@@ -214,6 +230,11 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     case 'build': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       return !!building && building.isBlueprint;
+    }
+    case 'deconstruct': {
+      const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
+      return !!building && !building.isBlueprint && tile?.designation === 'deconstruct';
     }
     case 'hunt':
     case 'handle': {

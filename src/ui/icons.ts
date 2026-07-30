@@ -8,6 +8,7 @@ export const icons = {
   farm: sprites.jobFarm,
   build: sprites.jobBuild,
   haul: sprites.jobHaul,
+  deconstruct: sprites.jobDeconstruct,
   hunt: sprites.jobHunt,
   handle: sprites.jobHandle,
   hunger: sprites.needHunger,

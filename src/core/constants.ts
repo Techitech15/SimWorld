@@ -42,6 +42,7 @@ export const CANDIDATE_PATH_ATTEMPTS = 4;
 /** Default Job.priority per type; the per-colonist table overrides ordering. */
 export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   build: 1,
+  deconstruct: 1, // construction work, and the player asked for it explicitly
   hunt: 1, // a designated predator should be dealt with promptly
   farm: 2,
   chop: 2,
@@ -59,7 +60,14 @@ export const WORK_TICKS: Record<JobType, number> = {
   haul: 5,
   hunt: 60,
   handle: 45,
+  deconstruct: 30, // faster to tear down than to put up
 };
+
+/**
+ * Fraction of the build cost returned when a finished structure is dismantled.
+ * Half means a misplaced wall costs something without being a disaster.
+ */
+export const DECONSTRUCT_REFUND = 0.5;
 
 // --- resources --------------------------------------------------------------
 export const STACK_MAX = 75;

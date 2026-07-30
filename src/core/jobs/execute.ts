@@ -6,7 +6,9 @@
 import { killAnimal } from '../animals';
 import {
   BLOCKS_MOVEMENT,
+  BUILDING_COSTS,
   COOLDOWN_TICKS,
+  DECONSTRUCT_REFUND,
   FAILED_JOB_RETENTION_TICKS,
   FOOD_PER_HARVEST,
   HUNT_RANGE,
@@ -36,7 +38,7 @@ import { depositCarried } from '../death';
 import type { GameState } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
-import { releaseByJob, releaseJobTarget } from './reservations';
+import { releaseByJob, releaseEntity, releaseJobTarget } from './reservations';
 
 export function runExecution(state: GameState, ctx: SimContext): void {
   for (const colonistId in state.colonists) {
@@ -143,6 +145,33 @@ function applyJobEffect(
         updateTile(state, building.tileId, { walkable: false });
         invalidateTile(ctx, state, building.tileId);
       }
+      break;
+    }
+    case 'deconstruct': {
+      const building = state.buildings[job.targetEntityId!];
+      const tile = state.tiles[building.tileId];
+      // half the materials come back, rounded down: a misplaced wall costs
+      // something without being a disaster
+      for (const cost of BUILDING_COSTS[building.type]) {
+        const refund = Math.floor(cost.quantity * DECONSTRUCT_REFUND);
+        if (refund > 0) addItem(state, cost.type, refund, tile.x, tile.y);
+      }
+      // a bed being pulled out from under a sleeper, or reserved for a nap
+      releaseEntity(state, building.id);
+      for (const id in state.colonists) {
+        const activity = state.colonists[id].activity;
+        if (activity.kind === 'sleeping' && activity.bedId === building.id) {
+          updateColonist(state, id, { activity: { kind: 'sleeping', bedId: null } });
+        }
+      }
+      const { [building.id]: _removed, ...rest } = state.buildings;
+      state.buildings = rest;
+      updateTile(state, tile.id, { buildingId: null, designation: null });
+      if (BLOCKS_MOVEMENT[building.type]) {
+        updateTile(state, tile.id, { walkable: true });
+        invalidateTile(ctx, state, tile.id);
+      }
+      addLog(state, `${building.type} at ${tile.id} was dismantled`);
       break;
     }
     default:

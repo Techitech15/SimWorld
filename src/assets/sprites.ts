@@ -43,6 +43,7 @@ export const sprites = {
   jobFarm: spriteUrl('ui/job_farm.png'),
   jobBuild: spriteUrl('ui/job_build.png'),
   jobHaul: spriteUrl('ui/job_haul.png'),
+  jobDeconstruct: spriteUrl('ui/job_deconstruct.png'),
   jobHunt: spriteUrl('ui/job_hunt.png'),
   jobHandle: spriteUrl('ui/job_handle.png'),
   needHunger: spriteUrl('ui/need_hunger.png'),

@@ -34,8 +34,11 @@ export interface Vector2 {
 
 export type TerrainType = 'grass' | 'forest' | 'stone';
 
-/** [ext] Player designation marking a tile as work to be done. */
-export type Designation = 'chop' | 'mine';
+/**
+ * [ext] Player designation marking a tile as work to be done. `deconstruct`
+ * targets the finished building standing on the tile rather than the ground.
+ */
+export type Designation = 'chop' | 'mine' | 'deconstruct';
 
 export interface Tile {
   id: TileId;
@@ -47,7 +50,7 @@ export interface Tile {
   buildingId: BuildingId | null;
   /** items lying on the ground */
   itemIds: ItemId[];
-  /** [ext] chop/mine designation, or null */
+  /** [ext] chop/mine/deconstruct designation, or null */
   designation: Designation | null;
   /**
    * [ext] grazeable growth on grass tiles, 0..1. Grazing consumes it and it
@@ -140,8 +143,21 @@ export interface Building {
   sown: boolean;
 }
 
-export type JobType = 'chop' | 'mine' | 'farm' | 'build' | 'haul' | 'hunt' | 'handle';
+export type JobType =
+  | 'chop'
+  | 'mine'
+  | 'farm'
+  | 'build'
+  | 'haul'
+  | 'hunt'
+  | 'handle'
+  | 'deconstruct';
 
+/**
+ * The columns of the work-priority table. `deconstruct` is deliberately absent:
+ * it runs under the `build` work type, so tearing a wall down is governed by the
+ * same column that put it up.
+ */
 export const JOB_TYPES: JobType[] = [
   'chop',
   'mine',

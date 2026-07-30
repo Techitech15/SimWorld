@@ -446,7 +446,12 @@ export class GameRenderer {
     for (const tileId in state.tiles) {
       const tile = state.tiles[tileId];
       if (!tile.designation) continue;
-      const colour = tile.designation === 'chop' ? 0xffcf5c : 0x8ecae6;
+      const colour =
+        tile.designation === 'chop'
+          ? 0xffcf5c
+          : tile.designation === 'mine'
+            ? 0x8ecae6
+            : 0xff8f6b; // deconstruct
       this.overlay
         .rect(tile.x * TILE_SIZE + 1, tile.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2)
         .stroke({ width: 2, color: colour, alpha: 0.95 });

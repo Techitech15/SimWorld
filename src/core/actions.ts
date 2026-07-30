@@ -19,6 +19,7 @@ import {
 } from './state';
 import type {
   AnimalDesignation,
+  BuildingId,
   BuildingType,
   ColonistId,
   Designation,
@@ -58,7 +59,7 @@ export function setJobPriority(
   return next;
 }
 
-/** Mark a tile for chopping or mining; null clears the designation. */
+/** Mark a tile for chopping, mining or dismantling; null clears the designation. */
 export function setDesignation(
   state: GameState,
   tileIds: TileId[],
@@ -70,11 +71,24 @@ export function setDesignation(
     if (!tile) continue;
     if (designation === 'chop' && tile.terrain !== 'forest') continue;
     if (designation === 'mine' && tile.terrain !== 'stone') continue;
+    if (designation === 'deconstruct' && !isDeconstructible(next, tile.buildingId)) continue;
     if (tile.designation === designation) continue;
     updateTile(next, tileId, { designation });
     if (designation !== null) clearFailedJobsForTile(next, tileId);
   }
   return next;
+}
+
+/**
+ * Only a finished structure can be dismantled. A blueprint is cancelled instead
+ * (nothing has been spent yet), and a storage marker belongs to its zone, so it
+ * comes off with the zone rather than on its own.
+ */
+function isDeconstructible(state: GameState, buildingId: BuildingId | null): boolean {
+  if (!buildingId) return false;
+  const building = state.buildings[buildingId];
+  if (!building || building.isBlueprint) return false;
+  return building.type !== 'storageZoneMarker';
 }
 
 /** A re-designated tile deserves a fresh attempt even if it failed before. */
@@ -121,7 +135,7 @@ export function placeBuildingBlueprint(
   return next;
 }
 
-/** Cancel a blueprint (finished buildings are not removable in the MVP). */
+/** Cancel a blueprint. A finished building comes down via a `deconstruct` job. */
 export function cancelBlueprint(state: GameState, tileIds: TileId[]): GameState {
   const next = edit(state);
   for (const tileId of tileIds) {

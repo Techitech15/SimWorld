@@ -542,6 +542,22 @@ function iconBuild() {
   return c;
 }
 
+function iconDeconstruct() {
+  const c = new Canvas(ICON, ICON);
+  // a wall coming apart: three courses of brick with the top one falling away
+  c.rect(3, 12, 15, 9, P.iconMetal);
+  c.strokeRect(3, 12, 15, 9, P.iconMetalDark);
+  c.hline(3, 16, 15, P.iconMetalDark);
+  c.vline(10, 12, 9, P.iconMetalDark);
+  c.rect(14, 4, 6, 5, P.iconMetal);
+  c.strokeRect(14, 4, 6, 5, P.iconMetalDark);
+  // the crowbar doing the work
+  c.line(4, 9, 11, 3, P.iconWood);
+  c.line(5, 9, 12, 3, P.iconWoodDark);
+  c.outline(P.outline);
+  return c;
+}
+
 function iconHaul() {
   const c = new Canvas(ICON, ICON);
   c.rect(3, 10, 13, 11, P.iconWood);
@@ -835,6 +851,7 @@ written.push(save('ui/job_mine.png', iconMine()));
 written.push(save('ui/job_farm.png', iconFarm()));
 written.push(save('ui/job_build.png', iconBuild()));
 written.push(save('ui/job_haul.png', iconHaul()));
+written.push(save('ui/job_deconstruct.png', iconDeconstruct()));
 written.push(save('ui/need_hunger.png', iconHunger()));
 written.push(save('ui/need_sleep.png', iconSleep()));
 written.push(save('animals/deer.png', deerSheet()));
