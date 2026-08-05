@@ -7,29 +7,16 @@
 // is just a sixth sprite.
 import { describe, expect, it } from 'vitest';
 import { ANIMAL_SPECIES, PASTURE_TILES_PER_ANIMAL, SPECIES, TICKS_PER_DAY } from './constants';
-import { placePastureZone } from './actions';
+
 import { isPredator } from './animals';
 import { tileIdOf } from './state';
-import { createHarness, idleColony } from './testUtils';
+import { createHarness, idleColony, placePastureNear } from './testUtils';
 import { createAnimal, generateWorld } from './worldgen';
 import type { AnimalSpecies, GameState } from './types';
 
 const tameable = ANIMAL_SPECIES.filter(
   (species) => SPECIES[species].tameChance > 0,
 ) as AnimalSpecies[];
-
-function pastureNear(harness: ReturnType<typeof createHarness>, size: number): string {
-  const centre = Object.values(harness.state.colonists)[0].position;
-  const ids: string[] = [];
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const tile = harness.state.tiles[tileIdOf(centre.x + 4 + x, centre.y - 3 + y)];
-      if (tile?.terrain === 'grass' && !tile.buildingId) ids.push(tile.id);
-    }
-  }
-  harness.state = placePastureZone(harness.state, ids);
-  return Object.keys(harness.state.zones).find((id) => harness.state.zones[id].type === 'pasture')!;
-}
 
 describe('the goat', () => {
   it('is the best thing a pen can hold, per head', () => {
@@ -104,7 +91,7 @@ describe('the goat', () => {
   it('gives milk once it is settled in a pasture', () => {
     const harness = createHarness(9941);
     harness.state.animals = {};
-    const zoneId = pastureNear(harness, 4);
+    const zoneId = placePastureNear(harness, 4);
     const tile = harness.state.tiles[harness.state.zones[zoneId].tileIds[0]];
     createAnimal(harness.state, 'goat', tile.x, tile.y, { tame: true, pastureZoneId: zoneId });
     // nobody to eat it: three colonists get through more in a day than one

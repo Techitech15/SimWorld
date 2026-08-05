@@ -2,11 +2,11 @@
 // zone counted as storage - a pasture was part of that heap, so haulers stacked
 // firewood among the livestock. A zone now says what it takes.
 import { describe, expect, it } from 'vitest';
-import { placePastureZone, placeStorageZone, setZoneAccepts } from './actions';
+import { placeStorageZone, setZoneAccepts } from './actions';
 import { RESOURCE_TYPES } from './constants';
 import { tileIdOf } from './state';
 import { acceptsHere, countStoredResource, findStorageDestination, isStorageTile } from './storage';
-import { createHarness, idleColony } from './testUtils';
+import { createHarness, idleColony, placePastureNear } from './testUtils';
 import { addItem } from './worldgen';
 import type { GameState, ResourceType } from './types';
 
@@ -23,26 +23,13 @@ function tilesHolding(state: GameState, type: ResourceType): string[] {
   return ids;
 }
 
-function pastureNear(harness: ReturnType<typeof createHarness>, size: number): string {
-  const centre = Object.values(harness.state.colonists)[0].position;
-  const ids: string[] = [];
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const tile = harness.state.tiles[tileIdOf(centre.x + 4 + x, centre.y - 3 + y)];
-      if (tile?.terrain === 'grass' && !tile.buildingId) ids.push(tile.id);
-    }
-  }
-  harness.state = placePastureZone(harness.state, ids);
-  return Object.keys(harness.state.zones).find((id) => harness.state.zones[id].type === 'pasture')!;
-}
-
 describe('storage filters', () => {
   it('start open: a new store takes everything, a pen takes only feed', () => {
     const harness = createHarness(4201);
     const store = harness.state.zones[storageZoneId(harness.state)];
     expect([...store.accepts].sort()).toEqual([...RESOURCE_TYPES].sort());
 
-    const penId = pastureNear(harness, 4);
+    const penId = placePastureNear(harness, 4);
     expect(harness.state.zones[penId].accepts).toEqual(['food']);
     for (const tileId of harness.state.zones[penId].tileIds) {
       expect(acceptsHere(harness.state, tileId, 'food')).toBe(true);
@@ -54,7 +41,7 @@ describe('storage filters', () => {
 
   it('keep firewood out of the pen even when the pen is nearer', () => {
     const harness = createHarness(4211);
-    const penId = pastureNear(harness, 4);
+    const penId = placePastureNear(harness, 4);
     const penTile = harness.state.tiles[harness.state.zones[penId].tileIds[0]];
 
     // dropped right on the pen's doorstep, so distance alone would send it in
@@ -130,7 +117,7 @@ describe('storage filters', () => {
 
   it('refuse to filter a pasture, and ignore a change that changes nothing', () => {
     const harness = createHarness(4223);
-    const penId = pastureNear(harness, 3);
+    const penId = placePastureNear(harness, 3);
     expect(setZoneAccepts(harness.state, penId, 'wood', true)).toBe(harness.state);
 
     const zoneId = storageZoneId(harness.state);
@@ -152,7 +139,7 @@ describe('storage filters', () => {
 
   it('count only real storage as stored', () => {
     const harness = createHarness(4231);
-    const penId = pastureNear(harness, 4);
+    const penId = placePastureNear(harness, 4);
     const penTile = harness.state.tiles[harness.state.zones[penId].tileIds[0]];
     const before = countStoredResource(harness.state, 'food');
     addItem(harness.state, 'food', 30, penTile.x, penTile.y);

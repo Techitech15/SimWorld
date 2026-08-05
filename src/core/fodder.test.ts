@@ -3,25 +3,11 @@
 // which makes a stockpile inside the fence into fodder - and the existing haul
 // jobs are what fill it.
 import { describe, expect, it } from 'vitest';
-import { placePastureZone } from './actions';
+
 import { TICKS_PER_SEASON } from './season';
-import { tileIdOf } from './state';
-import { createHarness, idleColony } from './testUtils';
+import { createHarness, idleColony, placePastureNear } from './testUtils';
 import { addItem, createAnimal } from './worldgen';
 import type { GameState } from './types';
-
-function pastureNear(harness: ReturnType<typeof createHarness>, size: number): string {
-  const centre = Object.values(harness.state.colonists)[0].position;
-  const ids: string[] = [];
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const tile = harness.state.tiles[tileIdOf(centre.x + 4 + x, centre.y - 3 + y)];
-      if (tile?.terrain === 'grass' && !tile.buildingId) ids.push(tile.id);
-    }
-  }
-  harness.state = placePastureZone(harness.state, ids);
-  return Object.keys(harness.state.zones).find((id) => harness.state.zones[id].type === 'pasture')!;
-}
 
 function stripForage(state: GameState, zoneId: string): void {
   for (const tileId of state.zones[zoneId].tileIds) {
@@ -46,7 +32,7 @@ describe('fodder', () => {
     idleColony(harness.state);
     harness.state.animals = {};
     harness.state.tick = TICKS_PER_SEASON * 3; // winter: the grass will not come back
-    const zoneId = pastureNear(harness, 4);
+    const zoneId = placePastureNear(harness, 4);
     stripForage(harness.state, zoneId);
 
     const first = harness.state.tiles[harness.state.zones[zoneId].tileIds[0]];
@@ -78,7 +64,7 @@ describe('fodder', () => {
     const harness = createHarness(1109);
     idleColony(harness.state);
     harness.state.animals = {};
-    const zoneId = pastureNear(harness, 3);
+    const zoneId = placePastureNear(harness, 3);
     stripForage(harness.state, zoneId);
     const tile = harness.state.tiles[harness.state.zones[zoneId].tileIds[0]];
 

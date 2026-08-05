@@ -3,8 +3,10 @@
 import { createSimContext } from './derived';
 import type { SimContext } from './derived';
 import { tickOnce } from './simulation';
+import { placePastureZone } from './actions';
+import { tileIdOf } from './state';
 import { generateWorld } from './worldgen';
-import type { GameState, TerrainType, TileId } from './types';
+import type { GameState, TerrainType, TileId, ZoneId } from './types';
 
 export interface Harness {
   state: GameState;
@@ -68,6 +70,24 @@ export function recordLog(
   return lines;
 }
 
+/**
+ * These two both used to hand back short lists in silence, and a short list is
+ * how a test stops testing anything: an action given tiles it cannot use
+ * returns the state it was given, and an assertion that nothing changed then
+ * passes for a reason unrelated to the thing under test. Two tests were found
+ * doing exactly that - one had been asserting a rule that had been false for
+ * three iterations. Coming up short is a broken test, so they say so.
+ */
+function demandTiles(ids: TileId[], wanted: number, what: string): TileId[] {
+  if (Number.isFinite(wanted) && ids.length < wanted) {
+    throw new Error(
+      `asked for ${wanted} ${what} tiles and the map only has ${ids.length}; ` +
+        'this test would have run against a shorter list than it thinks',
+    );
+  }
+  return ids;
+}
+
 export function tilesWithTerrain(
   state: GameState,
   terrain: TerrainType,
@@ -80,7 +100,7 @@ export function tilesWithTerrain(
       if (ids.length >= limit) break;
     }
   }
-  return ids;
+  return demandTiles(ids, limit, terrain);
 }
 
 /** Tiles of a terrain type sorted by distance from the colony centre. */
@@ -90,7 +110,7 @@ export function nearestTilesWithTerrain(
   from: { x: number; y: number },
   limit: number,
 ): TileId[] {
-  return Object.values(state.tiles)
+  const ids = Object.values(state.tiles)
     .filter((t) => t.terrain === terrain)
     .sort(
       (a, b) =>
@@ -100,6 +120,57 @@ export function nearestTilesWithTerrain(
     )
     .slice(0, limit)
     .map((t) => t.id);
+  return demandTiles(ids, limit, terrain);
+}
+
+/**
+ * One pen of solid grass near the camp, and the id of the single zone it made.
+ *
+ * Five test files had their own copy of this, all of them a fixed rectangle
+ * beside the camp. A rectangle with a tree or a bed in it loses those tiles,
+ * what is left is no longer contiguous, and the drag quietly produces two or
+ * three pens - after which a test that takes "the pasture" gets whichever one
+ * came first and passes or fails for reasons that have nothing to do with it.
+ * This searches for a block that is actually clear and insists the drag made
+ * exactly one pen.
+ */
+export function placePastureNear(harness: Harness, size: number): ZoneId {
+  const centre = Object.values(harness.state.colonists)[0]?.position ?? { x: 30, y: 30 };
+  const clear = (x: number, y: number) => {
+    const tile = harness.state.tiles[tileIdOf(x, y)];
+    return tile?.terrain === 'grass' && !tile.buildingId;
+  };
+
+  for (let radius = 3; radius < 16; radius++) {
+    for (const [dx, dy] of [
+      [radius, -2],
+      [-radius - size, -2],
+      [-2, radius],
+      [-2, -radius - size],
+    ]) {
+      const x0 = centre.x + dx;
+      const y0 = centre.y + dy;
+      const ids: TileId[] = [];
+      let solid = true;
+      for (let y = 0; y < size && solid; y++) {
+        for (let x = 0; x < size && solid; x++) {
+          if (!clear(x0 + x, y0 + y)) solid = false;
+          else ids.push(tileIdOf(x0 + x, y0 + y));
+        }
+      }
+      if (!solid) continue;
+      const before = new Set(Object.keys(harness.state.zones));
+      harness.state = placePastureZone(harness.state, ids);
+      const fresh = Object.keys(harness.state.zones).filter((id) => !before.has(id));
+      if (fresh.length !== 1 || harness.state.zones[fresh[0]].tileIds.length !== size * size) {
+        throw new Error(
+          `a solid ${size}x${size} drag made ${fresh.length} pens; the helper is lying to the test`,
+        );
+      }
+      return fresh[0];
+    }
+  }
+  throw new Error(`no clear ${size}x${size} block of grass near the camp for a pasture`);
 }
 
 export function anyColonistId(state: GameState): string {
