@@ -51,10 +51,12 @@ export function setJobPriority(
   const next = edit(state);
   const colonist = next.colonists[colonistId];
   if (!colonist) return state;
+  const clamped = Math.max(0, Math.min(3, priority));
+  if (colonist.workPriorities[jobType] === clamped) return state;
   updateColonist(next, colonistId, {
     workPriorities: {
       ...colonist.workPriorities,
-      [jobType]: Math.max(0, Math.min(3, priority)),
+      [jobType]: clamped,
     },
   });
   return next;

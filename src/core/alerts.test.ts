@@ -64,6 +64,37 @@ describe('alerts', () => {
     expect(messages(harness.state).some((m) => m.startsWith('Predator near'))).toBe(true);
   });
 
+  it('reports work the colony gave up on, and points at it', () => {
+    const harness = createHarness(841);
+    harness.state.animals = {};
+    expect(collectAlerts(harness.state).some((a) => a.message.includes('given up on'))).toBe(false);
+
+    // a tombstoned job is what the colony leaves behind after MAX_RETRIES
+    const tile = Object.values(harness.state.tiles).find((t) => t.terrain === 'forest')!;
+    harness.state.jobs = {
+      ...harness.state.jobs,
+      j99: {
+        id: 'j99',
+        type: 'chop',
+        workType: 'chop',
+        priority: 2,
+        targetTileId: tile.id,
+        targetEntityId: tile.id,
+        destinationId: null,
+        payloadType: null,
+        state: 'failed',
+        reservedBy: null,
+        createdAtTick: 0,
+        retryCount: 4,
+        cooldownUntilTick: 9999,
+        workProgress: 0,
+      },
+    };
+    const alert = collectAlerts(harness.state).find((a) => a.message.includes('given up on'));
+    expect(alert?.message).toBe('1 job was given up on — unreachable');
+    expect(alert?.at).toEqual({ x: tile.x, y: tile.y });
+  });
+
   it('names the season when nothing can grow', () => {
     const harness = createHarness(821);
     harness.state.animals = {};

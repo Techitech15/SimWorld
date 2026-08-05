@@ -158,6 +158,18 @@ export function collectAlerts(state: GameState): Alert[] {
     }
   }
 
+  // a job the colony gave up on stays as a tombstone; the queue counter in the
+  // top bar looks the same whether work is flowing or stuck behind a rock face
+  const abandoned = Object.values(state.jobs).filter((job) => job.state === 'failed');
+  if (abandoned.length > 0) {
+    const where = abandoned[0].targetTileId ? state.tiles[abandoned[0].targetTileId] : undefined;
+    alerts.push({
+      level: 'warning',
+      message: `${abandoned.length} ${plural(abandoned.length, 'job was', 'jobs were')} given up on — unreachable`,
+      at: where ? { x: where.x, y: where.y } : undefined,
+    });
+  }
+
   const season = seasonOf(state.tick);
   if (CROP_GROWTH_BY_SEASON[season] <= 0) {
     alerts.push({ level: 'info', message: `${SEASON_LABEL[season]}: nothing is growing` });
