@@ -12,13 +12,14 @@ import {
   TICKS_PER_STEP,
 } from './constants';
 import { rebuildRegions } from './derived';
+import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, isSeasonBoundary, seasonOf } from './season';
 import type { SimContext } from './derived';
 import { runAssignment } from './jobs/assign';
 import { runExecution } from './jobs/execute';
 import { runJobGenerator } from './jobs/generator';
 import { advanceTowards } from './movement';
 import { runNeeds } from './needs';
-import { beginTick, updateBuilding, updateColonist } from './state';
+import { addLog, beginTick, updateBuilding, updateColonist } from './state';
 import type { GameState } from './types';
 
 export function tickOnce(state: GameState, ctx: SimContext): GameState {
@@ -27,6 +28,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
 
   if (ctx.regionsDirty) rebuildRegions(ctx, next);
 
+  if (isSeasonBoundary(next.tick)) {
+    addLog(next, `${SEASON_LABEL[seasonOf(next.tick)]} has arrived`);
+  }
   growCrops(next);
   // needs run first so an interrupted job is back in the queue before the
   // generator and the candidate filter look at it this same tick
@@ -106,12 +110,15 @@ function runMoveOrders(state: GameState, ctx: SimContext): void {
 }
 
 function growCrops(state: GameState): void {
+  // nothing grows in winter, so the year has to be planned around it
+  const rate = CROP_GROWTH_PER_TICK * CROP_GROWTH_BY_SEASON[seasonOf(state.tick)];
+  if (rate <= 0) return;
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.type !== 'farmPlot' || building.isBlueprint) continue;
     if (!building.sown || building.growth >= 1) continue;
     updateBuilding(state, buildingId, {
-      growth: Math.min(1, building.growth + CROP_GROWTH_PER_TICK),
+      growth: Math.min(1, building.growth + rate),
     });
   }
 }

@@ -152,11 +152,10 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   state.nextIds = { ...state.nextIds, z: 1 };
   for (const tileId of storageTiles) addBuilding(state, 'storageZoneMarker', tileId);
 
-  // farm plots: two rows north of the camp. Enough to feed three colonists with
-  // a surplus, but not so many that farming monopolises the whole work queue.
-  for (let y = cy - 4; y < cy - 2; y++) {
-    for (let x = cx - 3; x < cx + 4; x++) addBuilding(state, 'farmPlot', tileIdOf(x, y));
-  }
+  // Farm plots: one row north of the camp. Sized so three colonists build a
+  // real surplus over spring and summer without the stores running away - the
+  // point of the seasons is that the winter buffer has to be earned.
+  for (let x = cx - 2; x < cx + 3; x++) addBuilding(state, 'farmPlot', tileIdOf(x, cy - 4));
 
   // beds
   for (let i = 0; i < 3; i++) addBuilding(state, 'bed', tileIdOf(cx - 4 + i * 2, cy));

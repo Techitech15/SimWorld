@@ -50,6 +50,7 @@ import {
 import { killColonist } from './death';
 import type { SimContext } from './derived';
 import { findPath } from './pathfinding';
+import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
 import { mulberry32 } from './rng';
 import {
   addLog,
@@ -105,7 +106,10 @@ export function runAnimals(state: GameState, ctx: SimContext): void {
 function regrowForage(state: GameState, ctx: SimContext): void {
   if (state.tick % FORAGE_REGROW_INTERVAL_TICKS !== 0) return;
   if (ctx.forageDepleted.size === 0) return;
-  const step = FORAGE_REGROW_PER_TICK * FORAGE_REGROW_INTERVAL_TICKS;
+  const step =
+    FORAGE_REGROW_PER_TICK *
+    FORAGE_REGROW_INTERVAL_TICKS *
+    FORAGE_REGROW_BY_SEASON[seasonOf(state.tick)];
   for (const tileId of [...ctx.forageDepleted]) {
     const tile = state.tiles[tileId];
     if (!tile || tile.terrain !== 'grass') {
@@ -558,8 +562,10 @@ function runBreeding(state: GameState, id: AnimalId): void {
   }
   if (mates === 0) return;
 
+  const seasonal = BREEDING_CHANCE_PER_TICK * BREEDING_BY_SEASON[seasonOf(state.tick)];
+  if (seasonal <= 0) return; // nothing is born in winter
   const rnd = tickRandom(state, hashId(id) + 31);
-  if (rnd() > BREEDING_CHANCE_PER_TICK) return;
+  if (rnd() > seasonal) return;
   updateAnimal(state, id, { gestationUntilTick: state.tick + GESTATION_TICKS });
 }
 

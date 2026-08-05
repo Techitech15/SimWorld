@@ -80,9 +80,9 @@ export const DECONSTRUCT_REFUND = 0.5;
 export const STACK_MAX = 75;
 export const WOOD_PER_TREE = 25;
 export const STONE_PER_ROCK = 20;
-export const FOOD_PER_HARVEST = 22;
-/** Farm plot goes from sown to harvestable in half a day. */
-export const CROP_GROWTH_PER_TICK = 1 / 1500;
+export const FOOD_PER_HARVEST = 16;
+/** Farm plot goes from sown to harvestable in about two thirds of a day. */
+export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
 export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food'];
 

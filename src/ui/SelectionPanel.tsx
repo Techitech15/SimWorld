@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { BUILDING_COSTS, SPECIES } from '../core/constants';
 import { isAdult, isPredator } from '../core/animals';
+import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, seasonOf } from '../core/season';
 import type { BuildingType, GameState, TerrainType } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 
@@ -48,6 +49,7 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
   const add = (label: string, value: string) => rows.push(`${label}: ${value}`);
 
   add('Tile', `${tile.x}, ${tile.y}`);
+  add('Season', SEASON_LABEL[seasonOf(state.tick)]);
   add('Terrain', TERRAIN_LABEL[tile.terrain] + (tile.walkable ? '' : ' (impassable)'));
   if (tile.terrain === 'grass') add('Forage', `${Math.round(tile.forage * 100)}%`);
   if (tile.designation) add('Order', DESIGNATION_LABEL[tile.designation] ?? tile.designation);
@@ -77,7 +79,9 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
             ? 'not sown'
             : building.growth >= 1
               ? 'ready to harvest'
-              : `growing (${Math.round(building.growth * 100)}%)`,
+              : CROP_GROWTH_BY_SEASON[seasonOf(state.tick)] <= 0
+                ? `${Math.round(building.growth * 100)}% — dormant until spring`
+                : `growing (${Math.round(building.growth * 100)}%)`,
         );
       }
     }

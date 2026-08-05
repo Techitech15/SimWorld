@@ -1,4 +1,5 @@
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
+import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 
@@ -26,6 +27,9 @@ export function TopBar(): React.JSX.Element {
     <header className="topbar">
       <div className="topbar__clock">
         <strong>Day {day}</strong>
+        <span title={`day ${dayOfSeason(tick)} of ${DAYS_PER_SEASON}, year ${yearOf(tick)}`}>
+          {SEASON_LABEL[seasonOf(tick)]}
+        </span>
         <span>
           {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
         </span>
