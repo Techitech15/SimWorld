@@ -13,6 +13,7 @@ import {
 } from './constants';
 import { mulberry32, valueNoise2D } from './rng';
 import { rollStartingSkills } from './skills';
+import { rollTraits } from './traits';
 import { createEmptyState, nextId, own, tileIdOf, updateTile } from './state';
 import { JOB_TYPES } from './types';
 import type {
@@ -303,6 +304,7 @@ export function addColonist(
     activity: { kind: 'none' },
     workPriorities: defaultPriorities(),
     skills: rollStartingSkills(skillSeed),
+    traits: rollTraits(skillSeed),
   };
   state.colonists[id] = colonist;
   return colonist;

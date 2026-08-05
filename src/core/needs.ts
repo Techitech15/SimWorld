@@ -21,6 +21,7 @@ import type { SimContext } from './derived';
 import { advanceTowards } from './movement';
 import { addLog, removeItem, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
+import { traitMultiplier } from './traits';
 import type { Colonist, GameState } from './types';
 import {
   NEED_EAT_JOB_ID,
@@ -47,11 +48,16 @@ function decayNeeds(state: GameState, colonistId: string): void {
   const sleeping = activity.kind === 'sleeping';
   // a bed is the difference between a night's rest and a doze on the floor
   const inBed = activity.kind === 'sleeping' && activity.bedId !== null;
-  const recovery = inBed ? SLEEP_RECOVERY_PER_TICK : SLEEP_RECOVERY_ON_GROUND_PER_TICK;
-  const hunger = Math.min(100, colonist.needs.hunger + HUNGER_PER_TICK);
+  const recovery =
+    (inBed ? SLEEP_RECOVERY_PER_TICK : SLEEP_RECOVERY_ON_GROUND_PER_TICK) *
+    traitMultiplier(colonist, 'rest');
+  const hunger = Math.min(
+    100,
+    colonist.needs.hunger + HUNGER_PER_TICK * traitMultiplier(colonist, 'hunger'),
+  );
   const sleep = sleeping
     ? Math.max(0, colonist.needs.sleep - recovery)
-    : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK);
+    : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK * traitMultiplier(colonist, 'sleep'));
   updateColonist(state, colonistId, { needs: { hunger, sleep } });
 
   // A full hunger bar used to be the end of it, which made food optional. Now

@@ -8,7 +8,7 @@ import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -99,6 +99,22 @@ export const migrations: Record<number, Migration> = {
       };
     }
     return { ...state, zones };
+  },
+
+  /**
+   * 5 -> 6: colonists have traits. Dealing them out to people who already have
+   * a history in the player's colony would silently change who they are, so an
+   * old save's colonists get none - which multiplies out to exactly the
+   * colonist the save was written with. Newcomers arrive with theirs.
+   */
+  5: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = { ...colonist, traits: colonist.traits ?? [] };
+    }
+    return { ...state, colonists };
   },
 };
 

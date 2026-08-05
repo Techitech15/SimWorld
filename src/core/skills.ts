@@ -12,6 +12,7 @@
 // `state.colonists`.
 import { mulberry32 } from './rng';
 import { addLog, updateColonist } from './state';
+import { traitMultiplier } from './traits';
 import { JOB_TYPES } from './types';
 import type { Colonist, GameState, JobType, SkillName } from './types';
 
@@ -66,7 +67,10 @@ export function skillLevel(colonist: Colonist, workType: JobType): number {
  * game. WORK_TICKS is unchanged: the same job simply fills up faster.
  */
 export function workRate(colonist: Colonist, workType: JobType): number {
-  return 1 + skillLevel(colonist, workType) * SKILL_SPEED_PER_LEVEL;
+  const skilled = 1 + skillLevel(colonist, workType) * SKILL_SPEED_PER_LEVEL;
+  // a trait bends the whole rate rather than the skill: being industrious is
+  // not the same as being practised, and the two compound
+  return skilled * traitMultiplier(colonist, 'work');
 }
 
 export function emptySkills(): Record<SkillName, number> {
@@ -109,7 +113,7 @@ export function grantWorkExperience(
   const before = colonist.skills?.[name] ?? 0;
   const cap = xpForLevel(SKILL_MAX_LEVEL);
   if (before >= cap) return;
-  const after = Math.min(cap, before + SKILL_XP_PER_WORK_TICK);
+  const after = Math.min(cap, before + SKILL_XP_PER_WORK_TICK * traitMultiplier(colonist, 'experience'));
   updateColonist(state, colonistId, { skills: { ...colonist.skills, [name]: after } });
   const gained = levelOf(after);
   if (gained > levelOf(before)) {

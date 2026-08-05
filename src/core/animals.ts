@@ -56,6 +56,7 @@ import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
 import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
 import { mulberry32 } from './rng';
+import { traitMultiplier } from './traits';
 import {
   addLog,
   manhattan,
@@ -780,7 +781,10 @@ export function healColonists(state: GameState): void {
     const resting = colonist.activity.kind === 'sleeping';
     if (!resting) continue;
     updateColonist(state, id, {
-      health: Math.min(COLONIST_MAX_HEALTH, colonist.health + COLONIST_HEALTH_REGEN_PER_TICK),
+      health: Math.min(
+        COLONIST_MAX_HEALTH,
+        colonist.health + COLONIST_HEALTH_REGEN_PER_TICK * traitMultiplier(colonist, 'healing'),
+      ),
     });
   }
 }

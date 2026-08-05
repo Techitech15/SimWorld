@@ -356,6 +356,13 @@ button.active {
   font-size: 10px;
 }
 
+.skill--trait {
+  background: transparent;
+  border: 1px dashed #ffffff33;
+  color: var(--muted);
+  cursor: help;
+}
+
 .skill b {
   color: var(--text);
   font-variant-numeric: tabular-nums;

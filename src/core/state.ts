@@ -101,6 +101,7 @@ export function beginTick(state: GameState): GameState {
       carrying: c.carrying ? { ...c.carrying } : null,
       workPriorities: { ...c.workPriorities },
       skills: { ...c.skills },
+      traits: c.traits,
     };
   }
   const jobs: Record<JobId, Job> = {};

@@ -1,5 +1,6 @@
 import { HUNGER_THRESHOLD, SLEEP_THRESHOLD } from '../core/constants';
 import { SKILL_LABELS, SKILL_NAMES, levelOf } from '../core/skills';
+import { TRAITS } from '../core/traits';
 import type { Colonist, GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
@@ -125,6 +126,15 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
         threshold={SLEEP_THRESHOLD}
       />
       <SkillTags colonist={colonist} />
+      {colonist.traits?.length > 0 && (
+        <div className="skills">
+          {colonist.traits.map((name) => (
+            <span className="skill skill--trait" key={name} title={TRAITS[name]?.description}>
+              {TRAITS[name]?.label ?? name}
+            </span>
+          ))}
+        </div>
+      )}
     </button>
   );
 }

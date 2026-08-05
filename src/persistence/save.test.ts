@@ -228,6 +228,32 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 5 save into traits', () => {
+    const harness = createHarness(83);
+    harness.run(100);
+    const v5 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v5.colonists) {
+      const { traits: _dropped, ...rest } = v5.colonists[id];
+      v5.colonists[id] = rest as GameState['colonists'][string];
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 5,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: v5,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.colonists) {
+      // dealing traits to people who already have a history would quietly
+      // change who they are; none multiplies out to the colonist as saved
+      expect(migrated.state.colonists[id].traits).toEqual([]);
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

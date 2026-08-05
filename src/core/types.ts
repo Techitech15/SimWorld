@@ -122,7 +122,26 @@ export interface Colonist {
    * decides what a level means (src/core/skills.ts).
    */
   skills: Record<SkillName, number>;
+  /**
+   * [ext] Fixed-for-life quirks. Each one is a multiplier on a number the game
+   * already had (src/core/traits.ts), so an empty list is exactly the colonist
+   * the game had before traits existed.
+   */
+  traits: TraitName[];
 }
+
+/** [ext] See src/core/traits.ts for what each one bends. */
+export type TraitName =
+  | 'quickLearner'
+  | 'slowLearner'
+  | 'industrious'
+  | 'unhurried'
+  | 'bigEater'
+  | 'frugal'
+  | 'heavySleeper'
+  | 'restless'
+  | 'tough'
+  | 'frail';
 
 export type BuildingType =
   | 'wall'
