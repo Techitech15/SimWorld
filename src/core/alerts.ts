@@ -98,6 +98,16 @@ export function collectAlerts(state: GameState): Alert[] {
     }
   }
 
+  const hungryLivestock = Object.values(state.animals).filter((a) => a.tame && a.hunger >= 95);
+  if (hungryLivestock.length > 0) {
+    const count = hungryLivestock.length;
+    alerts.push({
+      level: 'warning',
+      message: `${count} ${plural(count, 'animal is', 'animals are')} starving — the pasture has nothing left`,
+      at: { ...hungryLivestock[0].position },
+    });
+  }
+
   for (const zoneId in state.zones) {
     if (state.zones[zoneId].type !== 'pasture') continue;
     const herd = herdSize(state, zoneId);

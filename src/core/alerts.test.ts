@@ -72,6 +72,23 @@ describe('alerts', () => {
     expect(messages(harness.state)).not.toContain('Winter: nothing is growing');
   });
 
+  it('warns when the livestock have nothing left to eat', () => {
+    const harness = createHarness(829);
+    harness.state.animals = {};
+    const at = Object.values(harness.state.colonists)[0].position;
+    const cow = createAnimal(harness.state, 'deer', at.x + 3, at.y, { tame: true });
+    harness.state.animals[cow.id] = { ...cow, hunger: 99 };
+    const alert = collectAlerts(harness.state).find((a) => a.message.includes('animal is starving'));
+    expect(alert).toBeDefined();
+    expect(alert?.at).toEqual({ x: at.x + 3, y: at.y });
+
+    // a wild animal going hungry is the ecology working, not a problem to fix
+    harness.state.animals = {};
+    const wild = createAnimal(harness.state, 'deer', at.x + 3, at.y);
+    harness.state.animals[wild.id] = { ...wild, hunger: 99 };
+    expect(collectAlerts(harness.state).some((a) => a.message.includes('starving —'))).toBe(false);
+  });
+
   it('points at where the problem is, when there is one place to look', () => {
     const harness = createHarness(827);
     harness.state.animals = {};
