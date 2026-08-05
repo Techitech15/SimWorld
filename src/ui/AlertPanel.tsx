@@ -11,20 +11,43 @@ import { useGameStore } from '../store/gameStore';
  */
 export function AlertPanel(): React.JSX.Element | null {
   const rows = useGameStore(
-    useShallow((s) => collectAlerts(s.state).map((a) => `${a.level}|${a.message}`)),
+    useShallow((s) =>
+      collectAlerts(s.state).map(
+        (a) => `${a.level}|${a.at ? `${a.at.x},${a.at.y}` : ''}|${a.message}`,
+      ),
+    ),
   );
+  const focusOnTile = useGameStore((s) => s.focusOnTile);
+  const selectTile = useGameStore((s) => s.selectTile);
   if (rows.length === 0) return null;
 
   return (
     <section className="panel panel--alerts">
       <ul className="alerts">
         {rows.map((row) => {
-          const at = row.indexOf('|');
-          const level = row.slice(0, at);
-          const message = row.slice(at + 1);
+          const [level, where, ...rest] = row.split('|');
+          const message = rest.join('|');
+          if (!where) {
+            return (
+              <li key={row} className={`alert alert--${level}`}>
+                {message}
+              </li>
+            );
+          }
+          const [x, y] = where.split(',').map(Number);
           return (
             <li key={row} className={`alert alert--${level}`}>
-              {message}
+              <button
+                type="button"
+                className="alert__jump"
+                title="show me"
+                onClick={() => {
+                  focusOnTile({ x, y });
+                  selectTile(`${x},${y}`);
+                }}
+              >
+                {message}
+              </button>
             </li>
           );
         })}

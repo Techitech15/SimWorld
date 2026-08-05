@@ -529,6 +529,7 @@ export class GameRenderer {
     }
     this.syncAnimals(state, deltaMs);
     this.syncColonists(state, deltaMs);
+    this.consumeFocusRequest();
     this.syncSelectionOverlay(state);
     this.applyKeyboardPan(deltaMs);
 
@@ -652,6 +653,14 @@ export class GameRenderer {
       return;
     }
     store.selectColonist(null);
+  }
+
+  /** A click on an alert asks for the camera; the next frame is where it lands. */
+  private consumeFocusRequest(): void {
+    const { focusTarget, focusOnTile } = useGameStore.getState();
+    if (!focusTarget) return;
+    this.focusOn(focusTarget.x, focusTarget.y);
+    focusOnTile(null);
   }
 
   focusOn(x: number, y: number): void {

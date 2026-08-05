@@ -48,6 +48,12 @@ export interface GameStore {
   selectedColonistId: ColonistId | null;
   /** the tile the inspection panel is describing, set by any left click on the map */
   selectedTileId: TileId | null;
+  /**
+   * A one-shot "put the camera here" request. React cannot reach the PixiJS
+   * camera directly (section 3: the renderer only ever reads the store), so a
+   * click on an alert leaves this behind and the next frame consumes it.
+   */
+  focusTarget: Vector2 | null;
   statusMessage: string | null;
 
   // simulation
@@ -58,6 +64,7 @@ export interface GameStore {
   setTool: (tool: Tool) => void;
   selectColonist: (id: ColonistId | null) => void;
   selectTile: (id: TileId | null) => void;
+  focusOnTile: (at: Vector2 | null) => void;
   setStatus: (message: string | null) => void;
 
   // player actions (section 3: UI writes to the store, the tick reacts to it)
@@ -83,6 +90,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tool: { kind: 'select' },
   selectedColonistId: null,
   selectedTileId: null,
+  focusTarget: null,
   statusMessage: null,
 
   advance: (ticks) => {
@@ -95,6 +103,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setTool: (tool) => set({ tool }),
   selectColonist: (selectedColonistId) => set({ selectedColonistId }),
   selectTile: (selectedTileId) => set({ selectedTileId }),
+  focusOnTile: (focusTarget) => set({ focusTarget }),
   setStatus: (statusMessage) => set({ statusMessage }),
 
   setJobPriority: (colonistId, jobType, priority) =>

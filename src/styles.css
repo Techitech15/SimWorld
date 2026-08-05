@@ -426,3 +426,16 @@ button.active {
   border-left-color: #8ecae6;
   background: rgba(142, 202, 230, 0.1);
 }
+
+.alert__jump {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}

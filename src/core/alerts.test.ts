@@ -72,6 +72,20 @@ describe('alerts', () => {
     expect(messages(harness.state)).not.toContain('Winter: nothing is growing');
   });
 
+  it('points at where the problem is, when there is one place to look', () => {
+    const harness = createHarness(827);
+    harness.state.animals = {};
+    const [id, other] = Object.keys(harness.state.colonists);
+    harness.state.colonists[id] = { ...harness.state.colonists[id], health: 10 };
+    const hurt = collectAlerts(harness.state).find((a) => a.message.includes('badly hurt'));
+    expect(hurt?.at).toEqual(harness.state.colonists[id].position);
+    // a colony-wide condition has nowhere in particular to point
+    expect(other).toBeDefined();
+    harness.state.tick = TICKS_PER_SEASON * 3;
+    const winter = collectAlerts(harness.state).find((a) => a.message.includes('nothing is growing'));
+    expect(winter?.at).toBeUndefined();
+  });
+
   it('collapses to one line once everybody is gone', () => {
     const harness = createHarness(823);
     harness.state.colonists = {};

@@ -22,6 +22,8 @@ export type AlertLevel = 'critical' | 'warning' | 'info';
 export interface Alert {
   level: AlertLevel;
   message: string;
+  /** where on the map the problem is, when there is a single place to look */
+  at?: Vector2;
 }
 
 /** How close a predator has to be to the camp before it is worth saying so. */
@@ -53,11 +55,13 @@ export function collectAlerts(state: GameState): Alert[] {
     return [{ level: 'critical', message: 'The colony has died out.' }];
   }
 
-  const starving = colonists.filter((c) => c.needs.hunger >= 100).length;
-  if (starving > 0) {
+  const starvingColonists = colonists.filter((c) => c.needs.hunger >= 100);
+  if (starvingColonists.length > 0) {
+    const count = starvingColonists.length;
     alerts.push({
       level: 'critical',
-      message: `${starving} ${plural(starving, 'colonist is', 'colonists are')} starving`,
+      message: `${count} ${plural(count, 'colonist is', 'colonists are')} starving`,
+      at: { ...starvingColonists[0].position },
     });
   }
 
@@ -70,11 +74,12 @@ export function collectAlerts(state: GameState): Alert[] {
     alerts.push({ level: 'warning', message: `Food is running low (${food})` });
   }
 
-  const hurt = colonists.filter((c) => c.health < HURT_THRESHOLD).length;
-  if (hurt > 0) {
+  const hurt = colonists.filter((c) => c.health < HURT_THRESHOLD);
+  if (hurt.length > 0) {
     alerts.push({
       level: 'warning',
-      message: `${hurt} ${plural(hurt, 'colonist is', 'colonists are')} badly hurt`,
+      message: `${hurt.length} ${plural(hurt.length, 'colonist is', 'colonists are')} badly hurt`,
+      at: { ...hurt[0].position },
     });
   }
 
@@ -85,7 +90,11 @@ export function collectAlerts(state: GameState): Alert[] {
     );
     if (near.length > 0) {
       const what = near.map((a) => SPECIES[a.species].label.toLowerCase()).join(', ');
-      alerts.push({ level: 'warning', message: `Predator near the camp (${what})` });
+      alerts.push({
+        level: 'warning',
+        message: `Predator near the camp (${what})`,
+        at: { ...near[0].position },
+      });
     }
   }
 
@@ -94,9 +103,11 @@ export function collectAlerts(state: GameState): Alert[] {
     const herd = herdSize(state, zoneId);
     const capacity = pastureCapacity(state, zoneId);
     if (herd > capacity) {
+      const firstTile = state.tiles[state.zones[zoneId].tileIds[0]];
       alerts.push({
         level: 'warning',
         message: `Pasture is over capacity (${herd}/${capacity}) — the grass cannot keep up`,
+        at: firstTile ? { x: firstTile.x, y: firstTile.y } : undefined,
       });
     }
   }
