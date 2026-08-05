@@ -141,7 +141,8 @@ export const INCIDENTS: Incident[] = [
         arrived++;
       }
       if (arrived === 0) return null;
-      return `A herd of ${arrived} ${SPECIES[species].label.toLowerCase()} moved through`;
+      const beast = SPECIES[species].label.toLowerCase();
+      return `A herd of ${arrived} ${arrived === 1 ? beast : `${beast}s`} moved through`;
     },
   },
   {
@@ -193,5 +194,5 @@ export function runIncidents(state: GameState): void {
   const incident = chooseIncident(seasonOf(state.tick), rnd());
   if (!incident) return;
   const message = incident.apply(state, rnd);
-  if (message) addLog(state, message);
+  if (message) addLog(state, message, 'incident');
 }

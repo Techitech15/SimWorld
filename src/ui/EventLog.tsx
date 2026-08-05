@@ -24,7 +24,10 @@ export function EventLog(): React.JSX.Element | null {
       <h2>Log</h2>
       <ul className="log log--scroll">
         {entries.map((entry, index) => (
-          <li key={`${entry.tick}-${index}`}>
+          <li
+            key={`${entry.tick}-${index}`}
+            className={entry.kind === 'incident' ? 'log__incident' : undefined}
+          >
             <span className="muted small">{stampOf(entry.tick)}</span> {entry.message}
           </li>
         ))}

@@ -14,6 +14,7 @@ import {
 import { SEASONS, TICKS_PER_SEASON, seasonOf } from './season';
 import { tickMany } from './simulation';
 import { createHarness } from './testUtils';
+import { generateWorld } from './worldgen';
 import type { GameState, Season } from './types';
 
 /** Run whole days of incident rolls without simulating anything else. */
@@ -168,6 +169,67 @@ describe('incidents', () => {
     const reloaded = JSON.parse(JSON.stringify(createHarness(9717).state)) as GameState;
     const replayed = tickMany(reloaded, createSimContext(reloaded), TICKS_PER_DAY * 6);
     expect(replayed.log.map((e) => `${e.tick}:${e.message}`)).toEqual(messages);
+  });
+
+  it('reach a new colony soon enough to be part of its story', () => {
+    // Measured across worlds rather than asserted about one: the first attempt
+    // at this measurement used an empty state as a cheap stand-in and reported
+    // that 300 worlds out of 300 never saw an incident at all - which was the
+    // harness, not the game. An empty state has no tiles and no buildings, so
+    // every incident finds nothing to act on and quietly returns null. It has
+    // to be a real world.
+    const firsts: number[] = [];
+    const kinds = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const state = generateWorld({ seed: seed * 7919 + 13 });
+      for (const id in state.buildings) {
+        if (state.buildings[id].type === 'farmPlot') {
+          state.buildings[id] = { ...state.buildings[id], sown: true, growth: 0.5 };
+        }
+      }
+      for (let day = 2; day <= 40; day++) {
+        state.tick = day * TICKS_PER_DAY;
+        const before = state.log.length;
+        runIncidents(state);
+        if (state.log.length > before) {
+          firsts.push(day);
+          kinds.add(state.log[state.log.length - 1].message.split(' ')[0]);
+          break;
+        }
+      }
+    }
+    // every world sees something, and soon: median day 4, ninetieth day 8
+    expect(firsts.length).toBe(60);
+    firsts.sort((a, b) => a - b);
+    expect(firsts[Math.floor(firsts.length / 2)]).toBeLessThanOrEqual(6);
+    expect(firsts[Math.floor(firsts.length * 0.9)]).toBeLessThanOrEqual(12);
+    // and the six of them all actually happen, rather than four being reachable
+    expect(kinds.size).toBeGreaterThanOrEqual(4);
+  }, 120000);
+
+  it('writes lines that read like English', () => {
+    // spotted in the running game: "A herd of 4 rabbit moved through"
+    const harness = createHarness(9723);
+    const herd = INCIDENTS.find((i) => i.name === 'migratingHerd')!;
+    const message = herd.apply(harness.state, () => 0.9);
+    expect(message).toMatch(/A herd of \d+ \w+s moved through/);
+  });
+
+  it('marks itself in the log, so a wolf pack does not read like a level-up', () => {
+    const harness = createHarness(9721);
+    for (const id in harness.state.buildings) {
+      if (harness.state.buildings[id].type === 'farmPlot') {
+        harness.state.buildings[id] = { ...harness.state.buildings[id], sown: true, growth: 0.5 };
+      }
+    }
+    let marked = 0;
+    for (let day = 2; day <= 40; day++) {
+      harness.state.tick = day * TICKS_PER_DAY;
+      runIncidents(harness.state);
+    }
+    for (const entry of harness.state.log) if (entry.kind === 'incident') marked++;
+    expect(marked).toBeGreaterThan(0);
+    expect(marked).toBe(harness.state.log.length); // nothing else wrote here
   });
 
   it('do not stop the colony surviving a year of them', () => {

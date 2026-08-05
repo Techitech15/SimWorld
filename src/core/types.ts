@@ -382,4 +382,11 @@ export interface GameState {
 export interface LogEntry {
   tick: number;
   message: string;
+  /**
+   * [ext] What sort of line this is, so the log can show a wolf pack arriving
+   * differently from a colonist reaching Hauling level 2. Optional on purpose:
+   * an entry written before this existed simply has none, which reads as an
+   * ordinary line and needs no migration.
+   */
+  kind?: 'incident';
 }

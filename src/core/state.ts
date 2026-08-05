@@ -18,6 +18,7 @@ import type {
   ItemId,
   Job,
   JobId,
+  LogEntry,
   Tile,
   TileId,
   Vector2,
@@ -185,8 +186,9 @@ export function updateItem(state: GameState, id: ItemId, patch: Partial<Item>): 
   return updated;
 }
 
-export function addLog(state: GameState, message: string): void {
-  state.log = [...state.log.slice(-99), { tick: state.tick, message }];
+export function addLog(state: GameState, message: string, kind?: LogEntry['kind']): void {
+  const entry: LogEntry = kind ? { tick: state.tick, message, kind } : { tick: state.tick, message };
+  state.log = [...state.log.slice(-99), entry];
 }
 
 /** Remove an item entirely (from the map index and the item record). */
