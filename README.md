@@ -59,8 +59,8 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | 6. ジョブシステム | `src/core/jobs/`（generator → assign（候補フィルタ＋予約）→ execute → release）                                             |
 | 7. 経路探索       | `src/core/pathfinding.ts`（4方向グリッドA\*）、`src/core/movement.ts`（経路キャッシュ）、`src/core/derived.ts`（PathIndex） |
 | 8. セーブ／ロード | `src/persistence/saveFile.ts`, `indexeddb.ts`                                                                               |
-| 9. MVP機能        | 60×60マップ・地形3種・入植者3人から・仕事8種・建築8種・資源3種・速度3段                                                     |
-| 12. ドット絵      | `tools/generate-sprites.mjs` が 38 枚を決定論的に生成（`src/assets`）                                                       |
+| 9. MVP機能        | 60×60マップ・地形3種・入植者3人から・仕事8種・建築9種・資源3種・速度3段                                                     |
+| 12. ドット絵      | `tools/generate-sprites.mjs` が 40 枚を決定論的に生成（`src/assets`）                                                       |
 
 ### MVP のあとに足したもの
 
@@ -69,6 +69,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | 生物レイヤー | 動物5種の生態・狩猟・手懐け・牧場・繁殖・飼い葉（[設計書](docs/design-animals.md)） |
 | 撤去 `deconstruct` | 完成した建築を半額返却で解体。3つ目のタイル指定 |
 | 石の建築 | 石壁・石床。採掘した石の使い道 |
+| 野生のベリー | 森に26個の茂み。種蒔き不要で自力で熟す序盤の食料（畑より少ない） |
 | 四季 | 1年20日。冬は作物が止まり草も戻らない（`src/core/season.ts`） |
 | 餓死とベッド | 空腹100で体力が減る。床で寝ると回復はベッドの60% |
 | 移住者 | 余剰食料のある植民地に3日ごと（冬以外）1人加わる。上限8人 |
@@ -132,6 +133,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/doors.test.ts`       | 扉は入植者だけが通れ、囲いに入れた家畜は出られず狼も入れないこと                             |
 | `src/core/arrivals.test.ts`    | 食料に余裕がある植民地にだけ移住者が来る／冬は来ない／人口上限で止まる                       |
 | `src/core/fodder.test.ts`      | 草の尽きた囲いで家畜が飼い葉を食べて越冬できること                                           |
+| `src/core/berries.test.ts`     | ベリーが森に散り、自力で熟し、収穫量が畑を上回らないこと                                     |
 
 ## 配布
 
