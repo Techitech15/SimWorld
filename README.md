@@ -1,6 +1,7 @@
 # SimWorld
 
-RimWorld 風の 2D ブラウザ入植地シミュレーション（MVP）。設計方針ドキュメントの 1〜12 章をそのまま実装したもの。
+RimWorld 風の 2D ブラウザ入植地シミュレーション。設計方針ドキュメントの 1〜12 章（MVP）を実装したうえで、
+生物レイヤー（[docs/design-animals.md](docs/design-animals.md)）と四季・人口増加を載せている。
 
 ```bash
 npm install
@@ -21,6 +22,11 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | ホイール                    | ズーム（カーソル位置基準）                                                           |
 | WASD / 矢印キー             | カメラのパン                                                                         |
 | ⏸ / ▶ / ▶▶▶                 | 停止・1倍・3倍                                                                       |
+| Space / 1・2・3             | 停止と再開 / 速度の直接指定                                                          |
+| Esc, c, m, x, q, b, f, r, n, v, z, p, e, h, t, k | ツールの切り替え（ツールバー下部に一覧）                          |
+
+危機（食料ゼロ・餓死・全滅）が新たに発生すると自動で停止する。ゲーム内1日ごとに専用スロットへオートセーブし、
+存在するときだけ「Load autosave」が出る。
 
 ## アーキテクチャ（3章）
 
@@ -53,8 +59,20 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | 6. ジョブシステム | `src/core/jobs/`（generator → assign（候補フィルタ＋予約）→ execute → release）                                             |
 | 7. 経路探索       | `src/core/pathfinding.ts`（4方向グリッドA\*）、`src/core/movement.ts`（経路キャッシュ）、`src/core/derived.ts`（PathIndex） |
 | 8. セーブ／ロード | `src/persistence/saveFile.ts`, `indexeddb.ts`                                                                               |
-| 9. MVP機能        | 60×60マップ・地形3種・入植者3人・仕事5種・建築6種・資源3種・速度3段                                                         |
-| 12. ドット絵      | `tools/generate-sprites.mjs` が 26 枚を決定論的に生成（`src/assets`）                                                       |
+| 9. MVP機能        | 60×60マップ・地形3種・入植者3人から・仕事8種・建築8種・資源3種・速度3段                                                     |
+| 12. ドット絵      | `tools/generate-sprites.mjs` が 38 枚を決定論的に生成（`src/assets`）                                                       |
+
+### MVP のあとに足したもの
+
+| 追加 | 概要 |
+| --- | --- |
+| 生物レイヤー | 動物5種の生態・狩猟・手懐け・牧場・繁殖・飼い葉（[設計書](docs/design-animals.md)） |
+| 撤去 `deconstruct` | 完成した建築を半額返却で解体。3つ目のタイル指定 |
+| 石の建築 | 石壁・石床。採掘した石の使い道 |
+| 四季 | 1年20日。冬は作物が止まり草も戻らない（`src/core/season.ts`） |
+| 餓死とベッド | 空腹100で体力が減る。床で寝ると回復はベッドの60% |
+| 移住者 | 余剰食料のある植民地に3日ごと（冬以外）1人加わる。上限8人 |
+| UI | アラート（クリックで現場へ）、選択タイルの詳細、ログの日時表示、列一括の仕事優先度 |
 
 ## ジョブのライフサイクル（6章）
 
