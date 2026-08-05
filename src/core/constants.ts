@@ -88,6 +88,14 @@ export const STACK_MAX = 75;
 export const WOOD_PER_TREE = 25;
 export const STONE_PER_ROCK = 20;
 export const FOOD_PER_HARVEST = 16;
+/**
+ * Wild berries. A bush ripens on its own with no sowing and yields less than a
+ * tended plot, which makes foraging the thing a young colony does before it has
+ * a farm running - and a reason to walk into the woods at all.
+ */
+export const FOOD_PER_BERRY_HARVEST = 9;
+export const BERRY_REGROW_PER_TICK = 1 / 4500;
+export const BERRY_BUSH_COUNT = 26;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
@@ -103,6 +111,7 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   door: [{ type: 'wood', quantity: 8 }],
   bed: [{ type: 'wood', quantity: 12 }],
   farmPlot: [],
+  berryBush: [], // wild: nobody builds one
   storageZoneMarker: [],
 };
 
@@ -114,6 +123,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   door: 90,
   bed: 60,
   farmPlot: 30,
+  berryBush: 20,
   storageZoneMarker: 10,
 };
 
@@ -128,6 +138,7 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   door: false,
   bed: false,
   farmPlot: false,
+  berryBush: false,
   storageZoneMarker: false,
 };
 

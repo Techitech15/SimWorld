@@ -19,6 +19,7 @@ const BUILDING_LABEL: Record<BuildingType, string> = {
   door: 'Door',
   bed: 'Bed',
   farmPlot: 'Farm plot',
+  berryBush: 'Berry bush',
   storageZoneMarker: 'Storage marker',
 };
 
@@ -81,6 +82,9 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
       if (cost.length > 0) add('Cost', cost.map((r) => `${r.quantity} ${r.type}`).join(', '));
     } else {
       add('Condition', `${Math.round(building.hpCurrent)} / ${building.hpMax} hp`);
+      if (building.type === 'berryBush') {
+        add('Berries', building.growth >= 1 ? 'ripe' : `ripening (${Math.round(building.growth * 100)}%)`);
+      }
       if (building.type === 'farmPlot') {
         add(
           'Crop',

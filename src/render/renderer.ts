@@ -204,6 +204,8 @@ export class GameRenderer {
       }
       case 'bed':
         return t.bed;
+      case 'berryBush':
+        return building.growth >= 1 ? t.berryRipe : t.berryBare;
       case 'farmPlot':
         if (!building.sown) return t.farm0;
         return building.growth >= 1 ? t.farm2 : building.growth > 0.35 ? t.farm1 : t.farm0;

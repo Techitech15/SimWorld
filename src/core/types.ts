@@ -126,6 +126,7 @@ export type BuildingType =
   | 'door'
   | 'bed'
   | 'farmPlot'
+  | 'berryBush'
   | 'storageZoneMarker';
 
 export interface RequiredResource {
@@ -145,7 +146,7 @@ export interface Building {
   requiredResources: RequiredResource[];
   /** [ext] 0..1, advanced by the build job once materials are delivered */
   buildProgress: number;
-  /** [ext] farm plots only: 0 = not sown, >0 .. 1 = growing, 1 = harvestable */
+  /** [ext] farm plots and berry bushes: 0 = bare, >0 .. 1 = growing, 1 = harvestable */
   growth: number;
   /** [ext] farm plots only */
   sown: boolean;

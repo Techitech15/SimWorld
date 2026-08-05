@@ -115,7 +115,17 @@ export function runJobGenerator(state: GameState): void {
   // --- farm plots: sow when empty, harvest when ripe ------------------------
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
-    if (building.type !== 'farmPlot' || building.isBlueprint) continue;
+    if (building.isBlueprint) continue;
+    // a ripe bush is harvest work and nothing else: there is no sowing to do
+    if (building.type === 'berryBush') {
+      if (building.growth < 1) continue;
+      const key = `farm:${building.tileId}`;
+      if (has(key)) continue;
+      createJob(state, 'farm', { targetTileId: building.tileId, targetEntityId: buildingId });
+      claim(key);
+      continue;
+    }
+    if (building.type !== 'farmPlot') continue;
     const needsWork = !building.sown || building.growth >= 1;
     if (!needsWork) continue;
     const key = `farm:${building.tileId}`;
@@ -225,7 +235,9 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     }
     case 'farm': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
-      return !!building && !building.isBlueprint && (!building.sown || building.growth >= 1);
+      if (!building || building.isBlueprint) return false;
+      if (building.type === 'berryBush') return building.growth >= 1;
+      return !building.sown || building.growth >= 1;
     }
     case 'build': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;

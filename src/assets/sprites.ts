@@ -27,6 +27,8 @@ export const sprites = {
   floor: spriteUrl('buildings/floor.png'),
   stoneWall: spriteUrl('buildings/stone_wall.png'),
   stoneFloor: spriteUrl('buildings/stone_floor.png'),
+  berryBare: spriteUrl('buildings/berry_bare.png'),
+  berryRipe: spriteUrl('buildings/berry_ripe.png'),
   doorClosed: spriteUrl('buildings/door_closed.png'),
   doorOpen: spriteUrl('buildings/door_open.png'),
   bed: spriteUrl('buildings/bed.png'),

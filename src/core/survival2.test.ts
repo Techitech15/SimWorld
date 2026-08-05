@@ -19,9 +19,10 @@ function stripAllFood(state: GameState): void {
     const { [id]: _removed, ...rest } = state.items;
     state.items = rest;
   }
-  // and no farms, so none can grow back
+  // and nothing that grows food: no farms, and no berries in the woods either
   for (const id of Object.keys(state.buildings)) {
-    if (state.buildings[id].type !== 'farmPlot') continue;
+    const type = state.buildings[id].type;
+    if (type !== 'farmPlot' && type !== 'berryBush') continue;
     const building = state.buildings[id];
     const tile = state.tiles[building.tileId];
     state.tiles[tile.id] = { ...tile, buildingId: null };

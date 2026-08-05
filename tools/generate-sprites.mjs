@@ -263,6 +263,28 @@ function floorTile() {
   return c;
 }
 
+/** A low bush; `ripe` puts berries on it so the two states read apart. */
+function berryBush(ripe) {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(ripe ? 0x8e11 : 0x8e10);
+  for (let i = 0; i < 46; i++) {
+    const cx = 6 + Math.floor(rnd() * 20);
+    const cy = 12 + Math.floor(rnd() * 14);
+    c.disc(cx, cy, 3 + Math.floor(rnd() * 2), rnd() < 0.5 ? P.forest[2] : P.forest[1]);
+  }
+  c.rect(15, 24, 2, 6, P.plankDark); // stem
+  if (ripe) {
+    for (let i = 0; i < 9; i++) {
+      const bx = 8 + Math.floor(rnd() * 17);
+      const by = 13 + Math.floor(rnd() * 11);
+      c.disc(bx, by, 1, '#c8394f');
+      c.set(bx, by - 1, '#e2637a');
+    }
+  }
+  c.outline(P.outline);
+  return c;
+}
+
 function doorTile(open) {
   const c = new Canvas(TILE, TILE);
   // stone jambs on both sides
@@ -914,6 +936,8 @@ written.push(save('terrain/stone.png', stoneTile()));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));
+written.push(save('buildings/berry_bare.png', berryBush(false)));
+written.push(save('buildings/berry_ripe.png', berryBush(true)));
 written.push(save('buildings/stone_wall.png', stoneWallTile()));
 written.push(save('buildings/stone_floor.png', stoneFloorTile()));
 written.push(save('buildings/door_closed.png', doorTile(false)));

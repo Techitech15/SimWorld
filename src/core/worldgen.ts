@@ -1,5 +1,6 @@
 // Map generation: one 60x60 map with grass / forest / stone (section 9).
 import {
+  BERRY_BUSH_COUNT,
   BUILDING_HP,
   COLONIST_COLORS,
   COLONIST_MAX_HEALTH,
@@ -184,6 +185,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     addColonist(state, { x: cx - 1 + i, y: cy + 6 }, { hunger: 20 + i * 5, sleep: 10 + i * 5 });
   }
 
+  scatterBerryBushes(state, seed, { x: cx, y: cy });
   spawnInitialWildlife(state, seed, { x: cx, y: cy });
 
   return state;
@@ -243,6 +245,26 @@ export function createAnimal(
   };
   state.animals[id] = animal;
   return animal;
+}
+
+/**
+ * Wild berries, scattered through the woods. They are placed on forest tiles so
+ * foraging means walking out of the clearing, and they start at a random ripeness
+ * so the colony does not get one enormous harvest on day one.
+ */
+function scatterBerryBushes(state: GameState, seed: number, camp: { x: number; y: number }): void {
+  const rnd = mulberry32(seed + 8123);
+  let placed = 0;
+  for (let attempt = 0; attempt < 900 && placed < BERRY_BUSH_COUNT; attempt++) {
+    const x = Math.floor(rnd() * MAP_WIDTH);
+    const y = Math.floor(rnd() * MAP_HEIGHT);
+    const tile = state.tiles[tileIdOf(x, y)];
+    if (!tile || tile.terrain !== 'forest' || tile.buildingId) continue;
+    if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < 5) continue;
+    const bush = addBuilding(state, 'berryBush', tile.id);
+    state.buildings[bush.id] = { ...bush, growth: rnd() };
+    placed++;
+  }
 }
 
 /**

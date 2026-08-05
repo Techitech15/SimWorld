@@ -7,6 +7,7 @@
 import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
 import { runArrivals } from './arrivals';
 import {
+  BERRY_REGROW_PER_TICK,
   CROP_GROWTH_PER_TICK,
   FLEE_DURATION_TICKS,
   FLEE_TRIGGER_DISTANCE,
@@ -115,10 +116,16 @@ function growCrops(state: GameState): void {
   // nothing grows in winter, so the year has to be planned around it
   const rate = CROP_GROWTH_PER_TICK * CROP_GROWTH_BY_SEASON[seasonOf(state.tick)];
   if (rate <= 0) return;
+  const berryRate = BERRY_REGROW_PER_TICK * CROP_GROWTH_BY_SEASON[seasonOf(state.tick)];
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
-    if (building.type !== 'farmPlot' || building.isBlueprint) continue;
-    if (!building.sown || building.growth >= 1) continue;
+    if (building.isBlueprint || building.growth >= 1) continue;
+    // a bush needs no sowing: it just comes back, slower than a tended plot
+    if (building.type === 'berryBush') {
+      updateBuilding(state, buildingId, { growth: Math.min(1, building.growth + berryRate) });
+      continue;
+    }
+    if (building.type !== 'farmPlot' || !building.sown) continue;
     updateBuilding(state, buildingId, {
       growth: Math.min(1, building.growth + rate),
     });
