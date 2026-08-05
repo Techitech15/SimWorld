@@ -217,6 +217,14 @@ export const ANIMAL_HUNGER_PER_TICK = 100 / 3600;
 export const ANIMAL_GRAZE_THRESHOLD = 40;
 export const ANIMAL_GRAZE_TICKS = 20;
 export const ANIMAL_GRAZE_HUNGER_RESTORED = 35;
+/**
+ * Livestock will eat from a food stack lying in their pasture when the grass is
+ * gone. Without this a penned herd simply starves through winter with nothing
+ * the player can do about it; with it, a stockpile inside the pen is fodder and
+ * the existing haul jobs fill it.
+ */
+export const ANIMAL_FODDER_PER_MEAL = 5;
+export const ANIMAL_FODDER_HUNGER_RESTORED = 45;
 /** Starving animals lose health; this is how overgrazing eventually kills a herd. */
 export const ANIMAL_STARVATION_DAMAGE_PER_TICK = 100 / 1200;
 

@@ -12,6 +12,8 @@
 import {
   ANIMAL_GRAZE_HUNGER_RESTORED,
   ANIMAL_GRAZE_THRESHOLD,
+  ANIMAL_FODDER_HUNGER_RESTORED,
+  ANIMAL_FODDER_PER_MEAL,
   ANIMAL_GRAZE_TICKS,
   ANIMAL_HUNGER_PER_TICK,
   ANIMAL_PATH_BUDGET_PER_TICK,
@@ -56,6 +58,8 @@ import {
   addLog,
   manhattan,
   removeAnimal,
+  removeItem,
+  updateItem,
   tileIdOf,
   updateAnimal,
   updateColonist,
@@ -172,6 +176,10 @@ function runBehaviour(state: GameState, ctx: SimContext, id: AnimalId): void {
   if (animal.hunger >= ANIMAL_GRAZE_THRESHOLD && startGrazing(state, id)) return;
 
   if (animal.tame) {
+    // grass first, fodder second: a stack in the pen is what carries a herd
+    // through a winter the pasture cannot
+    if (animal.hunger >= ANIMAL_GRAZE_THRESHOLD && eatFodder(state, id)) return;
+    if (animal.hunger >= ANIMAL_GRAZE_THRESHOLD && stepTowardsFodder(state, id)) return;
     returnToPasture(state, ctx, id);
     return;
   }
@@ -206,6 +214,52 @@ function continueGrazing(state: GameState, ctx: SimContext, id: AnimalId): void 
     hunger: Math.max(0, animal.hunger - restored),
     activity: { kind: 'idle' },
   });
+}
+
+/** Eat a food stack the animal is standing on. Returns false when there is none. */
+function eatFodder(state: GameState, id: AnimalId): boolean {
+  const animal = state.animals[id];
+  const tile = state.tiles[tileIdOf(animal.position.x, animal.position.y)];
+  const stack = tile.itemIds
+    .map((itemId) => state.items[itemId])
+    .find((item) => item && item.type === 'food' && item.reservedByJobId === null);
+  if (!stack) return false;
+
+  const eaten = Math.min(ANIMAL_FODDER_PER_MEAL, stack.quantity);
+  if (stack.quantity - eaten <= 0) removeItem(state, stack.id);
+  else updateItem(state, stack.id, { quantity: stack.quantity - eaten });
+  const restored = (eaten / ANIMAL_FODDER_PER_MEAL) * ANIMAL_FODDER_HUNGER_RESTORED;
+  updateAnimal(state, id, { hunger: Math.max(0, animal.hunger - restored) });
+  return true;
+}
+
+/**
+ * Walk one step towards fodder inside the pasture. Greedy, like every other
+ * animal move: the pen is small, so a straight line is enough and no A* budget
+ * is spent on feeding.
+ */
+function stepTowardsFodder(state: GameState, id: AnimalId): boolean {
+  const animal = state.animals[id];
+  if (!animal.pastureZoneId) return false;
+  const zone = state.zones[animal.pastureZoneId];
+  if (!zone) return false;
+
+  let best: Vector2 | null = null;
+  let bestDistance = Infinity;
+  for (const tileId of zone.tileIds) {
+    const tile = state.tiles[tileId];
+    if (!tile) continue;
+    const hasFood = tile.itemIds.some((itemId) => state.items[itemId]?.type === 'food');
+    if (!hasFood) continue;
+    const distance = manhattan(animal.position, { x: tile.x, y: tile.y });
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = { x: tile.x, y: tile.y };
+    }
+  }
+  if (!best || bestDistance === 0) return false;
+  if (!canStep(state, animal)) return true; // waiting for its step tick still counts
+  return greedyStep(state, id, best);
 }
 
 /** One random walkable step. No A*: this is what most animals do most ticks. */
