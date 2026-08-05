@@ -6,6 +6,7 @@
 // (section 7) that are rebuilt rather than saved.
 import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
 import { runArrivals } from './arrivals';
+import { regrowForest } from './regrowth';
 import {
   BERRY_REGROW_PER_TICK,
   CROP_GROWTH_PER_TICK,
@@ -34,6 +35,7 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
     addLog(next, `${SEASON_LABEL[seasonOf(next.tick)]} has arrived`);
   }
   growCrops(next);
+  regrowForest(next);
   runArrivals(next);
   // needs run first so an interrupted job is back in the queue before the
   // generator and the candidate filter look at it this same tick

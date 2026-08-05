@@ -8,7 +8,7 @@ import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -115,6 +115,22 @@ export const migrations: Record<number, Migration> = {
       colonists[id] = { ...colonist, traits: colonist.traits ?? [] };
     }
     return { ...state, colonists };
+  },
+
+  /**
+   * 6 -> 7: the forest grows back, up to what the map supports. An old save
+   * never recorded that number, so it takes the woodland it has now as its
+   * capacity - which means a save made after a big clearance keeps the clearing
+   * rather than being handed back trees it never had.
+   */
+  6: (old) => {
+    const state = old as Partial<GameState>;
+    if (typeof state.forestCapacity === 'number') return state;
+    let standing = 0;
+    for (const tileId in state.tiles ?? {}) {
+      if (state.tiles![tileId].terrain === 'forest') standing++;
+    }
+    return { ...state, forestCapacity: standing };
   },
 };
 

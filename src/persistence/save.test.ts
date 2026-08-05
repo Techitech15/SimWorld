@@ -254,6 +254,28 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 6 save into forest regrowth', () => {
+    const harness = createHarness(89);
+    harness.run(100);
+    const v6 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { forestCapacity: _dropped, ...rest } = v6;
+    const standing = Object.values(v6.tiles).filter((t) => t.terrain === 'forest').length;
+
+    const migrated = migrateSave({
+      schemaVersion: 6,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // a save made after a big clearance keeps its clearing rather than being
+    // handed back trees it never had
+    expect(migrated.state.forestCapacity).toBe(standing);
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

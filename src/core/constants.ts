@@ -98,6 +98,17 @@ export const FOOD_PER_HARVEST = 16;
 export const FOOD_PER_BERRY_HARVEST = 9;
 export const BERRY_REGROW_PER_TICK = 1 / 12000; // four days a bush, so it never rivals a farm
 export const BERRY_BUSH_COUNT = 26;
+/**
+ * Forest regrowth. Wood was the one thing a colony could use up for good: grass
+ * regrows, berries ripen again and wildlife walks back in from the edge, but a
+ * felled tree was gone for ever. A bare tile next to a standing tree gets this
+ * chance per day, so a clear-cut closes from its edges over a season or two
+ * rather than immediately - felling the last tree in sight still costs
+ * something.
+ */
+export const FOREST_REGROW_CHANCE_PER_DAY = 0.04;
+export const FOREST_REGROW_INTERVAL_TICKS = TICKS_PER_DAY;
+
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 

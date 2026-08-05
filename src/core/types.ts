@@ -338,6 +338,13 @@ export interface GameState {
   /** [ext] wild and tamed creatures (docs/design-animals.md) */
   animals: Record<AnimalId, Animal>;
   reservations: Record<string, Reservation>;
+  /**
+   * [ext] How much woodland this map supports: the number of forest tiles it
+   * was generated with. Regrowth heals a clearing back towards it and stops
+   * there, so a felled wood returns but the trees never march across the
+   * grassland the herds graze on.
+   */
+  forestCapacity: number;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
   /** rolling event log surfaced in the UI (failed jobs, deaths of crops, ...) */

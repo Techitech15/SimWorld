@@ -146,6 +146,10 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     }
   }
 
+  // what this map supports in woodland: regrowth heals back towards it and no
+  // further, so the forest can return but cannot take the grassland
+  state.forestCapacity = Object.values(state.tiles).filter((t) => t.terrain === 'forest').length;
+
   // storage zone: 5x4 patch just south of the camp centre
   const storageTiles: string[] = [];
   for (let y = cy + 1; y < cy + 5; y++) {
