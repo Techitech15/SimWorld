@@ -20,6 +20,8 @@ import {
   ANIMAL_PATH_TTL_TICKS,
   ANIMAL_SPECIES,
   ANIMAL_STARVATION_DAMAGE_PER_TICK,
+  BOAR_CHARGE_CHANCE_PER_TICK,
+  BOAR_CHARGE_RANGE,
   BREEDING_CHANCE_PER_TICK,
   BREEDING_HUNGER_MAX,
   COLONIST_HEALTH_REGEN_PER_TICK,
@@ -149,10 +151,18 @@ function runBehaviour(state: GameState, ctx: SimContext, id: AnimalId): void {
     }
   }
 
-  if (isPredator(animal)) {
+  // predators, and anything else already committed to a fight: a charging boar
+  // uses exactly the same stalk-and-bite machinery
+  if (
+    isPredator(animal) ||
+    animal.activity.kind === 'stalking' ||
+    animal.activity.kind === 'attacking'
+  ) {
     runPredator(state, ctx, id);
     return;
   }
+
+  if (startBoarCharge(state, id)) return;
 
   // prey: run from any predator that got close, then eat, then wander
   const threat = nearestPredator(state, animal.position, FLEE_TRIGGER_DISTANCE);
@@ -184,6 +194,33 @@ function runBehaviour(state: GameState, ctx: SimContext, id: AnimalId): void {
     return;
   }
   wander(state, id);
+}
+
+/**
+ * A wild boar being hunted may turn on the hunter. It only happens to the
+ * colonist who is actually hunting it, so a boar minding its own business stays
+ * a boar - the risk is the price of the meat, not an ambient hazard.
+ */
+function startBoarCharge(state: GameState, id: AnimalId): boolean {
+  const animal = state.animals[id];
+  if (animal.species !== 'boar' || animal.tame) return false;
+  if (animal.designation !== 'hunt' || !animal.reservedByJobId) return false;
+
+  const job = state.jobs[animal.reservedByJobId];
+  const hunterId = job?.reservedBy;
+  if (!hunterId) return false;
+  const hunter = state.colonists[hunterId];
+  if (!hunter || manhattan(hunter.position, animal.position) > BOAR_CHARGE_RANGE) return false;
+
+  const rnd = tickRandom(state, hashId(id) + 57);
+  if (rnd() > BOAR_CHARGE_CHANCE_PER_TICK) return false;
+
+  updateAnimal(state, id, {
+    activity: { kind: 'stalking', targetKind: 'colonist', targetId: hunterId },
+    pursuitUntilTick: state.tick + PREDATOR_PURSUIT_TICKS,
+  });
+  addLog(state, `${animal.name} the boar turned on ${hunter.name}`);
+  return true;
 }
 
 function startGrazing(state: GameState, id: AnimalId): boolean {

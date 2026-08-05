@@ -306,6 +306,15 @@ export const COLONIST_HEALTH_REGEN_PER_TICK = 100 / 6000; // full heal in two da
 export const FLEE_DURATION_TICKS = 120;
 export const FLEE_TRIGGER_DISTANCE = 4;
 
+/**
+ * A cornered boar. Hunting is ranged and was therefore free: the prey could not
+ * answer back, so a hunt cost nothing but time. An omnivore with 80 health and
+ * tusks is the natural exception - it charges the hunter instead of running,
+ * which makes boar meat the expensive kind.
+ */
+export const BOAR_CHARGE_CHANCE_PER_TICK = 1 / 120;
+export const BOAR_CHARGE_RANGE = 6;
+
 // hunting and handling
 /** Hunting is ranged, so prey does not need to be cornered (see design doc 3). */
 export const HUNT_RANGE = 5;
