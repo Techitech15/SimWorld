@@ -9,7 +9,7 @@ import type { GameState } from '../core/types';
 import { createHarness, nearestTilesWithTerrain } from '../core/testUtils';
 import { createSimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
-import { DEFAULT_SLOT, deleteSave, hasSave, loadGame, saveGame } from './indexeddb';
+import { AUTOSAVE_SLOT, DEFAULT_SLOT, deleteSave, hasSave, loadGame, saveGame } from './indexeddb';
 import {
   SCHEMA_VERSION,
   SaveLoadError,
@@ -175,6 +175,24 @@ describe('IndexedDB slot', () => {
 
     await deleteSave(DEFAULT_SLOT);
     expect(await hasSave(DEFAULT_SLOT)).toBe(false);
+  });
+
+  it('keeps the autosave in a slot of its own', async () => {
+    const harness = createHarness(83);
+    harness.run(60);
+    await saveGame(harness.state, DEFAULT_SLOT);
+    const manualTick = harness.state.tick;
+
+    // play on, then autosave: the deliberate save must not move
+    harness.run(120);
+    await saveGame(harness.state, AUTOSAVE_SLOT);
+
+    expect((await loadGame(DEFAULT_SLOT)).tick).toBe(manualTick);
+    expect((await loadGame(AUTOSAVE_SLOT)).tick).toBe(harness.state.tick);
+    expect(await hasSave(AUTOSAVE_SLOT)).toBe(true);
+
+    await deleteSave(DEFAULT_SLOT);
+    await deleteSave(AUTOSAVE_SLOT);
   });
 
   it('reports a missing slot instead of returning junk', async () => {

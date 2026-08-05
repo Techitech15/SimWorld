@@ -9,6 +9,12 @@ const DB_VERSION = 1;
 const STORE = 'saves';
 
 export const DEFAULT_SLOT = 'slot-1';
+/**
+ * The autosave lives in its own slot on purpose: overwriting a save the player
+ * deliberately made, with one the game made behind their back, is the one thing
+ * an autosave must never do.
+ */
+export const AUTOSAVE_SLOT = 'autosave';
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

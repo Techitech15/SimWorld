@@ -19,7 +19,7 @@ import type {
   TileId,
   Vector2,
 } from '../core/types';
-import { DEFAULT_SLOT, loadGame, saveGame } from '../persistence/indexeddb';
+import { AUTOSAVE_SLOT, DEFAULT_SLOT, hasSave, loadGame, saveGame } from '../persistence/indexeddb';
 
 /**
  * Derived caches (PathIndex / region labels) live outside the store: they are
@@ -76,7 +76,10 @@ export interface GameStore {
   // persistence
   newGame: (seed?: number) => void;
   save: () => Promise<void>;
-  load: () => Promise<void>;
+  load: (slot?: string) => Promise<void>;
+  autosave: () => Promise<void>;
+  hasAutosave: boolean;
+  refreshAutosave: () => Promise<void>;
 }
 
 /**
@@ -102,6 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedTileId: null,
   focusTarget: null,
   statusMessage: null,
+  hasAutosave: false,
 
   advance: (ticks) => {
     if (ticks <= 0) return;
@@ -185,9 +189,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  load: async () => {
+  autosave: async () => {
     try {
-      const state = await loadGame(DEFAULT_SLOT);
+      await saveGame(get().state, AUTOSAVE_SLOT);
+      set({ hasAutosave: true });
+    } catch {
+      // an autosave that cannot be written is not worth interrupting play over
+    }
+  },
+
+  refreshAutosave: async () => {
+    set({ hasAutosave: await hasSave(AUTOSAVE_SLOT).catch(() => false) });
+  },
+
+  load: async (slot = DEFAULT_SLOT) => {
+    try {
+      const state = await loadGame(slot);
       // section 8: PathIndex is derived, so it is rebuilt from the saved paths
       simContext = createSimContext(state);
       rebuildPathIndex(simContext, state);

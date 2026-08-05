@@ -1,5 +1,6 @@
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
 import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
+import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 
@@ -15,6 +16,7 @@ export function TopBar(): React.JSX.Element {
   const setSpeed = useGameStore((s) => s.setSpeed);
   const save = useGameStore((s) => s.save);
   const load = useGameStore((s) => s.load);
+  const hasAutosave = useGameStore((s) => s.hasAutosave);
   const newGame = useGameStore((s) => s.newGame);
   const statusMessage = useGameStore((s) => s.statusMessage);
   const jobs = useJobCounts();
@@ -65,7 +67,16 @@ export function TopBar(): React.JSX.Element {
         <button type="button" onClick={() => void load()}>
           Load
         </button>
-        <button type="button" onClick={() => newGame(Math.floor(Math.random() * 1e9))}>
+        {hasAutosave ? (
+          <button
+            type="button"
+            title="the game saves once per in-game day, into its own slot"
+            onClick={() => void load(AUTOSAVE_SLOT)}
+          >
+            Load autosave
+          </button>
+        ) : null}
+        <button type="button" onClick={() => newGame()}>
           New map
         </button>
       </div>

@@ -4,7 +4,7 @@
 // processed per real 200ms, never the tick length itself, so cooldowns and
 // growth rates stay comparable between 1x and 3x.
 import { collectAlerts } from '../core/alerts';
-import { TICK_MS } from '../core/constants';
+import { TICK_MS, TICKS_PER_DAY } from '../core/constants';
 import { useGameStore } from '../store/gameStore';
 
 /** Never simulate more than this many ticks in one frame after a stall. */
@@ -37,6 +37,8 @@ export function startGameLoop(): () => void {
   let accumulator = 0;
   let running = true;
   let knownCritical = criticalMessages(useGameStore.getState().state);
+  let lastAutosaveDay = Math.floor(useGameStore.getState().state.tick / TICKS_PER_DAY);
+  void useGameStore.getState().refreshAutosave();
 
   const frame = (now: number) => {
     if (!running) return;
@@ -61,6 +63,13 @@ export function startGameLoop(): () => void {
         if (fresh.length > 0) {
           store.setSpeed(0);
           store.setStatus(`Paused: ${fresh[0]}`);
+        }
+
+        // one autosave per in-game day, into its own slot
+        const day = Math.floor(store.state.tick / TICKS_PER_DAY);
+        if (day !== lastAutosaveDay) {
+          lastAutosaveDay = day;
+          void store.autosave();
         }
       }
     } else {
