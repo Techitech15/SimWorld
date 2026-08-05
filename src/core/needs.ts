@@ -10,6 +10,7 @@ import {
   HUNGER_RESTORED_PER_MEAL,
   HUNGER_THRESHOLD,
   SLEEP_PER_TICK,
+  SLEEP_RECOVERY_ON_GROUND_PER_TICK,
   SLEEP_RECOVERY_PER_TICK,
   SLEEP_THRESHOLD,
   SLEEP_WAKE_AT,
@@ -42,10 +43,14 @@ export function runNeeds(state: GameState, ctx: SimContext): void {
 
 function decayNeeds(state: GameState, colonistId: string): void {
   const colonist = state.colonists[colonistId];
-  const sleeping = colonist.activity.kind === 'sleeping';
+  const activity = colonist.activity;
+  const sleeping = activity.kind === 'sleeping';
+  // a bed is the difference between a night's rest and a doze on the floor
+  const inBed = activity.kind === 'sleeping' && activity.bedId !== null;
+  const recovery = inBed ? SLEEP_RECOVERY_PER_TICK : SLEEP_RECOVERY_ON_GROUND_PER_TICK;
   const hunger = Math.min(100, colonist.needs.hunger + HUNGER_PER_TICK);
   const sleep = sleeping
-    ? Math.max(0, colonist.needs.sleep - SLEEP_RECOVERY_PER_TICK)
+    ? Math.max(0, colonist.needs.sleep - recovery)
     : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK);
   updateColonist(state, colonistId, { needs: { hunger, sleep } });
 

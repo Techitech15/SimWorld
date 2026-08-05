@@ -24,6 +24,13 @@ export const TICKS_PER_STEP = 2;
 export const HUNGER_PER_TICK = 100 / 2400; // full bar in 0.8 day
 export const SLEEP_PER_TICK = 100 / 2000; // full bar in ~16 in-game hours
 export const SLEEP_RECOVERY_PER_TICK = 100 / 900; // rested again in ~7 hours
+/**
+ * Sleeping on the ground. Beds cost 12 wood and recovered sleep at exactly the
+ * same rate as bare floor, which made them decoration; at 60% a colonist
+ * without one spends most of the night asleep instead of most of the day
+ * working, which is the cost that makes building beds worth doing.
+ */
+export const SLEEP_RECOVERY_ON_GROUND_PER_TICK = SLEEP_RECOVERY_PER_TICK * 0.6;
 export const HUNGER_THRESHOLD = 55; // start looking for food
 export const SLEEP_THRESHOLD = 75; // start looking for a bed
 export const SLEEP_WAKE_AT = 3;

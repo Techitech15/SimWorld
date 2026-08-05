@@ -121,6 +121,19 @@ export function collectAlerts(state: GameState): Alert[] {
     });
   }
 
+  let beds = 0;
+  for (const id in state.buildings) {
+    const building = state.buildings[id];
+    if (building.type === 'bed' && !building.isBlueprint) beds++;
+  }
+  if (beds < colonists.length) {
+    const short = colonists.length - beds;
+    alerts.push({
+      level: 'info',
+      message: `${short} ${plural(short, 'colonist has', 'colonists have')} no bed — they rest poorly`,
+    });
+  }
+
   const hungryLivestock = Object.values(state.animals).filter((a) => a.tame && a.hunger >= 95);
   if (hungryLivestock.length > 0) {
     const count = hungryLivestock.length;
