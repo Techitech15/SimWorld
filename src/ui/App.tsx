@@ -10,9 +10,11 @@ import { SelectionPanel } from './SelectionPanel';
 import { Toolbar } from './Toolbar';
 import { TopBar } from './TopBar';
 import { WorkPriorityTable } from './WorkPriorityTable';
+import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 
 export function App(): React.JSX.Element {
   useEffect(() => startGameLoop(), []);
+  useKeyboardShortcuts();
 
   return (
     <div className="app">

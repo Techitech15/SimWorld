@@ -100,7 +100,12 @@ export function Toolbar(): React.JSX.Element {
       </div>
 
       <p className="toolbar__hint muted">
-        Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms.
+        Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms; WASD or the
+        arrow keys pan too.
+        <br />
+        Keys: space pauses, 1/2/3 set speed, Esc selects. c chop, m mine, x deconstruct, q clear,
+        b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame,
+        k slaughter.
       </p>
     </div>
   );
