@@ -15,7 +15,7 @@ import {
   dayOfSeason,
   seasonOf,
 } from './season';
-import type { GameState, Vector2 } from './types';
+import type { GameState, ResourceType, Vector2 } from './types';
 
 export type AlertLevel = 'critical' | 'warning' | 'info';
 
@@ -65,9 +65,14 @@ export function collectAlerts(state: GameState): Alert[] {
     });
   }
 
-  const food = Object.values(state.items)
-    .filter((item) => item.type === 'food')
-    .reduce((sum, item) => sum + item.quantity, 0);
+  // one pass over the items, not one per question asked about them
+  const stock: Partial<Record<ResourceType, number>> = {};
+  for (const id in state.items) {
+    const item = state.items[id];
+    stock[item.type] = (stock[item.type] ?? 0) + item.quantity;
+  }
+
+  const food = stock.food ?? 0;
   if (food === 0) {
     alerts.push({ level: 'critical', message: 'No food anywhere in the colony' });
   } else if (food < colonists.length * 30) {
@@ -106,10 +111,7 @@ export function collectAlerts(state: GameState): Alert[] {
     if (!building.isBlueprint) continue;
     for (const need of building.requiredResources) {
       if (need.quantity <= 0) continue;
-      const available = Object.values(state.items)
-        .filter((item) => item.type === need.type)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      if (available <= 0) stalled.add(need.type);
+      if ((stock[need.type] ?? 0) <= 0) stalled.add(need.type);
     }
   }
   if (stalled.size > 0) {
