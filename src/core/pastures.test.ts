@@ -1,6 +1,8 @@
-// Storage is one pool wherever it is, but a pasture is a place: with doors
-// keeping animals in, two pens on opposite sides of the camp have to be two
-// herds with two capacities.
+// Both kinds of zone are places. For a pasture that was always true - with
+// doors keeping animals in, two pens on opposite sides of the camp have to be
+// two herds with two capacities. Storage used to be the exception, one pool
+// wherever it was painted, and stopped being one when a zone gained a filter:
+// a wood yard by the wall and a larder by the beds are two different orders.
 import { describe, expect, it } from 'vitest';
 import { placePastureZone, placeStorageZone } from './actions';
 import { pastureCapacity } from './animals';
@@ -69,15 +71,45 @@ describe('pasture zones', () => {
     expect(harness.state.zones[id].tileIds.length).toBe(before + 1);
   });
 
-  it('still keeps storage as a single pool wherever it is painted', () => {
+  it('makes a detached storage drag into a store of its own', () => {
+    // This test used to assert the opposite - that storage stayed one pool
+    // wherever it was painted - and went on passing after the rule changed,
+    // because it painted a block that happened to land on forest. Every tile
+    // was filtered out, the action returned the state it was given, and "the
+    // zone list did not change" was true for a reason that had nothing to do
+    // with storage.
     const harness = createHarness(1021);
-    const before = Object.keys(harness.state.zones).filter(
+    const stores = () =>
+      Object.keys(harness.state.zones).filter((id) => harness.state.zones[id].type === 'storage');
+    const before = stores();
+    expect(before.length).toBe(1);
+
+    const detached = [tileIdOf(4, 4), tileIdOf(4, 5)];
+    for (const id of detached) expect(harness.state.tiles[id]?.walkable).toBe(true);
+    harness.state = placeStorageZone(harness.state, detached);
+
+    const after = stores();
+    expect(after.length).toBe(2);
+    const fresh = after.find((id) => !before.includes(id))!;
+    expect(harness.state.zones[fresh].tileIds).toEqual(detached);
+  });
+
+  it('extends a store the new tiles touch', () => {
+    const harness = createHarness(1023);
+    const storeId = Object.keys(harness.state.zones).find(
+      (id) => harness.state.zones[id].type === 'storage',
+    )!;
+    const edge = harness.state.zones[storeId].tileIds[0];
+    const tile = harness.state.tiles[edge];
+    const beside = tileIdOf(tile.x - 1, tile.y);
+    const before = harness.state.zones[storeId].tileIds.length;
+
+    harness.state = placeStorageZone(harness.state, [beside]);
+
+    const stores = Object.keys(harness.state.zones).filter(
       (id) => harness.state.zones[id].type === 'storage',
     );
-    harness.state = placeStorageZone(harness.state, grassBlock(harness.state, -9, -9, 2));
-    const after = Object.keys(harness.state.zones).filter(
-      (id) => harness.state.zones[id].type === 'storage',
-    );
-    expect(after).toEqual(before);
+    expect(stores).toEqual([storeId]); // joined, not a second store
+    expect(harness.state.zones[storeId].tileIds.length).toBe(before + 1);
   });
 });
