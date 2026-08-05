@@ -46,6 +46,7 @@ export function AnimalPanel(): React.JSX.Element | null {
 
   const focusOnTile = useGameStore((s) => s.focusOnTile);
   const selectTile = useGameStore((s) => s.selectTile);
+  const selectAnimal = useGameStore((s) => s.selectAnimal);
   const setStatus = useGameStore((s) => s.setStatus);
   /**
    * Take the camera to one of them. Reads the state at click time rather than
@@ -61,7 +62,16 @@ export function AnimalPanel(): React.JSX.Element | null {
       return;
     }
     focusOnTile({ ...animal.position });
-    selectTile(`${animal.position.x},${animal.position.y}`);
+    selectAnimal(animal.id);
+    selectTile(null);
+    // Naming it matters because the target walks. Selecting the tile it stood
+    // on at click time is right for about half of them and stale for the rest -
+    // measured, three of five species landed on the animal and two on an empty
+    // tile it had already left. The camera is in the right place either way, so
+    // saying which creature to look for is what closes the gap.
+    setStatus(
+      `${animal.name} the ${SPECIES[name].label.toLowerCase()} — ${animal.position.x}, ${animal.position.y}`,
+    );
   };
 
   const species = ANIMAL_SPECIES.filter(

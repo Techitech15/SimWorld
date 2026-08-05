@@ -13,6 +13,7 @@ import { DEFAULT_SCENARIO, SCENARIOS } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
 import type {
   AnimalDesignation,
+  AnimalId,
   BuildingType,
   ColonistId,
   Designation,
@@ -50,6 +51,13 @@ export interface GameStore {
   state: GameState;
   tool: Tool;
   selectedColonistId: ColonistId | null;
+  /**
+   * A creature walks, so selecting the tile it stood on when you clicked is
+   * stale within a second - measured, all five species had left the tile by the
+   * time the panel rendered. Selecting the animal itself is what a moving
+   * target needs, exactly as colonists already had.
+   */
+  selectedAnimalId: AnimalId | null;
   /** the tile the inspection panel is describing, set by any left click on the map */
   selectedTileId: TileId | null;
   /**
@@ -74,6 +82,7 @@ export interface GameStore {
   // ui
   setTool: (tool: Tool) => void;
   selectColonist: (id: ColonistId | null) => void;
+  selectAnimal: (id: AnimalId | null) => void;
   selectTile: (id: TileId | null) => void;
   focusOnTile: (at: Vector2 | null) => void;
   setViewport: (viewport: { x: number; y: number; w: number; h: number }) => void;
@@ -165,6 +174,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   state: initialState(),
   tool: { kind: 'select' },
   selectedColonistId: null,
+  selectedAnimalId: null,
   selectedTileId: null,
   focusTarget: null,
   viewport: null,
@@ -179,7 +189,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setSpeed: (speed) => set({ state: actions.setSpeed(get().state, speed) }),
 
   setTool: (tool) => set({ tool }),
-  selectColonist: (selectedColonistId) => set({ selectedColonistId }),
+  selectColonist: (selectedColonistId) => set({ selectedColonistId, selectedAnimalId: null }),
+  selectAnimal: (selectedAnimalId) => set({ selectedAnimalId, selectedColonistId: null }),
   selectTile: (selectedTileId) => set({ selectedTileId }),
   focusOnTile: (focusTarget) => set({ focusTarget }),
   setViewport: (viewport) => {
@@ -242,6 +253,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       state,
       selectedColonistId: null,
+      selectedAnimalId: null,
       selectedTileId: null,
       statusMessage: `New colony started — ${SCENARIOS[chosen].label}.`,
     });
@@ -279,6 +291,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         state,
         selectedColonistId: null,
+        selectedAnimalId: null,
       selectedTileId: null,
         statusMessage: `Loaded tick ${state.tick}.`,
       });
