@@ -110,6 +110,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/survival2.test.ts`   | 空腹100からの餓死と、採掘した石を石壁に使えること                                           |
 | `src/ui/SelectionPanel.test.ts` | クリックしたタイルの内容（地形・ゾーン・建築・アイテム・動物・指定）が正しく出ること         |
 | `src/core/season.test.ts`      | 四季の暦と、冬に作物が止まり春に再開すること・1年放置で越冬できること                       |
+| `src/core/alerts.test.ts`      | 危険な状態（食料切れ・餓死寸前・負傷・捕食者接近・冬）だけが出ること                         |
 
 ## 配布
 

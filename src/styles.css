@@ -390,3 +390,39 @@ button.active {
   margin: 0;
   flex: 1;
 }
+
+/* --- alerts --------------------------------------------------------------- */
+.panel--alerts {
+  padding: 8px 10px;
+}
+
+.alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.alert {
+  border-left: 3px solid transparent;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.alert--critical {
+  border-left-color: #e5484d;
+  background: rgba(229, 72, 77, 0.14);
+}
+
+.alert--warning {
+  border-left-color: #f2a03d;
+  background: rgba(242, 160, 61, 0.12);
+}
+
+.alert--info {
+  border-left-color: #8ecae6;
+  background: rgba(142, 202, 230, 0.1);
+}
