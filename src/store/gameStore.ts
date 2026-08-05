@@ -79,8 +79,18 @@ export interface GameStore {
   load: () => Promise<void>;
 }
 
+/**
+ * A seed for a map nobody has asked for by number. `generateWorld` keeps its
+ * fixed default so tests and saves stay reproducible; the "New map" button is
+ * the one caller that genuinely wants a different world each time, and without
+ * this it handed back the same one for ever.
+ */
+function randomSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff);
+}
+
 function initialState(): GameState {
-  const state = generateWorld();
+  const state = generateWorld({ seed: randomSeed() });
   simContext = createSimContext(state);
   return state;
 }
@@ -156,7 +166,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   toggleFarmSowing: (tileId) => set({ state: actions.toggleFarmSowing(get().state, tileId) }),
 
   newGame: (seed) => {
-    const state = generateWorld(seed !== undefined ? { seed } : {});
+    const state = generateWorld({ seed: seed ?? randomSeed() });
     simContext = createSimContext(state);
     set({
       state,

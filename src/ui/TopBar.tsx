@@ -18,6 +18,7 @@ export function TopBar(): React.JSX.Element {
   const newGame = useGameStore((s) => s.newGame);
   const statusMessage = useGameStore((s) => s.statusMessage);
   const jobs = useJobCounts();
+  const population = useGameStore((s) => Object.keys(s.state.colonists).length);
 
   const day = Math.floor(tick / TICKS_PER_DAY) + 1;
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);
@@ -51,7 +52,8 @@ export function TopBar(): React.JSX.Element {
       </div>
 
       <div className="topbar__jobs muted">
-        jobs: {jobs.active} active / {jobs.pending} queued
+        {population} {population === 1 ? 'colonist' : 'colonists'} · jobs: {jobs.active} active /{' '}
+        {jobs.pending} queued
         {jobs.failed > 0 ? ` / ${jobs.failed} failed` : ''}
       </div>
 
