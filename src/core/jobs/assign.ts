@@ -55,7 +55,7 @@ export function jobWorkSite(
 }
 
 /** Entities a job must hold before it can run. */
-function reservationTargets(state: GameState, job: Job, colonist: Colonist): string[] | null {
+function reservationTargets(state: GameState, job: Job): string[] | null {
   switch (job.type) {
     case 'chop':
     case 'mine':
@@ -75,11 +75,13 @@ function reservationTargets(state: GameState, job: Job, colonist: Colonist): str
         // delivery to a blueprint: reserve the item and this resource slot
         return [item.id, deliveryKey(job.destinationId, item.type)];
       }
+      // measured from the stack, not the colonist: the walk to the item happens
+      // either way, so the only leg this choice controls is item -> storage
       const destination = findStorageDestination(
         state,
         item.type,
         item.quantity,
-        colonist.position,
+        item.position,
       );
       if (!destination) return null;
       // section 6.3: both the source stack and the drop-off tile get reserved
@@ -91,7 +93,7 @@ function reservationTargets(state: GameState, job: Job, colonist: Colonist): str
 }
 
 function candidateBlocked(state: GameState, job: Job, colonist: Colonist): boolean {
-  const targets = reservationTargets(state, job, colonist);
+  const targets = reservationTargets(state, job);
   if (!targets) return true;
   return targets.some((entityId) => {
     const existing = state.reservations[entityId];
@@ -165,8 +167,7 @@ export function tryReserve(
   colonistId: string,
   onPathAttempt?: () => void,
 ): boolean {
-  const colonist = state.colonists[colonistId];
-  const targets = reservationTargets(state, job, colonist);
+  const targets = reservationTargets(state, job);
   if (!targets) return false;
   const site = jobWorkSite(state, job);
   if (!site) return false;
