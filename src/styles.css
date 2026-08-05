@@ -452,3 +452,9 @@ button.active {
 .work__column:hover {
   opacity: 1;
 }
+
+.log--scroll {
+  max-height: 190px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
