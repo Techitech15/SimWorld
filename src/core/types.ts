@@ -22,6 +22,7 @@
 import type { ScenarioName } from './scenario';
 
 export type { ScenarioName };
+export type { Season } from './season';
 
 export type TileId = string; // `${x},${y}`
 export type ColonistId = string;
