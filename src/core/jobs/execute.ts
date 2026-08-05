@@ -20,7 +20,7 @@ import {
   WOOD_PER_TREE,
   WORK_TICKS,
 } from '../constants';
-import { invalidateTile } from '../derived';
+import { clearColonistPath, invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
 import { advanceTowards, chase } from '../movement';
 import { mulberry32 } from '../rng';
@@ -28,6 +28,7 @@ import { grantWorkExperience, workRate } from '../skills';
 import {
   addLog,
   removeItem,
+  tileIdOf,
   updateAnimal,
   updateBuilding,
   updateColonist,
@@ -162,6 +163,12 @@ function applyJobEffect(
       if (BLOCKS_MOVEMENT[building.type]) {
         updateTile(state, building.tileId, { walkable: false });
         invalidateTile(ctx, state, building.tileId);
+        // The builder now stands next to the wall rather than in it, but the
+        // tile stays walkable right up until this moment, so anyone else may
+        // have wandered onto it. Being sealed inside a wall is not a survivable
+        // state: an entity on an unwalkable tile has no region, and every job on
+        // the map then reads as unreachable to them.
+        evictFromTile(state, ctx, building.tileId);
       }
       break;
     }
@@ -202,6 +209,40 @@ function applyJobEffect(
       break;
   }
   completeJob(state, jobId, colonistId);
+}
+
+/**
+ * Move anyone standing on a tile that has just stopped being walkable onto a
+ * neighbour that still is. Nearest first, so they step aside rather than
+ * teleport; if a creature is somehow walled in on all four sides it is left
+ * where it is, which at least keeps the state describable.
+ */
+function evictFromTile(state: GameState, ctx: SimContext, tileId: string): void {
+  const tile = state.tiles[tileId];
+  if (!tile) return;
+  const spots = [
+    { x: tile.x + 1, y: tile.y },
+    { x: tile.x - 1, y: tile.y },
+    { x: tile.x, y: tile.y + 1 },
+    { x: tile.x, y: tile.y - 1 },
+  ].filter((at) => state.tiles[tileIdOf(at.x, at.y)]?.walkable);
+  if (spots.length === 0) return;
+
+  for (const id in state.colonists) {
+    const colonist = state.colonists[id];
+    if (colonist.position.x !== tile.x || colonist.position.y !== tile.y) continue;
+    updateColonist(state, id, {
+      position: { ...spots[0] },
+      path: null,
+      pathTargetTileId: null,
+    });
+    clearColonistPath(ctx, id);
+  }
+  for (const id in state.animals) {
+    const animal = state.animals[id];
+    if (animal.position.x !== tile.x || animal.position.y !== tile.y) continue;
+    updateAnimal(state, id, { position: { ...spots[0] }, path: null, pathExpiresAtTick: null });
+  }
 }
 
 /**

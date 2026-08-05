@@ -7,7 +7,7 @@
 //   (d) cooldown expired     -> job.cooldownUntilTick
 // Ordering inside one priority band is nearest-first, the documented deviation
 // from RimWorld's distance-blind rule.
-import { CANDIDATE_PATH_ATTEMPTS } from '../constants';
+import { BLOCKS_MOVEMENT, CANDIDATE_PATH_ATTEMPTS } from '../constants';
 import { isReachable } from '../derived';
 import type { SimContext } from '../derived';
 import { setDestination } from '../movement';
@@ -29,12 +29,22 @@ export function jobWorkSite(
     }
     case 'chop':
     case 'farm':
-    case 'build':
     case 'deconstruct':
     case 'repair': {
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
       if (!tile) return null;
       return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable };
+    }
+    case 'build': {
+      const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
+      if (!tile) return null;
+      // A blueprint tile is walkable until the moment the wall goes up, so
+      // without this the builder stands *inside* what they are building and the
+      // finished wall seals them in - and a colonist on an unwalkable tile has
+      // no region, which makes every job in the world read as unreachable.
+      const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      const willBlock = building ? BLOCKS_MOVEMENT[building.type] : false;
+      return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable || willBlock };
     }
     case 'haul': {
       const item = job.targetEntityId ? state.items[job.targetEntityId] : undefined;
