@@ -195,6 +195,8 @@ export const ANIMAL_SPECIES: AnimalSpecies[] = ['deer', 'boar', 'rabbit', 'chick
 
 export interface SpeciesProfile {
   label: string;
+  /** English is not regular: deer stay deer and a wolf becomes wolves. */
+  plural: string;
   diet: 'herbivore' | 'omnivore' | 'carnivore';
   /** moves one tile every N ticks; colonists move every TICKS_PER_STEP (2) */
   ticksPerStep: number;
@@ -214,6 +216,7 @@ export interface SpeciesProfile {
 export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   deer: {
     label: 'Deer',
+    plural: 'Deer',
     diet: 'herbivore',
     ticksPerStep: 3,
     maxHealth: 60,
@@ -226,6 +229,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   },
   boar: {
     label: 'Boar',
+    plural: 'Boars',
     diet: 'omnivore',
     ticksPerStep: 3,
     maxHealth: 80,
@@ -238,6 +242,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   },
   rabbit: {
     label: 'Rabbit',
+    plural: 'Rabbits',
     diet: 'herbivore',
     ticksPerStep: 2, // as quick as a wolf: catching one is a real chase
     maxHealth: 20,
@@ -250,6 +255,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   },
   chicken: {
     label: 'Chicken',
+    plural: 'Chickens',
     diet: 'herbivore',
     ticksPerStep: 4,
     maxHealth: 25,
@@ -262,6 +268,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   },
   wolf: {
     label: 'Wolf',
+    plural: 'Wolves',
     diet: 'carnivore',
     ticksPerStep: 2, // as fast as a colonist: fleeing buys time, not safety
     maxHealth: 70,

@@ -866,6 +866,12 @@ export function killAnimal(
     addItem(state, 'food', SPECIES[animal.species].foodYield, animal.position.x, animal.position.y);
   }
   removeAnimal(state, id);
+  // A wolf eating a rabbit in the woods is weather, not news. Watching the
+  // built game for five days at speed the log was four fifths ambient
+  // predation, which pushes the things a player acts on - a wanderer arriving,
+  // livestock lost, a wall coming down - out of a hundred-line buffer. Losing
+  // an animal you own, or one you had marked, is still worth a line.
+  if (!animal.tame && animal.designation === null) return;
   addLog(state, `${animal.name} the ${SPECIES[animal.species].label.toLowerCase()} ${reason}`);
 }
 

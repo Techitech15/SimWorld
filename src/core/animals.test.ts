@@ -18,7 +18,7 @@ vi.mock('./pathfinding', async (importOriginal) => {
 });
 
 import { designateAnimals, placePastureZone } from './actions';
-import { herdSize, isPredator, pastureCapacity } from './animals';
+import { herdSize, isPredator, killAnimal, pastureCapacity } from './animals';
 import {
   ANIMAL_PATH_BUDGET_PER_TICK,
   COLONIST_MAX_HEALTH,
@@ -220,11 +220,38 @@ describe('stage B: predators', () => {
     });
 
     expect(harness.state.animals[deer.id]).toBeUndefined();
-    expect(harness.state.log.some((entry) => entry.message.includes('killed by a wolf'))).toBe(true);
     expect(harness.state.animals[wolf.id]).toBeDefined();
+    // a wild deer eaten in the woods is weather, not news: no line for it
+    expect(harness.state.log.some((entry) => entry.message.includes('killed by a wolf'))).toBe(
+      false,
+    );
     // fed by the kill, and it drops the hunt the moment it is fed
     expect(atTheKill!.hunger).toBeLessThanOrEqual(100 - PREDATOR_HUNGER_PER_KILL + 1);
     expect(atTheKill!.activity).toBe('idle');
+  });
+
+  it('does report losing an animal you own', () => {
+    // the other half of keeping ambient predation out of the log: livestock is
+    // not ambient, and neither is a beast the player had marked
+    const harness = createHarness(1231);
+    harness.state.animals = {};
+    idleColony(harness.state);
+    const at = Object.values(harness.state.colonists)[0].position;
+    const cow = createAnimal(harness.state, 'deer', at.x + 6, at.y, { tame: true });
+    killAnimal(harness.state, cow.id, 'was taken by something in the night', false);
+    expect(
+      harness.state.log.some((e) => e.message.includes('was taken by something in the night')),
+    ).toBe(true);
+
+    const wild = createAnimal(harness.state, 'deer', at.x + 7, at.y);
+    harness.state.animals[wild.id] = { ...wild, designation: 'hunt' };
+    killAnimal(harness.state, wild.id, 'was hunted', true);
+    expect(harness.state.log.some((e) => e.message.includes('was hunted'))).toBe(true);
+
+    const nobody = createAnimal(harness.state, 'rabbit', at.x + 8, at.y);
+    const before = harness.state.log.length;
+    killAnimal(harness.state, nobody.id, 'starved', false);
+    expect(harness.state.log.length).toBe(before);
   });
 
   it('makes an attacked colonist flee and survive', () => {

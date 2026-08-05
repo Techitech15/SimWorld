@@ -141,8 +141,9 @@ export const INCIDENTS: Incident[] = [
         arrived++;
       }
       if (arrived === 0) return null;
-      const beast = SPECIES[species].label.toLowerCase();
-      return `A herd of ${arrived} ${arrived === 1 ? beast : `${beast}s`} moved through`;
+      const profile = SPECIES[species];
+      const beast = (arrived === 1 ? profile.label : profile.plural).toLowerCase();
+      return `A herd of ${arrived} ${beast} moved through`;
     },
   },
   {

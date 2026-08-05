@@ -3,7 +3,7 @@
 // them can end the colony on its own, and that replaying a save gives the same
 // year - an incident belongs to the world, not to the session.
 import { describe, expect, it } from 'vitest';
-import { TICKS_PER_DAY } from './constants';
+import { ANIMAL_SPECIES, SPECIES, TICKS_PER_DAY } from './constants';
 import { createSimContext } from './derived';
 import {
   EVENT_FIRST_TICK,
@@ -208,11 +208,25 @@ describe('incidents', () => {
   }, 120000);
 
   it('writes lines that read like English', () => {
-    // spotted in the running game: "A herd of 4 rabbit moved through"
+    // Spotted in the running game twice over: first "A herd of 4 rabbit moved
+    // through", then - after a fix that appended an s - "A herd of 4 deers".
+    // The regex written the first time was /\w+s/, which passes for "deers",
+    // so the test had the bug in it too. Plurals come from the species now and
+    // this checks the actual words.
     const harness = createHarness(9723);
     const herd = INCIDENTS.find((i) => i.name === 'migratingHerd')!;
-    const message = herd.apply(harness.state, () => 0.9);
-    expect(message).toMatch(/A herd of \d+ \w+s moved through/);
+    const deer = herd.apply(harness.state, () => 0.1);
+    const rabbit = herd.apply(harness.state, () => 0.9);
+    expect([deer, rabbit].join(' ')).toContain('deer moved through');
+    expect([deer, rabbit].join(' ')).toContain('rabbits moved through');
+    expect([deer, rabbit].join(' ')).not.toContain('deers');
+
+    for (const species of ANIMAL_SPECIES) {
+      const profile = SPECIES[species];
+      expect(profile.plural).toBeTruthy();
+      // a plural that is just the label with an s stuck on is the bug above
+      expect(profile.plural === `${profile.label}s`).toBe(species !== 'deer' && species !== 'wolf');
+    }
   });
 
   it('marks itself in the log, so a wolf pack does not read like a level-up', () => {
