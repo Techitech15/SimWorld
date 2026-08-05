@@ -127,7 +127,7 @@ export const COLONIST_NAMES = ['Aria', 'Bruno', 'Cleo'];
 
 // --- animal layer (docs/design-animals.md 6) --------------------------------
 
-export const ANIMAL_SPECIES: AnimalSpecies[] = ['deer', 'boar', 'chicken', 'wolf'];
+export const ANIMAL_SPECIES: AnimalSpecies[] = ['deer', 'boar', 'rabbit', 'chicken', 'wolf'];
 
 export interface SpeciesProfile {
   label: string;
@@ -171,6 +171,18 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     adultAtTicks: TICKS_PER_DAY * 2,
     initialCount: 4,
+  },
+  rabbit: {
+    label: 'Rabbit',
+    diet: 'herbivore',
+    ticksPerStep: 2, // as quick as a wolf: catching one is a real chase
+    maxHealth: 20,
+    foodYield: 10,
+    tameChance: 0.55,
+    produceAmount: 0,
+    produceIntervalTicks: 0,
+    adultAtTicks: TICKS_PER_DAY, // and quick to mature, so the herd rebuilds fast
+    initialCount: 10,
   },
   chicken: {
     label: 'Chicken',

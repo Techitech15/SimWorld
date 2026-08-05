@@ -662,6 +662,9 @@ const A = {
   deerBelly: '#c98f58',
   deerDark: '#7d4f27',
   deerAntler: '#e0cba8',
+  rabbitBody: '#b9ab97',
+  rabbitBelly: '#ded4c2',
+  rabbitDark: '#8a7d6b',
   boarBody: '#5e4a3c',
   boarBelly: '#7a6252',
   boarDark: '#3f3229',
@@ -730,6 +733,36 @@ function deerSheet() {
     c.vline(headX + 3, headY - 4, 3, A.deerAntler);
     // white tail
     c.rect(3, 14, 3, 4, '#efe6cf');
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
+/** Small and low to the ground, with the ears doing the silhouette work. */
+function rabbitSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    const { headX, headY } = quadruped(c, frame, {
+      body: A.rabbitBody,
+      belly: A.rabbitBelly,
+      dark: A.rabbitDark,
+      neck: 1,
+      bodyY: 18,
+      bodyW: 11,
+      bodyH: 6,
+      legLength: 3,
+      x0: 9,
+      muzzle: A.rabbitDark,
+    });
+    // long ears
+    c.vline(headX + 1, headY - 6, 6, A.rabbitBody);
+    c.vline(headX + 3, headY - 5, 5, A.rabbitBody);
+    c.set(headX + 1, headY - 6, A.rabbitDark);
+    c.set(headX + 3, headY - 5, A.rabbitDark);
+    // powder puff tail
+    c.disc(9, 19, 2, A.rabbitBelly);
     c.outline(P.outline);
     c.blitTo(sheet, frame * TILE, 0);
   }
@@ -905,6 +938,7 @@ written.push(save('ui/need_hunger.png', iconHunger()));
 written.push(save('ui/need_sleep.png', iconSleep()));
 written.push(save('animals/deer.png', deerSheet()));
 written.push(save('animals/boar.png', boarSheet()));
+written.push(save('animals/rabbit.png', rabbitSheet()));
 written.push(save('animals/chicken.png', chickenSheet()));
 written.push(save('animals/wolf.png', wolfSheet()));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));

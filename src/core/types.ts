@@ -219,7 +219,7 @@ export interface Zone {
 
 // --- animal layer (docs/design-animals.md) ----------------------------------
 
-export type AnimalSpecies = 'deer' | 'boar' | 'chicken' | 'wolf';
+export type AnimalSpecies = 'deer' | 'boar' | 'rabbit' | 'chicken' | 'wolf';
 
 /** What the player has marked this animal for; mirrors Tile.designation. */
 export type AnimalDesignation = 'hunt' | 'tame' | 'slaughter';

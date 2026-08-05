@@ -266,9 +266,9 @@ export function createAnimal(
  */
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
-  for (const species of ['deer', 'boar', 'chicken'] as AnimalSpecies[]) {
+  for (const species of ['deer', 'boar', 'rabbit', 'chicken'] as AnimalSpecies[]) {
     for (let i = 0; i < SPECIES[species].initialCount; i++) {
-      const spot = findSpawnTile(state, rnd, camp, species === 'chicken' ? 6 : 12);
+      const spot = findSpawnTile(state, rnd, camp, species === 'chicken' || species === 'rabbit' ? 6 : 12);
       if (spot) createAnimal(state, species, spot.x, spot.y);
     }
   }

@@ -8,7 +8,7 @@
 // iframe, an embed) the whole map would silently fail to load while the rest of
 // the UI kept working. Decoding an <img> only needs `img-src`.
 import { ImageSource, Rectangle, Texture } from 'pixi.js';
-import { TILE_SIZE } from '../core/constants';
+import { ANIMAL_SPECIES, TILE_SIZE } from '../core/constants';
 import type { AnimalSpecies } from '../core/types';
 import { sprites } from '../assets/sprites';
 import type { SpriteKey } from '../assets/sprites';
@@ -84,7 +84,7 @@ export async function loadTextures(): Promise<GameTextures> {
   const colonistWork = [slice(workSheet, 0, 0), slice(workSheet, TILE_SIZE, 0)];
 
   const animals = {} as Record<AnimalSpecies, Texture[]>;
-  for (const species of ['deer', 'boar', 'chicken', 'wolf'] as AnimalSpecies[]) {
+  for (const species of ANIMAL_SPECIES) {
     const sheet = tiles[species];
     animals[species] = [slice(sheet, 0, 0), slice(sheet, TILE_SIZE, 0)];
   }
