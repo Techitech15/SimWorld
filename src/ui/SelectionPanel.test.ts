@@ -21,7 +21,8 @@ describe('tile inspection', () => {
 
     const rows = describeTile(harness.state, tileId);
     expect(value(rows, 'Terrain')).toBe('Grass');
-    expect(value(rows, 'Zone')).toBe('Storage');
+    // a store now says what it takes, because that is a thing the player sets
+    expect(value(rows, 'Zone')).toBe('Storage — takes everything, 20 tiles');
     expect(value(rows, 'Building')).toBe('Storage marker');
     expect(value(rows, 'Items')).toMatch(/\d+ (wood|food|stone)/);
   });

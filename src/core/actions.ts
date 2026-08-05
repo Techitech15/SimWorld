@@ -4,7 +4,7 @@
 // Each function takes a state, returns the next state, and never runs simulation
 // logic itself - a placed blueprint simply exists, and the JobGenerator picks it
 // up on the next tick.
-import { BUILDING_COSTS, BUILDING_HP, SPECIES } from './constants';
+import { BUILDING_COSTS, BUILDING_HP, RESOURCE_TYPES, SPECIES } from './constants';
 import type { SimContext } from './derived';
 import {
   addLog,
@@ -25,6 +25,7 @@ import type {
   Designation,
   GameState,
   JobType,
+  ResourceType,
   TileId,
   Vector2,
   Zone,
@@ -233,19 +234,23 @@ export function placePastureZone(state: GameState, tileIds: TileId[]): GameState
 /**
  * Which zone a newly painted tile belongs to.
  *
- * Storage is one pool wherever it is, so every storage tile joins the same zone.
- * A pasture is a *place*, though: with doors keeping animals in, two pens on
- * opposite sides of the camp have to be two herds with two capacities. So a
- * pasture tile joins a zone it touches and otherwise starts a new one. Painting
- * a tile that bridges two pens leaves them separate rather than merging - the
- * simple rule is easier to predict than a clever one.
+ * Both kinds of zone are *places*. For a pasture that was always true: with
+ * doors keeping animals in, two pens on opposite sides of the camp have to be
+ * two herds with two capacities. Storage used to be the exception - one pool
+ * wherever it was painted - which was fine while every store held the same
+ * heap, and stopped being fine when a zone gained a filter: a wood yard by the
+ * wall and a larder by the beds are two different orders, and they cannot be
+ * two orders if they are one zone.
+ *
+ * So a tile joins a zone of its kind that it touches, and otherwise starts a
+ * new one. Painting a tile that bridges two zones leaves them separate rather
+ * than merging - the simple rule is easier to predict than a clever one.
  */
 function zoneForTile(state: GameState, type: Zone['type'], tileId: TileId): ZoneId | null {
   const tile = state.tiles[tileId];
   for (const id in state.zones) {
     const zone = state.zones[id];
     if (zone.type !== type) continue;
-    if (type === 'storage') return id;
     if (zone.tileIds.includes(tileId)) return id;
     const touches = zone.tileIds.some((other) => {
       const at = state.tiles[other];
@@ -318,10 +323,40 @@ function placeZone(state: GameState, type: Zone['type'], tileIds: TileId[]): Gam
   if (additions.size === 0) return state;
   const zones = { ...next.zones };
   for (const [zoneId, added] of additions) {
-    const zone: Zone = zones[zoneId] ?? { id: zoneId, type, tileIds: [] };
+    const zone: Zone = zones[zoneId] ?? {
+      id: zoneId,
+      type,
+      tileIds: [],
+      // a new store takes everything until the player says otherwise; a pen is
+      // a feed trough and nothing else, which is what stops haulers stacking
+      // firewood among the livestock
+      accepts: type === 'storage' ? [...RESOURCE_TYPES] : ['food'],
+    };
     zones[zoneId] = { ...zone, tileIds: [...zone.tileIds, ...added] };
   }
   next.zones = zones;
+  return next;
+}
+
+/**
+ * Narrow or widen what a storage zone takes. A stack that no longer belongs is
+ * not teleported out: it becomes ordinary haul work on the next tick, which is
+ * the same path everything else in the colony travels.
+ */
+export function setZoneAccepts(
+  state: GameState,
+  zoneId: ZoneId,
+  type: ResourceType,
+  allowed: boolean,
+): GameState {
+  const zone = state.zones[zoneId];
+  if (!zone || zone.type !== 'storage') return state;
+  if (zone.accepts.includes(type) === allowed) return state;
+  const accepts = allowed
+    ? RESOURCE_TYPES.filter((r) => r === type || zone.accepts.includes(r))
+    : zone.accepts.filter((r) => r !== type);
+  const next = edit(state);
+  next.zones = { ...next.zones, [zoneId]: { ...zone, accepts } };
   return next;
 }
 

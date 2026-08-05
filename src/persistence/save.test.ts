@@ -2,8 +2,8 @@
 // unchanged. Plus the versioning rules of section 8.
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { setDesignation } from '../core/actions';
-import { COLONIST_MAX_HEALTH } from '../core/constants';
+import { placePastureZone, setDesignation } from '../core/actions';
+import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
 import { SKILL_NAMES, emptySkills } from '../core/skills';
 import { createEmptyState } from '../core/state';
 import type { GameState } from '../core/types';
@@ -186,6 +186,46 @@ describe('save file versioning', () => {
       SKILL_NAMES.some((name) => c.skills[name] > 0),
     );
     expect(learned).toBe(true);
+  });
+
+  it('migrates a version 4 save into zone filters', () => {
+    const harness = createHarness(79);
+    harness.run(100);
+    harness.state = placePastureZone(
+      harness.state,
+      [0, 1, 2].map((d) => {
+        const at = Object.values(harness.state.colonists)[0].position;
+        return `${at.x + 4 + d},${at.y - 3}`;
+      }),
+    );
+    const v4 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v4.zones) {
+      const { accepts: _dropped, ...rest } = v4.zones[id];
+      v4.zones[id] = rest as GameState['zones'][string];
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 4,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: v4,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    let sawPasture = false;
+    for (const id in migrated.state.zones) {
+      const zone = migrated.state.zones[id];
+      if (zone.type === 'storage') {
+        // an old store was taking everything, so that is what it keeps doing
+        expect([...zone.accepts].sort()).toEqual([...RESOURCE_TYPES].sort());
+      } else {
+        expect(zone.accepts).toEqual(['food']);
+        sawPasture = true;
+      }
+    }
+    expect(sawPasture).toBe(true);
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
   it('rejects malformed json and missing fields', () => {

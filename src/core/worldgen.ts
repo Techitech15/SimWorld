@@ -7,6 +7,7 @@ import {
   COLONIST_NAMES,
   MAP_HEIGHT,
   MAP_WIDTH,
+  RESOURCE_TYPES,
   SPECIES,
   STACK_MAX,
 } from './constants';
@@ -149,7 +150,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   for (let y = cy + 1; y < cy + 5; y++) {
     for (let x = cx - 2; x < cx + 3; x++) storageTiles.push(tileIdOf(x, y));
   }
-  const zone: Zone = { id: 'z1', type: 'storage', tileIds: storageTiles };
+  const zone: Zone = { id: 'z1', type: 'storage', tileIds: storageTiles, accepts: [...RESOURCE_TYPES] };
   state.zones[zone.id] = zone;
   state.nextIds = { ...state.nextIds, z: 1 };
   for (const tileId of storageTiles) addBuilding(state, 'storageZoneMarker', tileId);

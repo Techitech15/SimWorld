@@ -16,8 +16,10 @@ import type {
   Designation,
   GameState,
   JobType,
+  ResourceType,
   TileId,
   Vector2,
+  ZoneId,
 } from '../core/types';
 import { AUTOSAVE_SLOT, DEFAULT_SLOT, hasSave, loadGame, saveGame } from '../persistence/indexeddb';
 
@@ -69,6 +71,7 @@ export interface GameStore {
 
   // player actions (section 3: UI writes to the store, the tick reacts to it)
   setJobPriority: (colonistId: ColonistId, jobType: JobType, priority: number) => void;
+  setZoneAccepts: (zoneId: ZoneId, type: ResourceType, allowed: boolean) => void;
   applyTool: (tileIds: TileId[]) => void;
   orderMove: (colonistId: ColonistId, target: Vector2) => void;
   toggleFarmSowing: (tileId: TileId) => void;
@@ -173,6 +176,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       state: actions.setJobPriority(get().state, colonistId, jobType, priority),
     }),
+
+  setZoneAccepts: (zoneId, type, allowed) =>
+    set({ state: actions.setZoneAccepts(get().state, zoneId, type, allowed) }),
 
   applyTool: (tileIds) => {
     const { tool, state } = get();

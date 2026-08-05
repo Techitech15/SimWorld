@@ -2,19 +2,39 @@
 import { STACK_MAX } from './constants';
 import { isReserved } from './jobs/reservations';
 import { manhattan, tileIdOf } from './state';
-import type { GameState, Item, ResourceType, TileId, Vector2 } from './types';
+import type { GameState, Item, ResourceType, TileId, Vector2, Zone } from './types';
 
 export function storageTileIds(state: GameState): TileId[] {
   const ids: TileId[] = [];
-  for (const zoneId in state.zones) ids.push(...state.zones[zoneId].tileIds);
+  for (const zoneId in state.zones) {
+    if (state.zones[zoneId].type !== 'storage') continue;
+    ids.push(...state.zones[zoneId].tileIds);
+  }
   return ids;
 }
 
 export function isStorageTile(state: GameState, tileId: TileId): boolean {
+  return zoneAt(state, tileId)?.type === 'storage';
+}
+
+/** The zone covering a tile, storage or pasture, or null for open ground. */
+export function zoneAt(state: GameState, tileId: TileId): Zone | null {
   for (const zoneId in state.zones) {
-    if (state.zones[zoneId].tileIds.includes(tileId)) return true;
+    if (state.zones[zoneId].tileIds.includes(tileId)) return state.zones[zoneId];
   }
-  return false;
+  return null;
+}
+
+/**
+ * Whether a stack of this resource belongs on this tile. This is the one
+ * question both halves of hauling ask: the generator uses it to decide that a
+ * loose stack needs moving, and the destination search uses it to decide where
+ * the stack may go. Asking it in one place is what keeps a filtered zone from
+ * hauling the same crate back and forth forever.
+ */
+export function acceptsHere(state: GameState, tileId: TileId, type: ResourceType): boolean {
+  const zone = zoneAt(state, tileId);
+  return zone ? zone.accepts.includes(type) : false;
 }
 
 export function itemsOnTile(state: GameState, tileId: TileId): Item[] {
@@ -32,9 +52,21 @@ export function freeCapacity(state: GameState, tileId: TileId, type: ResourceTyp
   return Math.max(0, STACK_MAX - same.quantity);
 }
 
+/** Every tile that would take this resource: storage zones plus feed piles. */
+function destinationTileIds(state: GameState, type: ResourceType): TileId[] {
+  const ids: TileId[] = [];
+  for (const zoneId in state.zones) {
+    const zone = state.zones[zoneId];
+    if (!zone.accepts.includes(type)) continue;
+    ids.push(...zone.tileIds);
+  }
+  return ids;
+}
+
 /**
- * Nearest storage tile with room, skipping tiles another colonist has already
- * reserved as a drop-off (section 6.3: the destination is reserved too).
+ * Nearest tile with room that accepts this resource, skipping tiles another
+ * colonist has already reserved as a drop-off (section 6.3: the destination is
+ * reserved too).
  */
 export function findStorageDestination(
   state: GameState,
@@ -44,7 +76,7 @@ export function findStorageDestination(
 ): TileId | null {
   let best: TileId | null = null;
   let bestDistance = Infinity;
-  for (const tileId of storageTileIds(state)) {
+  for (const tileId of destinationTileIds(state, type)) {
     if (isReserved(state, tileId)) continue;
     if (freeCapacity(state, tileId, type) < Math.min(quantity, 1)) continue;
     const tile = state.tiles[tileId];

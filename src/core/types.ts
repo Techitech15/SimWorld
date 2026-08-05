@@ -229,6 +229,12 @@ export interface Zone {
   /** [ext] 'pasture' keeps tamed animals in one place and bounds the herd size */
   type: 'storage' | 'pasture';
   tileIds: TileId[];
+  /**
+   * [ext] Which resources may be hauled here. A storage zone starts accepting
+   * everything and the player narrows it; a pasture only ever accepts food,
+   * because a feed pile is the one thing that belongs in a pen.
+   */
+  accepts: ResourceType[];
 }
 
 // --- animal layer (docs/design-animals.md) ----------------------------------

@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
-import { BUILDING_COSTS, SPECIES } from '../core/constants';
+import { BUILDING_COSTS, RESOURCE_TYPES, SPECIES } from '../core/constants';
 import { herdSize, isAdult, isPredator, pastureCapacity } from '../core/animals';
 import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, seasonOf } from '../core/season';
 import type { BuildingType, GameState, TerrainType } from '../core/types';
@@ -56,7 +56,16 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
   if (tile.designation) add('Order', DESIGNATION_LABEL[tile.designation] ?? tile.designation);
 
   const zone = Object.values(state.zones).find((z) => z.tileIds.includes(tileId));
-  if (zone?.type === 'storage') add('Zone', 'Storage');
+  if (zone?.type === 'storage') {
+    add(
+      'Zone',
+      zone.accepts.length === RESOURCE_TYPES.length
+        ? `Storage — takes everything, ${zone.tileIds.length} tiles`
+        : zone.accepts.length === 0
+          ? `Storage — takes nothing, ${zone.tileIds.length} tiles`
+          : `Storage — ${zone.accepts.join(', ')} only, ${zone.tileIds.length} tiles`,
+    );
+  }
   if (zone?.type === 'pasture') {
     // a colony may keep several pens, so say which one and how full it is
     add(
@@ -128,6 +137,51 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
   return rows;
 }
 
+/**
+ * What the selected storage zone takes. Narrowing it does not teleport the
+ * wrong stacks out - they become haul work like anything else - so the toggles
+ * are an order, not an edit.
+ *
+ * The selector returns the zone id and a flat "wood,food" string rather than
+ * the zone object, for the same reason describeTile returns strings: a fresh
+ * object every tick is a re-render every tick.
+ */
+function StorageFilters(): React.JSX.Element | null {
+  const [zoneId, accepted] = useGameStore(
+    useShallow((s): [string | null, string] => {
+      const tileId = s.selectedTileId;
+      if (!tileId) return [null, ''];
+      const zone = Object.values(s.state.zones).find(
+        (z) => z.type === 'storage' && z.tileIds.includes(tileId),
+      );
+      return zone ? [zone.id, zone.accepts.join(',')] : [null, ''];
+    }),
+  );
+  const setZoneAccepts = useGameStore((s) => s.setZoneAccepts);
+  if (!zoneId) return null;
+
+  const accepts = accepted.length > 0 ? accepted.split(',') : [];
+  return (
+    <div className="filters">
+      <span className="filters__label">Accepts</span>
+      {RESOURCE_TYPES.map((type) => {
+        const on = accepts.includes(type);
+        return (
+          <button
+            type="button"
+            key={type}
+            className={`filters__chip ${on ? 'filters__chip--on' : ''}`}
+            onClick={() => setZoneAccepts(zoneId, type, !on)}
+            title={on ? `stop hauling ${type} here` : `haul ${type} here`}
+          >
+            {type}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SelectionPanel(): React.JSX.Element | null {
   const rows = useGameStore(useShallow((s) => describeTile(s.state, s.selectedTileId)));
   const clear = useGameStore((s) => s.selectTile);
@@ -154,6 +208,7 @@ export function SelectionPanel(): React.JSX.Element | null {
           );
         })}
       </dl>
+      <StorageFilters />
     </section>
   );
 }

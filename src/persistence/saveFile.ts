@@ -4,11 +4,11 @@
 // literally JSON.stringify. PathIndex is derived and therefore not saved;
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
-import { COLONIST_MAX_HEALTH } from '../core/constants';
+import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -80,6 +80,25 @@ export const migrations: Record<number, Migration> = {
       colonists[id] = { ...colonist, skills: { ...emptySkills(), ...(colonist.skills ?? {}) } };
     }
     return { ...state, colonists };
+  },
+
+  /**
+   * 4 -> 5: zones say what they take. An old save's storage zones were taking
+   * everything, so that is what they keep doing; pastures counted as storage by
+   * accident, which is how firewood ended up stacked among the livestock, and
+   * they are narrowed to the feed pile they were meant to be.
+   */
+  4: (old) => {
+    const state = old as Partial<GameState>;
+    const zones: GameState['zones'] = {};
+    for (const id in state.zones ?? {}) {
+      const zone = state.zones![id];
+      zones[id] = {
+        ...zone,
+        accepts: zone.accepts ?? (zone.type === 'storage' ? [...RESOURCE_TYPES] : ['food']),
+      };
+    }
+    return { ...state, zones };
   },
 };
 

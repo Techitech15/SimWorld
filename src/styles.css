@@ -270,6 +270,41 @@ button.active {
   background: var(--crit);
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.filters__label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Off has to read as off at a glance, so it is dimmed and struck through
+   rather than merely a shade darker than on. */
+.filters__chip {
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid #ffffff1a;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.filters__chip--on {
+  border-color: var(--accent);
+  color: var(--text);
+  background: #ffffff14;
+  opacity: 1;
+  text-decoration: none;
+}
+
 .skills {
   display: flex;
   flex-wrap: wrap;

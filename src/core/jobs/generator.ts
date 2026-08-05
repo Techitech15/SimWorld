@@ -5,7 +5,7 @@
 // so a designated tree never grows a second chop job while the first is alive.
 import { DEFAULT_JOB_PRIORITY } from '../constants';
 import { nextId, tileIdOf } from '../state';
-import { findNearestItem, isStorageTile } from '../storage';
+import { acceptsHere, findNearestItem } from '../storage';
 import type { GameState, Job, JobId, JobType, TileId } from '../types';
 
 /** Identity of the work a job represents; two jobs never share one. */
@@ -199,9 +199,10 @@ export function runJobGenerator(state: GameState): void {
   for (const itemId in state.items) {
     const item = state.items[itemId];
     const tileId = tileIdOf(item.position.x, item.position.y);
-    // Items already inside a storage zone stay put; re-hauling them is exactly
-    // the infinite loop section 6 warns about.
-    if (isStorageTile(state, tileId)) continue;
+    // A stack already sitting somewhere that takes it stays put; re-hauling it
+    // is exactly the infinite loop section 6 warns about. Narrowing a zone's
+    // filter is therefore also the order "carry what no longer belongs out".
+    if (acceptsHere(state, tileId, item.type)) continue;
     const key = `haul:${itemId}`;
     if (has(key)) continue;
     createJob(state, 'haul', {
@@ -268,7 +269,7 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
         // otherwise the destination is a storage tile chosen at reservation time
         return state.tiles[job.destinationId] !== undefined;
       }
-      return !isStorageTile(state, tileIdOf(item.position.x, item.position.y));
+      return !acceptsHere(state, tileIdOf(item.position.x, item.position.y), item.type);
     }
     default:
       return false;
