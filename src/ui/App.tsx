@@ -5,6 +5,7 @@ import { AnimalPanel } from './AnimalPanel';
 import { ColonistPanel } from './ColonistPanel';
 import { EventLog } from './EventLog';
 import { GameCanvas } from './GameCanvas';
+import { Minimap } from './Minimap';
 import { ResourcePanel } from './ResourcePanel';
 import { SelectionPanel } from './SelectionPanel';
 import { Toolbar } from './Toolbar';
@@ -27,6 +28,7 @@ export function App(): React.JSX.Element {
           <GameCanvas />
         </main>
         <aside className="sidebar sidebar--right">
+          <Minimap />
           <AlertPanel />
           <SelectionPanel />
           <ColonistPanel />

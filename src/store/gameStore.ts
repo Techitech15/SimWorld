@@ -56,6 +56,13 @@ export interface GameStore {
    * click on an alert leaves this behind and the next frame consumes it.
    */
   focusTarget: Vector2 | null;
+  /**
+   * What the camera can currently see, in tiles. Written by the renderer, read
+   * by the minimap - the one place React needs to know where the camera is.
+   * `setViewport` drops an unchanged report so a still camera is not a
+   * re-render sixty times a second.
+   */
+  viewport: { x: number; y: number; w: number; h: number } | null;
   statusMessage: string | null;
 
   // simulation
@@ -67,6 +74,7 @@ export interface GameStore {
   selectColonist: (id: ColonistId | null) => void;
   selectTile: (id: TileId | null) => void;
   focusOnTile: (at: Vector2 | null) => void;
+  setViewport: (viewport: { x: number; y: number; w: number; h: number }) => void;
   setStatus: (message: string | null) => void;
 
   // player actions (section 3: UI writes to the store, the tick reacts to it)
@@ -156,6 +164,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedColonistId: null,
   selectedTileId: null,
   focusTarget: null,
+  viewport: null,
   statusMessage: null,
   hasAutosave: false,
 
@@ -170,6 +179,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectColonist: (selectedColonistId) => set({ selectedColonistId }),
   selectTile: (selectedTileId) => set({ selectedTileId }),
   focusOnTile: (focusTarget) => set({ focusTarget }),
+  setViewport: (viewport) => {
+    const current = get().viewport;
+    if (
+      current &&
+      current.x === viewport.x &&
+      current.y === viewport.y &&
+      current.w === viewport.w &&
+      current.h === viewport.h
+    ) {
+      return;
+    }
+    set({ viewport });
+  },
   setStatus: (statusMessage) => set({ statusMessage }),
 
   setJobPriority: (colonistId, jobType, priority) =>

@@ -549,6 +549,22 @@ export class GameRenderer {
     this.world.scale.set(this.camera.zoom);
     this.world.x = -this.camera.x * this.camera.zoom;
     this.world.y = -this.camera.y * this.camera.zoom;
+    this.reportViewport();
+  }
+
+  /**
+   * Tell the store which tiles are on screen, so the minimap can outline them.
+   * Rounded to whole tiles: at pixel precision a slow pan would be a state
+   * change every frame, and the store drops a report that did not change.
+   */
+  private reportViewport(): void {
+    const scale = TILE_SIZE * this.camera.zoom;
+    useGameStore.getState().setViewport({
+      x: Math.round(this.camera.x / TILE_SIZE),
+      y: Math.round(this.camera.y / TILE_SIZE),
+      w: Math.round(this.app.renderer.width / scale),
+      h: Math.round(this.app.renderer.height / scale),
+    });
   }
 
   private applyKeyboardPan(deltaMs: number): void {

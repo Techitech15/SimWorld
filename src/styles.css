@@ -270,6 +270,39 @@ button.active {
   background: var(--crit);
 }
 
+.minimap {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  /* 60x60 backing pixels blown up: keep the tiles square, not smeared */
+  image-rendering: pixelated;
+  cursor: crosshair;
+  background: #0006;
+}
+
+.minimap__key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.minimap__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+
+.minimap__dot:first-child {
+  margin-left: 0;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
