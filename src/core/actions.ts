@@ -28,6 +28,7 @@ import type {
   TileId,
   Vector2,
   Zone,
+  ZoneId,
 } from './types';
 import { releaseByJob, releaseEntity } from './jobs/reservations';
 
@@ -218,15 +219,41 @@ export function placePastureZone(state: GameState, tileIds: TileId[]): GameState
   return placeZone(state, 'pasture', tileIds);
 }
 
+/**
+ * Which zone a newly painted tile belongs to.
+ *
+ * Storage is one pool wherever it is, so every storage tile joins the same zone.
+ * A pasture is a *place*, though: with doors keeping animals in, two pens on
+ * opposite sides of the camp have to be two herds with two capacities. So a
+ * pasture tile joins a zone it touches and otherwise starts a new one. Painting
+ * a tile that bridges two pens leaves them separate rather than merging - the
+ * simple rule is easier to predict than a clever one.
+ */
+function zoneForTile(state: GameState, type: Zone['type'], tileId: TileId): ZoneId | null {
+  const tile = state.tiles[tileId];
+  for (const id in state.zones) {
+    const zone = state.zones[id];
+    if (zone.type !== type) continue;
+    if (type === 'storage') return id;
+    if (zone.tileIds.includes(tileId)) return id;
+    const touches = zone.tileIds.some((other) => {
+      const at = state.tiles[other];
+      return at && Math.abs(at.x - tile.x) + Math.abs(at.y - tile.y) === 1;
+    });
+    if (touches) return id;
+  }
+  return null;
+}
+
 function placeZone(state: GameState, type: Zone['type'], tileIds: TileId[]): GameState {
   const next = edit(state);
-  const existingId = Object.keys(next.zones).find((id) => next.zones[id].type === type);
-  const zoneId = existingId ?? nextId(next, 'z');
-  const zone: Zone = next.zones[zoneId] ?? { id: zoneId, type, tileIds: [] };
-  const added: TileId[] = [];
+  /** tiles accepted so far, per zone id; a new zone id is minted on demand */
+  const additions = new Map<ZoneId, TileId[]>();
+  let freshZoneId: ZoneId | null = null;
+
   for (const tileId of tileIds) {
     const tile = next.tiles[tileId];
-    if (!tile || zone.tileIds.includes(tileId)) continue;
+    if (!tile) continue;
     if (!tile.walkable) continue;
     // a pasture is just marked ground: grass has to stay grazeable, so unlike a
     // storage zone it does not drop a marker building on the tile
@@ -250,13 +277,40 @@ function placeZone(state: GameState, type: Zone['type'], tileIds: TileId[]): Gam
     } else if (tile.terrain !== 'grass') {
       continue; // nothing to graze on stone or under trees
     }
-    added.push(tileId);
+
+    // join whatever this tile touches, including anything painted a moment ago
+    let zoneId = zoneForTile(next, type, tileId);
+    if (zoneId && next.zones[zoneId].tileIds.includes(tileId)) continue;
+    if (!zoneId) {
+      for (const [candidate, tiles] of additions) {
+        if (
+          tiles.some((other) => {
+            const at = next.tiles[other];
+            return Math.abs(at.x - tile.x) + Math.abs(at.y - tile.y) === 1;
+          })
+        ) {
+          zoneId = candidate;
+          break;
+        }
+      }
+    }
+    if (!zoneId) {
+      freshZoneId ??= nextId(next, 'z');
+      zoneId = freshZoneId;
+      freshZoneId = null; // one drag may create several pens
+    }
+    const list = additions.get(zoneId);
+    if (list) list.push(tileId);
+    else additions.set(zoneId, [tileId]);
   }
-  if (added.length === 0) return state;
-  next.zones = {
-    ...next.zones,
-    [zoneId]: { ...zone, tileIds: [...zone.tileIds, ...added] },
-  };
+
+  if (additions.size === 0) return state;
+  const zones = { ...next.zones };
+  for (const [zoneId, added] of additions) {
+    const zone: Zone = zones[zoneId] ?? { id: zoneId, type, tileIds: [] };
+    zones[zoneId] = { ...zone, tileIds: [...zone.tileIds, ...added] };
+  }
+  next.zones = zones;
   return next;
 }
 
