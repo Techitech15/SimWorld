@@ -189,8 +189,12 @@ export class GameRenderer {
     switch (building.type) {
       case 'wall':
         return t.wall;
+      case 'stoneWall':
+        return t.stoneWall;
       case 'floor':
         return t.floor;
+      case 'stoneFloor':
+        return t.stoneFloor;
       case 'door': {
         const tile = state.tiles[building.tileId];
         const occupied = Object.values(state.colonists).some(

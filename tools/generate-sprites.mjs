@@ -203,6 +203,53 @@ function wallBlueprint() {
   return c;
 }
 
+/** Granite block wall: the stone counterpart to the wooden one, and tougher. */
+function stoneWallTile() {
+  const c = new Canvas(TILE, TILE);
+  c.fill(P.stone[0]);
+  const block = (x, y, w, h) => {
+    c.rect(x, y, w, h, P.stone[2]);
+    c.hline(x, y, w, P.stone[3]);
+    c.hline(x, y + h - 1, w, P.stone[0]);
+    c.vline(x + w - 1, y, h, P.stone[0]);
+  };
+  let y = 1;
+  let offset = 0;
+  while (y < TILE - 1) {
+    for (let x = -offset; x < TILE; x += 16) block(x + 1, y, 14, 9);
+    y += 11;
+    offset = offset === 0 ? 8 : 0;
+  }
+  c.strokeRect(0, 0, TILE, TILE, P.outline);
+  return c;
+}
+
+/** Flagstones: irregular slabs, so it reads differently from the plank floor. */
+function stoneFloorTile() {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(0x5107);
+  c.fill(P.stone[1]);
+  const slabs = [
+    [1, 1, 14, 9],
+    [16, 1, 15, 9],
+    [1, 11, 10, 10],
+    [12, 11, 19, 10],
+    [1, 22, 18, 9],
+    [20, 22, 11, 9],
+  ];
+  for (const [x, y, w, h] of slabs) {
+    c.rect(x, y, w, h, P.stone[2]);
+    c.hline(x, y, w, P.stone[3]);
+    c.hline(x, y + h - 1, w, P.stone[0]);
+    // a few speckles so the slabs are not flat colour
+    for (let i = 0; i < 5; i++) {
+      c.set(x + 1 + Math.floor(rnd() * (w - 2)), y + 1 + Math.floor(rnd() * (h - 2)), P.stone[1]);
+    }
+  }
+  tileEdge(c, P.stone[0]);
+  return c;
+}
+
 function floorTile() {
   const c = new Canvas(TILE, TILE);
   c.fill(P.plankMid);
@@ -834,6 +881,8 @@ written.push(save('terrain/stone.png', stoneTile()));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));
+written.push(save('buildings/stone_wall.png', stoneWallTile()));
+written.push(save('buildings/stone_floor.png', stoneFloorTile()));
 written.push(save('buildings/door_closed.png', doorTile(false)));
 written.push(save('buildings/door_open.png', doorTile(true)));
 written.push(save('buildings/bed.png', bedTile()));

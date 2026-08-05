@@ -30,6 +30,13 @@ export const SLEEP_WAKE_AT = 3;
 export const EAT_TICKS = 30;
 export const FOOD_PER_MEAL = 10;
 export const HUNGER_RESTORED_PER_MEAL = 70;
+/**
+ * A colonist who cannot find food starves: the hunger bar stops at 100 and the
+ * damage starts. Slow enough (a full bar over two days) that a bad afternoon is
+ * survivable and only a real food crisis kills.
+ */
+export const STARVATION_DAMAGE_PER_TICK = 100 / 6000;
+export const STARVATION_WARNING_INTERVAL_TICKS = 500;
 
 // --- job system (section 6) -------------------------------------------------
 export const COOLDOWN_TICKS = 50;
@@ -82,7 +89,10 @@ export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food'];
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   wall: [{ type: 'wood', quantity: 5 }],
+  // stone was a resource with nowhere to go: these two are what mining is for
+  stoneWall: [{ type: 'stone', quantity: 8 }],
   floor: [{ type: 'wood', quantity: 2 }],
+  stoneFloor: [{ type: 'stone', quantity: 3 }],
   door: [{ type: 'wood', quantity: 8 }],
   bed: [{ type: 'wood', quantity: 12 }],
   farmPlot: [],
@@ -91,7 +101,9 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
 
 export const BUILDING_HP: Record<BuildingType, number> = {
   wall: 120,
+  stoneWall: 260, // costlier and slower, but it lasts
   floor: 60,
+  stoneFloor: 110,
   door: 90,
   bed: 60,
   farmPlot: 30,
@@ -101,7 +113,9 @@ export const BUILDING_HP: Record<BuildingType, number> = {
 /** Structures that block movement once finished. */
 export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   wall: true,
+  stoneWall: true,
   floor: false,
+  stoneFloor: false,
   door: false, // MVP: doors are always passable, they just render open/closed
   bed: false,
   farmPlot: false,

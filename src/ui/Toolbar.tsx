@@ -6,7 +6,9 @@ import { icons } from './icons';
 
 const BUILDINGS: { type: BuildingType; label: string }[] = [
   { type: 'wall', label: 'Wall' },
+  { type: 'stoneWall', label: 'Stone wall' },
   { type: 'floor', label: 'Floor' },
+  { type: 'stoneFloor', label: 'Stone floor' },
   { type: 'door', label: 'Door' },
   { type: 'bed', label: 'Bed' },
   { type: 'farmPlot', label: 'Farm' },

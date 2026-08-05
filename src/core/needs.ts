@@ -13,6 +13,8 @@ import {
   SLEEP_RECOVERY_PER_TICK,
   SLEEP_THRESHOLD,
   SLEEP_WAKE_AT,
+  STARVATION_DAMAGE_PER_TICK,
+  STARVATION_WARNING_INTERVAL_TICKS,
 } from './constants';
 import type { SimContext } from './derived';
 import { advanceTowards } from './movement';
@@ -26,12 +28,13 @@ import {
   releaseByJob,
   reserveAll,
 } from './jobs/reservations';
-import { depositCarried } from './death';
+import { depositCarried, killColonist } from './death';
 import { failJob } from './jobs/execute';
 
 export function runNeeds(state: GameState, ctx: SimContext): void {
   for (const colonistId in state.colonists) {
     decayNeeds(state, colonistId);
+    if (!state.colonists[colonistId]) continue; // starved to death this tick
     startNeedBehaviour(state, ctx, colonistId);
     runNeedBehaviour(state, ctx, colonistId);
   }
@@ -45,6 +48,19 @@ function decayNeeds(state: GameState, colonistId: string): void {
     ? Math.max(0, colonist.needs.sleep - SLEEP_RECOVERY_PER_TICK)
     : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK);
   updateColonist(state, colonistId, { needs: { hunger, sleep } });
+
+  // A full hunger bar used to be the end of it, which made food optional. Now
+  // it is where the damage starts - the same shape as a starving animal.
+  if (hunger < 100) return;
+  const health = colonist.health - STARVATION_DAMAGE_PER_TICK;
+  if (health <= 0) {
+    killColonist(state, colonistId, 'starved to death');
+    return;
+  }
+  updateColonist(state, colonistId, { health });
+  if (state.tick % STARVATION_WARNING_INTERVAL_TICKS === 0) {
+    addLog(state, `${colonist.name} is starving`);
+  }
 }
 
 /** Interrupt work when a need crosses its threshold. */

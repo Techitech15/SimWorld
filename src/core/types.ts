@@ -118,7 +118,15 @@ export interface Colonist {
   workPriorities: Record<JobType, number>;
 }
 
-export type BuildingType = 'wall' | 'floor' | 'door' | 'bed' | 'farmPlot' | 'storageZoneMarker';
+export type BuildingType =
+  | 'wall'
+  | 'stoneWall'
+  | 'floor'
+  | 'stoneFloor'
+  | 'door'
+  | 'bed'
+  | 'farmPlot'
+  | 'storageZoneMarker';
 
 export interface RequiredResource {
   type: ResourceType;

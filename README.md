@@ -107,6 +107,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/death.test.ts`       | 入植者を失ってもジョブ・予約・運搬物が取り残されない                                        |
 | `src/core/zones.test.ts`       | ゾーンの撤去でマーカー建築・予約・家畜の紐付けが道連れになる                                 |
 | `src/core/deconstruct.test.ts` | 完成した建築の撤去（半額返却・通行可への復帰・ベッドの解放）                                 |
+| `src/core/survival2.test.ts`   | 空腹100からの餓死と、採掘した石を石壁に使えること                                           |
 
 ## 配布
 
