@@ -112,6 +112,8 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/season.test.ts`      | 四季の暦と、冬に作物が止まり春に再開すること・1年放置で越冬できること                       |
 | `src/core/alerts.test.ts`      | 危険な状態（食料切れ・餓死寸前・負傷・捕食者接近・冬）だけが出ること                         |
 | `src/core/doors.test.ts`       | 扉は入植者だけが通れ、囲いに入れた家畜は出られず狼も入れないこと                             |
+| `src/core/arrivals.test.ts`    | 食料に余裕がある植民地にだけ移住者が来る／冬は来ない／人口上限で止まる                       |
+| `src/core/fodder.test.ts`      | 草の尽きた囲いで家畜が飼い葉を食べて越冬できること                                           |
 
 ## 配布
 

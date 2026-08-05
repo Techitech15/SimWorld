@@ -181,22 +181,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   // colonists
   for (let i = 0; i < 3; i++) {
-    const id = nextId(state, 'c');
-    const colonist: Colonist = {
-      id,
-      name: COLONIST_NAMES[i] ?? `Colonist ${i + 1}`,
-      color: COLONIST_COLORS[i] ?? 0xffffff,
-      position: { x: cx - 1 + i, y: cy + 6 },
-      path: null,
-      pathTargetTileId: null,
-      needs: { hunger: 20 + i * 5, sleep: 10 + i * 5 },
-      health: COLONIST_MAX_HEALTH,
-      currentJobId: null,
-      carrying: null,
-      activity: { kind: 'none' },
-      workPriorities: defaultPriorities(),
-    };
-    state.colonists[id] = colonist;
+    addColonist(state, { x: cx - 1 + i, y: cy + 6 }, { hunger: 20 + i * 5, sleep: 10 + i * 5 });
   }
 
   spawnInitialWildlife(state, seed, { x: cx, y: cy });
@@ -258,6 +243,35 @@ export function createAnimal(
   };
   state.animals[id] = animal;
   return animal;
+}
+
+/**
+ * Create a colonist. Names and colours cycle, so a colony that grows past the
+ * hand-written list still has everybody visually distinct.
+ */
+export function addColonist(
+  state: GameState,
+  position: { x: number; y: number },
+  needs: { hunger: number; sleep: number } = { hunger: 15, sleep: 15 },
+): Colonist {
+  const id = nextId(state, 'c');
+  const index = Number(id.slice(1)) - 1;
+  const colonist: Colonist = {
+    id,
+    name: COLONIST_NAMES[index % COLONIST_NAMES.length] ?? `Colonist ${index + 1}`,
+    color: COLONIST_COLORS[index % COLONIST_COLORS.length] ?? 0xffffff,
+    position: { ...position },
+    path: null,
+    pathTargetTileId: null,
+    needs: { ...needs },
+    health: COLONIST_MAX_HEALTH,
+    currentJobId: null,
+    carrying: null,
+    activity: { kind: 'none' },
+    workPriorities: defaultPriorities(),
+  };
+  state.colonists[id] = colonist;
+  return colonist;
 }
 
 /**

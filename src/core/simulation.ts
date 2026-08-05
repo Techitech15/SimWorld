@@ -5,6 +5,7 @@
 // in src/core/*.test.ts possible. SimContext holds only derived caches
 // (section 7) that are rebuilt rather than saved.
 import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
+import { runArrivals } from './arrivals';
 import {
   CROP_GROWTH_PER_TICK,
   FLEE_DURATION_TICKS,
@@ -32,6 +33,7 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
     addLog(next, `${SEASON_LABEL[seasonOf(next.tick)]} has arrived`);
   }
   growCrops(next);
+  runArrivals(next);
   // needs run first so an interrupted job is back in the queue before the
   // generator and the candidate filter look at it this same tick
   runNeeds(next, ctx);

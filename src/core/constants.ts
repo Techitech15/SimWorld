@@ -124,8 +124,39 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   storageZoneMarker: false,
 };
 
-export const COLONIST_COLORS = [0x8ecae6, 0xffb703, 0xb5e48c];
-export const COLONIST_NAMES = ['Aria', 'Bruno', 'Cleo'];
+export const COLONIST_COLORS = [
+  0x8ecae6, 0xffb703, 0xb5e48c, 0xe0a3c8, 0x9d8df1, 0xf28f6b, 0x6bd6c4, 0xd6cf6b,
+];
+export const COLONIST_NAMES = [
+  'Aria',
+  'Bruno',
+  'Cleo',
+  'Dmitri',
+  'Esme',
+  'Faye',
+  'Goro',
+  'Hana',
+  'Ines',
+  'Jonas',
+  'Kira',
+  'Lars',
+];
+
+/**
+ * Wanderers. A colony that is clearly feeding itself attracts people, which is
+ * the only way the population grows - and it makes the food economy matter for
+ * something other than not dying: a bigger stock buys more hands, and more
+ * hands eat more.
+ */
+export const ARRIVAL_INTERVAL_TICKS = TICKS_PER_DAY * 3;
+/**
+ * Food in store per head, counting the newcomer, before anyone considers
+ * joining. A colonist eats roughly 12 a day, so this is about a fortnight each:
+ * enough that the colony is provably feeding itself through a winter rather
+ * than merely through a good summer.
+ */
+export const ARRIVAL_FOOD_PER_COLONIST = 160;
+export const ARRIVAL_MAX_COLONISTS = 8;
 
 // --- animal layer (docs/design-animals.md 6) --------------------------------
 

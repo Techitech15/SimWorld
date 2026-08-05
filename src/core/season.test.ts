@@ -104,6 +104,7 @@ describe('growth follows the season', () => {
     // a full year, unattended: the stores have to peak before winter and the
     // colony has to come out the other side
     const harness = createHarness(727);
+    const founders = Object.keys(harness.state.colonists);
     let autumnPeak = 0;
     let springLow = Infinity;
     const foodNow = (state: GameState): number =>
@@ -116,7 +117,8 @@ describe('growth follows the season', () => {
       if (seasonOf(state.tick) === 'winter') springLow = Math.min(springLow, foodNow(state));
     });
 
-    expect(Object.keys(harness.state.colonists)).toHaveLength(3);
+    // wanderers may have joined; what must hold is that nobody starved
+    for (const id of founders) expect(harness.state.colonists[id]).toBeDefined();
     expect(autumnPeak).toBeGreaterThan(200);
     // winter really does eat into the stores rather than being cosmetic
     expect(foodNow(harness.state)).toBeLessThan(autumnPeak);
