@@ -115,7 +115,7 @@ describe('save file versioning', () => {
       state: v1 as unknown as GameState,
     });
 
-    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION); // through every step of the chain
     const state = migrated.state;
     expect(state.animals).toEqual({});
     for (const id in state.tiles) {
@@ -129,6 +129,31 @@ describe('save file versioning', () => {
     const ctx = createSimContext(state);
     const after = tickMany(state, ctx, 200);
     expect(after.tick).toBe(harness.state.tick + 200);
+  });
+
+  it('migrates a version 2 save into the predator cooldown', () => {
+    const harness = createHarness(71);
+    harness.run(120);
+    const v2 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v2.animals) {
+      const { huntCooldownUntilTick: _dropped, ...rest } = v2.animals[id];
+      v2.animals[id] = rest as GameState['animals'][string];
+    }
+    expect(Object.keys(v2.animals).length).toBeGreaterThan(0);
+
+    const migrated = migrateSave({
+      schemaVersion: 2,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: v2,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.animals) {
+      expect(migrated.state.animals[id].huntCooldownUntilTick).toBeNull();
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 200).tick).toBe(harness.state.tick + 200);
   });
 
   it('rejects malformed json and missing fields', () => {

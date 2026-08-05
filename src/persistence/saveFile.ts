@@ -7,7 +7,7 @@
 import { COLONIST_MAX_HEALTH } from '../core/constants';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -47,6 +47,22 @@ export const migrations: Record<number, Migration> = {
       colonists[id] = { ...state.colonists![id], health: COLONIST_MAX_HEALTH };
     }
     return { ...state, tiles, colonists, animals: {} };
+  },
+
+  /**
+   * 2 -> 3: predators grew a `huntCooldownUntilTick`, so that giving up a chase
+   * means something. A version 2 save has animals without the field; left as
+   * `undefined` the cooldown check happens to evaluate the right way, which is
+   * exactly the kind of accident a migration exists to remove.
+   */
+  2: (old) => {
+    const state = old as Partial<GameState>;
+    const animals: GameState['animals'] = {};
+    for (const id in state.animals ?? {}) {
+      const animal = state.animals![id];
+      animals[id] = { ...animal, huntCooldownUntilTick: animal.huntCooldownUntilTick ?? null };
+    }
+    return { ...state, animals };
   },
 };
 
