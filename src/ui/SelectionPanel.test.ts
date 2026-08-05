@@ -1,7 +1,7 @@
 // The inspection panel is pure derivation: whatever is standing on the tile has
 // to show up, and nothing is cached, so it can never disagree with the sim.
 import { describe, expect, it } from 'vitest';
-import { placeBuildingBlueprint, setDesignation } from '../core/actions';
+import { placeBuildingBlueprint, placePastureZone, setDesignation } from '../core/actions';
 import { createHarness } from '../core/testUtils';
 import { tileIdOf } from '../core/state';
 import { createAnimal } from '../core/worldgen';
@@ -66,6 +66,27 @@ describe('tile inspection', () => {
     const rows = describeTile(harness.state, tileIdOf(at.x + 6, at.y + 1));
     expect(value(rows, 'Animal')).toContain('(predator)');
     expect(value(rows, 'Order')).toBe('marked for hunting');
+  });
+
+  it('names the pen a pasture tile belongs to, with its occupancy', () => {
+    const harness = createHarness(631);
+    const at = Object.values(harness.state.colonists)[0].position;
+    const tiles: string[] = [];
+    for (let dx = 0; dx < 4; dx++) {
+      for (let dy = 0; dy < 4; dy++) {
+        const tile = harness.state.tiles[tileIdOf(at.x + 4 + dx, at.y - 3 + dy)];
+        if (tile?.terrain === 'grass' && !tile.buildingId) tiles.push(tile.id);
+      }
+    }
+    harness.state = placePastureZone(harness.state, tiles);
+    const zoneId = Object.keys(harness.state.zones).find(
+      (id) => harness.state.zones[id].type === 'pasture',
+    )!;
+    const first = harness.state.tiles[harness.state.zones[zoneId].tileIds[0]];
+    createAnimal(harness.state, 'deer', first.x, first.y, { tame: true, pastureZoneId: zoneId });
+
+    const rows = describeTile(harness.state, first.id);
+    expect(value(rows, 'Zone')).toMatch(/^Pasture — 1\/\d+ animals on \d+ tiles$/);
   });
 
   it('says nothing at all when no tile is selected', () => {

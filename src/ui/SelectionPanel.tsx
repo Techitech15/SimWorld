@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { BUILDING_COSTS, SPECIES } from '../core/constants';
-import { isAdult, isPredator } from '../core/animals';
+import { herdSize, isAdult, isPredator, pastureCapacity } from '../core/animals';
 import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, seasonOf } from '../core/season';
 import type { BuildingType, GameState, TerrainType } from '../core/types';
 import { useGameStore } from '../store/gameStore';
@@ -55,7 +55,16 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
   if (tile.designation) add('Order', DESIGNATION_LABEL[tile.designation] ?? tile.designation);
 
   const zone = Object.values(state.zones).find((z) => z.tileIds.includes(tileId));
-  if (zone) add('Zone', zone.type === 'storage' ? 'Storage' : 'Pasture');
+  if (zone?.type === 'storage') add('Zone', 'Storage');
+  if (zone?.type === 'pasture') {
+    // a colony may keep several pens, so say which one and how full it is
+    add(
+      'Zone',
+      `Pasture — ${herdSize(state, zone.id)}/${pastureCapacity(state, zone.id)} animals on ${
+        zone.tileIds.length
+      } tiles`,
+    );
+  }
 
   const building = tile.buildingId ? state.buildings[tile.buildingId] : undefined;
   if (building) {
