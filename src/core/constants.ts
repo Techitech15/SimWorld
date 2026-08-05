@@ -191,7 +191,14 @@ export const ARRIVAL_MAX_COLONISTS = 8;
 
 // --- animal layer (docs/design-animals.md 6) --------------------------------
 
-export const ANIMAL_SPECIES: AnimalSpecies[] = ['deer', 'boar', 'rabbit', 'chicken', 'wolf'];
+export const ANIMAL_SPECIES: AnimalSpecies[] = [
+  'deer',
+  'boar',
+  'rabbit',
+  'chicken',
+  'goat',
+  'wolf',
+];
 
 export interface SpeciesProfile {
   label: string;
@@ -265,6 +272,31 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 1500,
     adultAtTicks: TICKS_PER_DAY,
     initialCount: 8,
+  },
+  /**
+   * The reason to build a pen. A pasture tile holds the same one animal
+   * whatever species it is (PASTURE_TILES_PER_ANIMAL), so what a pen is worth
+   * is what its occupants give per head - and until now the best of those was a
+   * chicken at six eggs every fifteen hundred ticks. A goat gives twice as much
+   * on a shorter cycle and is worth more slaughtered, against a lower chance of
+   * being tamed in the first place: harder to get, better to keep.
+   *
+   * It is deliberately not best at everything. A boar is still the bigger
+   * carcass, and gives nothing at all while it lives - so the choice between
+   * hunting one and keeping the other stays a choice.
+   */
+  goat: {
+    label: 'Goat',
+    plural: 'Goats',
+    diet: 'herbivore',
+    ticksPerStep: 3,
+    maxHealth: 45,
+    foodYield: 30,
+    tameChance: 0.45,
+    produceAmount: 12, // milk
+    produceIntervalTicks: 1200,
+    adultAtTicks: TICKS_PER_DAY * 2,
+    initialCount: 5,
   },
   wolf: {
     label: 'Wolf',

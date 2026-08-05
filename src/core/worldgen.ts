@@ -330,7 +330,7 @@ export function addColonist(
  */
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
-  for (const species of ['deer', 'boar', 'rabbit', 'chicken'] as AnimalSpecies[]) {
+  for (const species of ['deer', 'boar', 'rabbit', 'chicken', 'goat'] as AnimalSpecies[]) {
     const wanted = scaledCount(SPECIES[species].initialCount, scenarioOf(state).wildlife);
     for (let i = 0; i < wanted; i++) {
       const spot = findSpawnTile(state, rnd, camp, species === 'chicken' || species === 'rabbit' ? 6 : 12);

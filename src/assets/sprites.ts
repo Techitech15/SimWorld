@@ -57,6 +57,7 @@ export const sprites = {
   boar: spriteUrl('animals/boar.png'),
   rabbit: spriteUrl('animals/rabbit.png'),
   chicken: spriteUrl('animals/chicken.png'),
+  goat: spriteUrl('animals/goat.png'),
   wolf: spriteUrl('animals/wolf.png'),
 } as const;
 

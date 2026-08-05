@@ -695,6 +695,10 @@ const A = {
   chickenShade: '#d5d1c2',
   comb: '#d6452f',
   beak: '#e8b23c',
+  goatBody: '#d8d2c4',
+  goatBelly: '#efeadd',
+  goatDark: '#9d9587',
+  goatHorn: '#7b6f5c',
   wolfBody: '#7d848f',
   wolfBelly: '#a4abb5',
   wolfDark: '#575d67',
@@ -809,6 +813,39 @@ function boarSheet() {
     // bristles along the spine
     for (let i = 0; i < 6; i++) c.set(8 + i * 2, 12, A.boarDark);
     c.rect(3, 15, 2, 3, A.boarDark); // short tail
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
+/**
+ * The one large tameable animal, so a pen is worth the walls. Pale and blocky
+ * where the deer is slender, with back-swept horns doing the silhouette.
+ */
+function goatSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    const { headX, headY } = quadruped(c, frame, {
+      body: A.goatBody,
+      belly: A.goatBelly,
+      dark: A.goatDark,
+      neck: 3,
+      bodyY: 14,
+      bodyW: 14,
+      bodyH: 8,
+      muzzle: A.goatDark,
+    });
+    // horns swept back over the neck
+    c.set(headX + 1, headY - 4, A.goatHorn);
+    c.set(headX + 2, headY - 5, A.goatHorn);
+    c.set(headX + 3, headY - 5, A.goatHorn);
+    c.set(headX + 4, headY - 4, A.goatHorn);
+    // beard
+    c.vline(headX + 1, headY + 4, 3, A.goatDark);
+    // short upright tail
+    c.vline(3, 12, 3, A.goatBelly);
     c.outline(P.outline);
     c.blitTo(sheet, frame * TILE, 0);
   }
@@ -964,6 +1001,7 @@ written.push(save('animals/deer.png', deerSheet()));
 written.push(save('animals/boar.png', boarSheet()));
 written.push(save('animals/rabbit.png', rabbitSheet()));
 written.push(save('animals/chicken.png', chickenSheet()));
+written.push(save('animals/goat.png', goatSheet()));
 written.push(save('animals/wolf.png', wolfSheet()));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
