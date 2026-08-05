@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { collectAlerts } from '../core/alerts';
+import type { AlertLevel } from '../core/alerts';
 import { useGameStore } from '../store/gameStore';
 
 /**
@@ -9,22 +10,30 @@ import { useGameStore } from '../store/gameStore';
  * so `useShallow` can actually compare them; rebuilding alert objects every tick
  * would re-render forever.
  */
+const RANK: Record<AlertLevel, number> = { critical: 0, warning: 1, info: 2 };
+const MAX_SHOWN = 6;
+
 export function AlertPanel(): React.JSX.Element | null {
   const rows = useGameStore(
     useShallow((s) =>
-      collectAlerts(s.state).map(
-        (a) => `${a.level}|${a.at ? `${a.at.x},${a.at.y}` : ''}|${a.message}`,
-      ),
+      collectAlerts(s.state)
+        // worst first: a starving colony must not be pushed off the strip by a
+        // note about the season
+        .sort((a, b) => RANK[a.level] - RANK[b.level])
+        .map((a) => `${a.level}|${a.at ? `${a.at.x},${a.at.y}` : ''}|${a.message}`),
     ),
   );
   const focusOnTile = useGameStore((s) => s.focusOnTile);
   const selectTile = useGameStore((s) => s.selectTile);
   if (rows.length === 0) return null;
+  // enough lines to see a crisis, few enough to stay a strip rather than a wall
+  const shown = rows.slice(0, MAX_SHOWN);
+  const hidden = rows.length - shown.length;
 
   return (
     <section className="panel panel--alerts">
       <ul className="alerts">
-        {rows.map((row) => {
+        {shown.map((row) => {
           const [level, where, ...rest] = row.split('|');
           const message = rest.join('|');
           if (!where) {
@@ -51,6 +60,7 @@ export function AlertPanel(): React.JSX.Element | null {
             </li>
           );
         })}
+        {hidden > 0 ? <li className="alert muted small">+{hidden} more</li> : null}
       </ul>
     </section>
   );
