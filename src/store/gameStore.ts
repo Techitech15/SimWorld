@@ -92,6 +92,55 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 0x7fffffff);
 }
 
+/** The single write for a tool, so the store can tell whether it changed anything. */
+function applyToolTo(state: GameState, tool: Tool, tileIds: TileId[]): GameState {
+  switch (tool.kind) {
+    case 'designate':
+      return actions.setDesignation(state, tileIds, tool.designation);
+    case 'clearDesignation':
+      return actions.setDesignation(state, tileIds, null);
+    case 'build':
+      return actions.placeBuildingBlueprint(state, tool.building, tileIds);
+    case 'storage':
+      return actions.placeStorageZone(state, tileIds);
+    case 'pasture':
+      return actions.placePastureZone(state, tileIds);
+    case 'animal':
+      return actions.designateAnimals(state, tileIds, tool.designation);
+    case 'clearAnimal':
+      return actions.designateAnimals(state, tileIds, null);
+    case 'cancel':
+      // one eraser for both: blueprints under the drag, then any zone tiles
+      return actions.removeZoneTiles(actions.cancelBlueprint(state, tileIds), tileIds);
+    default:
+      return state;
+  }
+}
+
+/** Why a tool refused the whole drag, in the player's terms. */
+function refusalFor(tool: Tool): string | null {
+  switch (tool.kind) {
+    case 'designate':
+      if (tool.designation === 'chop') return 'Chopping needs forest.';
+      if (tool.designation === 'mine') return 'Mining needs a rock face.';
+      return 'Only a finished building can be dismantled.';
+    case 'build':
+      return 'Nothing can be built there: the ground is taken or is solid rock.';
+    case 'storage':
+      return 'A storage zone needs clear, walkable ground.';
+    case 'pasture':
+      return 'A pasture needs grass to graze.';
+    case 'animal':
+      if (tool.designation === 'tame') return 'Nothing there can be tamed.';
+      if (tool.designation === 'slaughter') return 'Only tamed animals can be slaughtered.';
+      return 'No wild animal there to hunt.';
+    case 'cancel':
+      return 'Nothing there to remove.';
+    default:
+      return null;
+  }
+}
+
 function initialState(): GameState {
   const state = generateWorld({ seed: randomSeed() });
   simContext = createSimContext(state);
@@ -127,39 +176,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   applyTool: (tileIds) => {
     const { tool, state } = get();
-    switch (tool.kind) {
-      case 'designate':
-        set({
-          state: actions.setDesignation(state, tileIds, tool.designation),
-        });
-        break;
-      case 'clearDesignation':
-        set({ state: actions.setDesignation(state, tileIds, null) });
-        break;
-      case 'build':
-        set({
-          state: actions.placeBuildingBlueprint(state, tool.building, tileIds),
-        });
-        break;
-      case 'storage':
-        set({ state: actions.placeStorageZone(state, tileIds) });
-        break;
-      case 'pasture':
-        set({ state: actions.placePastureZone(state, tileIds) });
-        break;
-      case 'animal':
-        set({ state: actions.designateAnimals(state, tileIds, tool.designation) });
-        break;
-      case 'clearAnimal':
-        set({ state: actions.designateAnimals(state, tileIds, null) });
-        break;
-      case 'cancel':
-        // one eraser for both: blueprints under the drag, then any zone tiles
-        set({ state: actions.removeZoneTiles(actions.cancelBlueprint(state, tileIds), tileIds) });
-        break;
-      default:
-        break;
+    const next = applyToolTo(state, tool, tileIds);
+    if (next === state) {
+      // Every tool silently ignores tiles it cannot use, so a drag that lands
+      // entirely on the wrong ground did nothing and looked like a broken
+      // click. Say which rule refused it.
+      const why = refusalFor(tool);
+      set(why ? { statusMessage: why } : {});
+      return;
     }
+    set({ state: next, statusMessage: null });
   },
 
   orderMove: (colonistId, target) =>

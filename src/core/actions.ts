@@ -67,6 +67,7 @@ export function setDesignation(
   designation: Designation | null,
 ): GameState {
   const next = edit(state);
+  let changed = false;
   for (const tileId of tileIds) {
     const tile = next.tiles[tileId];
     if (!tile) continue;
@@ -76,8 +77,12 @@ export function setDesignation(
     if (tile.designation === designation) continue;
     updateTile(next, tileId, { designation });
     if (designation !== null) clearFailedJobsForTile(next, tileId);
+    changed = true;
   }
-  return next;
+  // an action that changed nothing returns the state it was given: the UI can
+  // then tell a refused drag from a successful one, and subscribers are spared
+  // a pointless new object
+  return changed ? next : state;
 }
 
 /**
@@ -113,10 +118,12 @@ export function placeBuildingBlueprint(
   tileIds: TileId[],
 ): GameState {
   const next = edit(state);
+  let changed = false;
   for (const tileId of tileIds) {
     const tile = next.tiles[tileId];
     if (!tile || tile.buildingId) continue;
     if (tile.terrain === 'stone') continue; // mine it out first
+    changed = true;
     const id = nextId(next, 'b');
     own(next, 'buildings');
     next.buildings[id] = {
@@ -133,17 +140,19 @@ export function placeBuildingBlueprint(
     };
     updateTile(next, tileId, { buildingId: id, designation: null });
   }
-  return next;
+  return changed ? next : state;
 }
 
 /** Cancel a blueprint. A finished building comes down via a `deconstruct` job. */
 export function cancelBlueprint(state: GameState, tileIds: TileId[]): GameState {
   const next = edit(state);
+  let changed = false;
   for (const tileId of tileIds) {
     const tile = next.tiles[tileId];
     if (!tile?.buildingId) continue;
     const building = next.buildings[tile.buildingId];
     if (!building?.isBlueprint) continue;
+    changed = true;
     for (const id in next.jobs) {
       const job = next.jobs[id];
       if (job.targetEntityId === building.id || job.destinationId === building.id) {
@@ -158,7 +167,7 @@ export function cancelBlueprint(state: GameState, tileIds: TileId[]): GameState 
     next.buildings = rest; // whole-record replacement, no ownership needed
     updateTile(next, tileId, { buildingId: null });
   }
-  return next;
+  return changed ? next : state;
 }
 
 /**
