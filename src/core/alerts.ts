@@ -5,9 +5,10 @@
 // question of what is wrong *right now*, which a scrolling log is bad at - a
 // starvation warning from four hundred ticks ago looks identical to a current
 // one once it has scrolled.
-import { COLONIST_MAX_HEALTH, SPECIES } from './constants';
+import { COLONIST_MAX_HEALTH, RESOURCE_TYPES, SPECIES } from './constants';
 import { herdSize, isPredator, pastureCapacity } from './animals';
-import { manhattan } from './state';
+import { manhattan, tileIdOf } from './state';
+import { freeCapacity } from './storage';
 import {
   CROP_GROWTH_BY_SEASON,
   DAYS_PER_SEASON,
@@ -65,11 +66,25 @@ export function collectAlerts(state: GameState): Alert[] {
     });
   }
 
-  // one pass over the items, not one per question asked about them
+  // This runs on every render, so both passes below are indexed rather than
+  // nested: one pass over the zones to learn what each tile takes, then one
+  // pass over the items. Asking `acceptsHere` per item would re-scan every zone
+  // a few hundred times a frame.
+  const accepts = new Map<string, ResourceType[]>();
+  for (const zoneId in state.zones) {
+    const zone = state.zones[zoneId];
+    for (const tileId of zone.tileIds) accepts.set(tileId, zone.accepts);
+  }
+
   const stock: Partial<Record<ResourceType, number>> = {};
+  const loose: Partial<Record<ResourceType, number>> = {};
   for (const id in state.items) {
     const item = state.items[id];
     stock[item.type] = (stock[item.type] ?? 0) + item.quantity;
+    const here = accepts.get(tileIdOf(item.position.x, item.position.y));
+    if (!here?.includes(item.type)) {
+      loose[item.type] = (loose[item.type] ?? 0) + item.quantity;
+    }
   }
 
   const food = stock.food ?? 0;
@@ -101,6 +116,42 @@ export function collectAlerts(state: GameState): Alert[] {
         at: { ...near[0].position },
       });
     }
+  }
+
+  // A full larder is silent: the haulers simply stop finding anywhere to put
+  // things, and the stacks sit where they were dropped with no explanation. A
+  // year of the default colony ends within a few units of filling its starting
+  // store, so this is a wall the player meets rather than a theoretical one.
+  // room per resource, in the same single pass: a tile holding a full stack of
+  // something else is no use to a resource that needs a home
+  const room: Partial<Record<ResourceType, boolean>> = {};
+  let freeTiles = 0;
+  let zoneTiles = 0;
+  for (const zoneId in state.zones) {
+    const zone = state.zones[zoneId];
+    if (zone.type !== 'storage') continue;
+    for (const tileId of zone.tileIds) {
+      zoneTiles++;
+      let hasRoom = false;
+      for (const type of zone.accepts) {
+        if (freeCapacity(state, tileId, type) <= 0) continue;
+        room[type] = true;
+        hasRoom = true;
+      }
+      if (hasRoom) freeTiles++;
+    }
+  }
+  const homeless = RESOURCE_TYPES.filter((type) => (loose[type] ?? 0) > 0 && !room[type]);
+  if (homeless.length > 0) {
+    alerts.push({
+      level: 'warning',
+      message: `Nowhere to store ${homeless.sort().join(' or ')} — the stacks are lying where they fell`,
+    });
+  } else if (zoneTiles > 0 && freeTiles === 0) {
+    alerts.push({
+      level: 'info',
+      message: 'Every storage tile is full — the next harvest will have nowhere to go',
+    });
   }
 
   // Something is chewing on the fence. A repair job is generated automatically,
