@@ -108,6 +108,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/zones.test.ts`       | ゾーンの撤去でマーカー建築・予約・家畜の紐付けが道連れになる                                 |
 | `src/core/deconstruct.test.ts` | 完成した建築の撤去（半額返却・通行可への復帰・ベッドの解放）                                 |
 | `src/core/survival2.test.ts`   | 空腹100からの餓死と、採掘した石を石壁に使えること                                           |
+| `src/ui/SelectionPanel.test.ts` | クリックしたタイルの内容（地形・ゾーン・建築・アイテム・動物・指定）が正しく出ること         |
 
 ## 配布
 

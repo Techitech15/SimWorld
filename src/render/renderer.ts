@@ -482,9 +482,17 @@ export class GameRenderer {
   }
 
   private syncSelectionOverlay(state: GameState): void {
-    const { selectedColonistId, tool } = useGameStore.getState();
+    const { selectedColonistId, selectedTileId, tool } = useGameStore.getState();
     this.selectionOverlay.clear();
     this.drawAnimalMarkers(state);
+
+    // the tile the inspection panel is describing
+    const inspected = selectedTileId ? state.tiles[selectedTileId] : undefined;
+    if (inspected) {
+      this.selectionOverlay
+        .rect(inspected.x * TILE_SIZE, inspected.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        .stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
+    }
 
     if (selectedColonistId && state.colonists[selectedColonistId]) {
       const view = this.colonistViews.get(selectedColonistId);
@@ -624,10 +632,14 @@ export class GameRenderer {
     });
   }
 
-  /** Select tool: click a colonist to select, click elsewhere to order a move. */
+  /**
+   * Select tool: click a colonist to select, click elsewhere to order a move.
+   * Either way the clicked tile becomes what the inspection panel describes.
+   */
   private handleSelectClick(tile: { x: number; y: number }): void {
     const store = useGameStore.getState();
     const state = store.state;
+    store.selectTile(tileIdOf(tile.x, tile.y));
     const clicked = Object.values(state.colonists).find(
       (c) => c.position.x === tile.x && c.position.y === tile.y,
     );

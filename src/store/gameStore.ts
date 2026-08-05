@@ -46,6 +46,8 @@ export interface GameStore {
   state: GameState;
   tool: Tool;
   selectedColonistId: ColonistId | null;
+  /** the tile the inspection panel is describing, set by any left click on the map */
+  selectedTileId: TileId | null;
   statusMessage: string | null;
 
   // simulation
@@ -55,6 +57,7 @@ export interface GameStore {
   // ui
   setTool: (tool: Tool) => void;
   selectColonist: (id: ColonistId | null) => void;
+  selectTile: (id: TileId | null) => void;
   setStatus: (message: string | null) => void;
 
   // player actions (section 3: UI writes to the store, the tick reacts to it)
@@ -79,6 +82,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   state: initialState(),
   tool: { kind: 'select' },
   selectedColonistId: null,
+  selectedTileId: null,
   statusMessage: null,
 
   advance: (ticks) => {
@@ -90,6 +94,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setTool: (tool) => set({ tool }),
   selectColonist: (selectedColonistId) => set({ selectedColonistId }),
+  selectTile: (selectedTileId) => set({ selectedTileId }),
   setStatus: (statusMessage) => set({ statusMessage }),
 
   setJobPriority: (colonistId, jobType, priority) =>
@@ -147,6 +152,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       state,
       selectedColonistId: null,
+      selectedTileId: null,
       statusMessage: 'New colony started.',
     });
   },
@@ -170,6 +176,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         state,
         selectedColonistId: null,
+      selectedTileId: null,
         statusMessage: `Loaded tick ${state.tick}.`,
       });
     } catch (error) {

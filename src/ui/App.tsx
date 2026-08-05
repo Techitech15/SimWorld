@@ -5,6 +5,7 @@ import { ColonistPanel } from './ColonistPanel';
 import { EventLog } from './EventLog';
 import { GameCanvas } from './GameCanvas';
 import { ResourcePanel } from './ResourcePanel';
+import { SelectionPanel } from './SelectionPanel';
 import { Toolbar } from './Toolbar';
 import { TopBar } from './TopBar';
 import { WorkPriorityTable } from './WorkPriorityTable';
@@ -23,6 +24,7 @@ export function App(): React.JSX.Element {
           <GameCanvas />
         </main>
         <aside className="sidebar sidebar--right">
+          <SelectionPanel />
           <ColonistPanel />
           <WorkPriorityTable />
           <ResourcePanel />

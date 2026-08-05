@@ -349,3 +349,44 @@ button.active {
   gap: 4px;
   font-size: 12px;
 }
+
+/* --- selection / inspection ---------------------------------------------- */
+.panel__clear {
+  float: right;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.panel__clear:hover {
+  opacity: 1;
+}
+
+.inspect {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.inspect__row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.inspect__row dt {
+  flex: 0 0 74px;
+  opacity: 0.6;
+}
+
+.inspect__row dd {
+  margin: 0;
+  flex: 1;
+}
