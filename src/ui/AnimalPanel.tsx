@@ -28,16 +28,19 @@ export function AnimalPanel(): React.JSX.Element | null {
     }),
   );
 
-  const pasture = useGameStore(
-    useShallow((s) => {
-      const zoneId = Object.keys(s.state.zones).find((id) => s.state.zones[id].type === 'pasture');
-      if (!zoneId) return {};
-      return {
-        herd: herdSize(s.state, zoneId),
-        capacity: pastureCapacity(s.state, zoneId),
-        tiles: s.state.zones[zoneId].tileIds.length,
-      };
-    }),
+  // one line per pen: a colony may keep several, each with its own capacity
+  const pens = useGameStore(
+    useShallow((s) =>
+      Object.keys(s.state.zones)
+        .filter((id) => s.state.zones[id].type === 'pasture')
+        .sort()
+        .map(
+          (id) =>
+            `${herdSize(s.state, id)}/${pastureCapacity(s.state, id)}/${
+              s.state.zones[id].tileIds.length
+            }`,
+        ),
+    ),
   );
 
   const species = ANIMAL_SPECIES.filter(
@@ -68,11 +71,16 @@ export function AnimalPanel(): React.JSX.Element | null {
           ))}
         </tbody>
       </table>
-      {pasture.capacity !== undefined ? (
-        <p className="muted small">
-          Pasture: {pasture.herd}/{pasture.capacity} animals on {pasture.tiles} tiles
-          {pasture.herd! >= pasture.capacity ? ' — full, no new births' : ''}
-        </p>
+      {pens.length > 0 ? (
+        pens.map((pen, index) => {
+          const [herd, capacity, tiles] = pen.split('/').map(Number);
+          return (
+            <p className="muted small" key={`${pen}-${index}`}>
+              Pasture {index + 1}: {herd}/{capacity} animals on {tiles} tiles
+              {herd >= capacity ? ' — full, no new births' : ''}
+            </p>
+          );
+        })
       ) : (
         <p className="muted small">No pasture yet: tamed animals need one to settle and breed.</p>
       )}
