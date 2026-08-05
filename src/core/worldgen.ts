@@ -129,6 +129,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   const seed = options.seed ?? 20260726;
   const state = createEmptyState();
   state.scenario = options.scenario ?? DEFAULT_SCENARIO;
+  state.worldSeed = seed;
   const scenario = SCENARIOS[state.scenario];
   const forestNoise = valueNoise2D(seed);
   const stoneNoise = valueNoise2D(seed + 977);

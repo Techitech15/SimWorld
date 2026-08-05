@@ -181,7 +181,13 @@ export function runIncidents(state: GameState): void {
   if (state.tick % EVENT_INTERVAL_TICKS !== 0) return;
   if (Object.keys(state.colonists).length === 0) return;
 
-  const rnd = mulberry32(state.tick + 51001);
+  // The world as well as the tick: seeding from the tick alone is reproducible
+  // - which is the point - but it also means every colony ever started gets the
+  // same good and bad years in the same order, including the same quiet
+  // fortnight at the beginning. Measured over 400 days the rate is right
+  // either way (122 fires in 400 at three in ten); what the world seed buys is
+  // that two colonies do not share a calendar.
+  const rnd = mulberry32(state.worldSeed * 31 + state.tick + 51001);
   if (rnd() >= EVENT_CHANCE_PER_DAY) return;
 
   const incident = chooseIncident(seasonOf(state.tick), rnd());

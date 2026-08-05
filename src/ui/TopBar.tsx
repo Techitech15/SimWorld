@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
+import type { GameState } from '../core/types';
 import { DEFAULT_SCENARIO, SCENARIOS, SCENARIO_NAMES } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
 import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
@@ -7,10 +8,11 @@ import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 
-const SPEEDS: { value: 0 | 1 | 3; label: string; hint: string }[] = [
+const SPEEDS: { value: GameState['speed']; label: string; hint: string }[] = [
   { value: 0, label: '⏸', hint: 'Pause' },
   { value: 1, label: '▶', hint: '1x' },
   { value: 3, label: '▶▶▶', hint: '3x' },
+  { value: 10, label: '▶▶▶▶', hint: '10x — a day a minute' },
 ];
 
 export function TopBar(): React.JSX.Element {

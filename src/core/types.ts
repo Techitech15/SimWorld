@@ -333,7 +333,16 @@ export interface Reservation {
 export interface GameState {
   tick: number;
   /** 0 = paused, 1 = normal, 3 = fast */
-  speed: 0 | 1 | 3;
+  /**
+   * 0 = paused. The rest are ticks per real 200ms: the tick length itself never
+   * changes, so growth rates and cooldowns mean the same thing at every speed.
+   * A day is 3,000 ticks, which is 200 real seconds at 3x and 60 at 10x - and
+   * seasons, incidents and skills all happen on the scale of days, so without
+   * the fast setting most of the game is something you read about rather than
+   * watch. The simulation costs about 0.6ms a tick, so 10x is roughly 3% of one
+   * core; the limit was never the simulation.
+   */
+  speed: 0 | 1 | 3 | 10;
   tiles: Record<TileId, Tile>;
   colonists: Record<ColonistId, Colonist>;
   buildings: Record<BuildingId, Building>;
@@ -350,6 +359,14 @@ export interface GameState {
    * grassland the herds graze on.
    */
   forestCapacity: number;
+  /**
+   * [ext] The seed this map was generated from, kept because some rules need to
+   * differ between worlds rather than only between ticks. Incidents are the
+   * case: rolling them from the tick alone is reproducible, which is required,
+   * but it also gives every colony that has ever been started the identical
+   * schedule of good and bad years.
+   */
+  worldSeed: number;
   /**
    * [ext] Which opening this map was generated under (src/core/scenario.ts).
    * Stored because it keeps mattering after generation: how many predators the

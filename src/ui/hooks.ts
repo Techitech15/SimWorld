@@ -2,14 +2,14 @@
 // can so a tick that changes one colonist does not re-render the whole UI.
 import { useShallow } from 'zustand/react/shallow';
 import { countResource } from '../core/storage';
-import type { Colonist, ColonistId, ResourceType } from '../core/types';
+import type { Colonist, ColonistId, GameState, ResourceType } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 
 export function useTick(): number {
   return useGameStore((s) => s.state.tick);
 }
 
-export function useSpeed(): 0 | 1 | 3 {
+export function useSpeed(): GameState['speed'] {
   return useGameStore((s) => s.state.speed);
 }
 

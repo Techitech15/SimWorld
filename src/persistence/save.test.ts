@@ -296,6 +296,27 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 8 save into world-seeded incidents', () => {
+    const harness = createHarness(101);
+    harness.run(100);
+    const v8 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { worldSeed: _dropped, ...rest } = v8;
+
+    const migrated = migrateSave({
+      schemaVersion: 8,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // zero keeps the schedule the save has been running on rather than handing
+    // it a different future halfway through
+    expect(migrated.state.worldSeed).toBe(0);
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

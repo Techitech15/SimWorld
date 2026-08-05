@@ -138,6 +138,28 @@ describe('incidents', () => {
     );
   });
 
+  it('give different colonies different years', () => {
+    // Rolling from the tick alone is reproducible, which is required, and also
+    // hands every colony ever started the same calendar - including the same
+    // quiet fortnight at the start, which is where a player meets it. The
+    // schedule has to depend on the world as well as the day.
+    const schedule = (seed: number) => {
+      const harness = createHarness(seed);
+      const days: string[] = [];
+      for (let day = 2; day <= 60; day++) {
+        harness.state.tick = day * TICKS_PER_DAY;
+        const before = harness.state.log.length;
+        runIncidents(harness.state);
+        if (harness.state.log.length > before) days.push(String(day));
+      }
+      return days.join(',');
+    };
+    const a = schedule(11);
+    const b = schedule(9001);
+    expect(a).not.toBe(b);
+    expect(schedule(11)).toBe(a); // and the same world is the same year
+  });
+
   it('belong to the world, so a reloaded save gets the same year', () => {
     const harness = createHarness(9717);
     harness.run(TICKS_PER_DAY * 6);

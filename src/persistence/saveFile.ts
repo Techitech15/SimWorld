@@ -9,7 +9,7 @@ import { DEFAULT_SCENARIO } from '../core/scenario';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -143,6 +143,17 @@ export const migrations: Record<number, Migration> = {
   7: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, scenario: state.scenario ?? DEFAULT_SCENARIO };
+  },
+
+  /**
+   * 8 -> 9: the world remembers the seed it was made from, so that incidents
+   * can differ between colonies rather than only between days. An old save
+   * never recorded one and takes zero, which keeps exactly the schedule it has
+   * been running on rather than being handed a different future mid-game.
+   */
+  8: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, worldSeed: state.worldSeed ?? 0 };
   },
 };
 

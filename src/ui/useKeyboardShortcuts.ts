@@ -44,8 +44,8 @@ export function useKeyboardShortcuts(): void {
         store.setSpeed(store.state.speed === 0 ? 1 : 0);
         return;
       }
-      if (event.key === '1' || event.key === '2' || event.key === '3') {
-        store.setSpeed(({ '1': 0, '2': 1, '3': 3 } as const)[event.key]);
+      if (event.key === '1' || event.key === '2' || event.key === '3' || event.key === '4') {
+        store.setSpeed(({ '1': 0, '2': 1, '3': 3, '4': 10 } as const)[event.key]);
         return;
       }
 
