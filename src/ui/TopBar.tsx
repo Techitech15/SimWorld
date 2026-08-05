@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
+import { DEFAULT_SCENARIO, SCENARIOS, SCENARIO_NAMES } from '../core/scenario';
+import type { ScenarioName } from '../core/scenario';
 import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { useGameStore } from '../store/gameStore';
@@ -11,6 +14,7 @@ const SPEEDS: { value: 0 | 1 | 3; label: string; hint: string }[] = [
 ];
 
 export function TopBar(): React.JSX.Element {
+  const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
   const tick = useTick();
   const speed = useSpeed();
   const setSpeed = useGameStore((s) => s.setSpeed);
@@ -76,7 +80,25 @@ export function TopBar(): React.JSX.Element {
             Load autosave
           </button>
         ) : null}
-        <button type="button" onClick={() => newGame()}>
+        {/* the scenario picks itself when the player just wants a new map, and
+            is one click away when they want a different game */}
+        <select
+          className="topbar__scenario"
+          value={scenario}
+          onChange={(event) => setScenario(event.target.value as ScenarioName)}
+          title={SCENARIOS[scenario].description}
+        >
+          {SCENARIO_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {SCENARIOS[name].label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => newGame(scenario)}
+          title={SCENARIOS[scenario].description}
+        >
           New map
         </button>
       </div>

@@ -9,6 +9,8 @@ import { createSimContext, rebuildPathIndex, rebuildRegions } from '../core/deri
 import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
 import { generateWorld } from '../core/worldgen';
+import { DEFAULT_SCENARIO, SCENARIOS } from '../core/scenario';
+import type { ScenarioName } from '../core/scenario';
 import type {
   AnimalDesignation,
   BuildingType,
@@ -85,7 +87,7 @@ export interface GameStore {
   toggleFarmSowing: (tileId: TileId) => void;
 
   // persistence
-  newGame: (seed?: number) => void;
+  newGame: (scenario?: ScenarioName, seed?: number) => void;
   save: () => Promise<void>;
   load: (slot?: string) => Promise<void>;
   autosave: () => Promise<void>;
@@ -223,14 +225,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   toggleFarmSowing: (tileId) => set({ state: actions.toggleFarmSowing(get().state, tileId) }),
 
-  newGame: (seed) => {
-    const state = generateWorld({ seed: seed ?? randomSeed() });
+  newGame: (scenario, seed) => {
+    const chosen = scenario ?? DEFAULT_SCENARIO;
+    const state = generateWorld({ seed: seed ?? randomSeed(), scenario: chosen });
     simContext = createSimContext(state);
     set({
       state,
       selectedColonistId: null,
       selectedTileId: null,
-      statusMessage: 'New colony started.',
+      statusMessage: `New colony started — ${SCENARIOS[chosen].label}.`,
     });
   },
 

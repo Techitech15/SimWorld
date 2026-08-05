@@ -41,7 +41,6 @@ import {
   PREDATOR_GIVE_UP_COOLDOWN_TICKS,
   PREDATOR_HUNGER_PER_KILL,
   PREDATOR_HUNT_THRESHOLD,
-  PREDATOR_MAX_ALIVE,
   PREDATOR_MIN_SPAWN_DISTANCE,
   PREDATOR_PURSUIT_TICKS,
   PREDATOR_RESPAWN_INTERVAL_TICKS,
@@ -58,6 +57,7 @@ import { killColonist } from './death';
 import { invalidateTile } from './derived';
 import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
+import { scaledCount, scenarioOf } from './scenario';
 import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
 import { mulberry32 } from './rng';
 import { traitMultiplier } from './traits';
@@ -921,7 +921,9 @@ function spawnPredators(state: GameState): void {
 
   let alive = 0;
   for (const id in state.animals) if (isPredator(state.animals[id])) alive++;
-  if (alive >= PREDATOR_MAX_ALIVE) return;
+  // how many wolves the map sustains is the scenario's, not a global constant:
+  // it is a rule that runs every day rather than a decision made at generation
+  if (alive >= scenarioOf(state).predators) return;
 
   const camp = colonyCentre(state);
   const rnd = tickRandom(state, 991);
@@ -950,7 +952,9 @@ function spawnWildlife(state: GameState): void {
   for (const species of ANIMAL_SPECIES) {
     const profile = SPECIES[species];
     if (profile.diet === 'carnivore') continue;
-    if ((wild[species] ?? 0) >= profile.initialCount) continue;
+    if ((wild[species] ?? 0) >= scaledCount(profile.initialCount, scenarioOf(state).wildlife)) {
+      continue;
+    }
     const spot = findSpawnTile(state, rnd, camp, WILDLIFE_MIN_SPAWN_DISTANCE);
     if (spot) createAnimal(state, species, spot.x, spot.y);
   }

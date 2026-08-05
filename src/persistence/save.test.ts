@@ -276,6 +276,26 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 7 save into scenarios', () => {
+    const harness = createHarness(97);
+    harness.run(100);
+    const v7 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { scenario: _dropped, ...rest } = v7;
+
+    const migrated = migrateSave({
+      schemaVersion: 7,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // every existing save was played under what is now the standard opening
+    expect(migrated.state.scenario).toBe('standard');
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

@@ -63,6 +63,7 @@ export function createEmptyState(): GameState {
     animals: {},
     reservations: {},
     forestCapacity: 0,
+    scenario: 'standard',
     nextIds: {},
     log: [],
   };

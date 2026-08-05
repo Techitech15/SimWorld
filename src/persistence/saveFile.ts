@@ -5,10 +5,11 @@
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
 import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
+import { DEFAULT_SCENARIO } from '../core/scenario';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -131,6 +132,17 @@ export const migrations: Record<number, Migration> = {
       if (state.tiles![tileId].terrain === 'forest') standing++;
     }
     return { ...state, forestCapacity: standing };
+  },
+
+  /**
+   * 7 -> 8: maps are generated under a scenario, and the scenario keeps
+   * mattering afterwards (it says how many wolves the map sustains). Every
+   * existing save was played under what is now the standard opening, so that is
+   * what it gets - the game it has been all along.
+   */
+  7: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, scenario: state.scenario ?? DEFAULT_SCENARIO };
   },
 };
 

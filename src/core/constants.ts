@@ -323,7 +323,6 @@ export const PREDATOR_GNAW_INTERVAL_TICKS = 25;
 /** Predators only appear from day 2 and never right next to the camp. */
 export const PREDATOR_FIRST_SPAWN_TICK = TICKS_PER_DAY;
 export const PREDATOR_MIN_SPAWN_DISTANCE = 20;
-export const PREDATOR_MAX_ALIVE = 2;
 export const PREDATOR_RESPAWN_INTERVAL_TICKS = TICKS_PER_DAY;
 /**
  * Wild herbivores do not breed (only livestock in a pasture do), so without a

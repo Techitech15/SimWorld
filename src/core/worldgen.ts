@@ -12,6 +12,8 @@ import {
   STACK_MAX,
 } from './constants';
 import { mulberry32, valueNoise2D } from './rng';
+import { DEFAULT_SCENARIO, SCENARIOS, scaledCount, scenarioOf } from './scenario';
+import type { ScenarioName } from './scenario';
 import { rollStartingSkills } from './skills';
 import { rollTraits } from './traits';
 import { createEmptyState, nextId, own, tileIdOf, updateTile } from './state';
@@ -32,8 +34,10 @@ import type {
 
 export interface WorldOptions {
   seed?: number;
-  /** Starting stock dropped into the storage zone. */
+  /** Starting stock dropped into the storage zone; overrides the scenario's. */
   startingResources?: Partial<Record<ResourceType, number>>;
+  /** Which opening to generate (src/core/scenario.ts). Defaults to standard. */
+  scenario?: ScenarioName;
 }
 
 function makeTile(x: number, y: number, terrain: Tile['terrain']): Tile {
@@ -124,6 +128,8 @@ export function addItem(
 export function generateWorld(options: WorldOptions = {}): GameState {
   const seed = options.seed ?? 20260726;
   const state = createEmptyState();
+  state.scenario = options.scenario ?? DEFAULT_SCENARIO;
+  const scenario = SCENARIOS[state.scenario];
   const forestNoise = valueNoise2D(seed);
   const stoneNoise = valueNoise2D(seed + 977);
 
@@ -170,9 +176,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   // starting stock, dropped inside the storage zone
   const stock: Partial<Record<ResourceType, number>> = {
-    food: 120,
-    wood: 60,
-    stone: 0,
+    ...scenario.startingResources,
     ...options.startingResources,
   };
   let slot = 0;
@@ -321,7 +325,8 @@ export function addColonist(
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
   for (const species of ['deer', 'boar', 'rabbit', 'chicken'] as AnimalSpecies[]) {
-    for (let i = 0; i < SPECIES[species].initialCount; i++) {
+    const wanted = scaledCount(SPECIES[species].initialCount, scenarioOf(state).wildlife);
+    for (let i = 0; i < wanted; i++) {
       const spot = findSpawnTile(state, rnd, camp, species === 'chicken' || species === 'rabbit' ? 6 : 12);
       if (spot) createAnimal(state, species, spot.x, spot.y);
     }

@@ -19,6 +19,10 @@
 // `Colonist.health` and the pasture zone. It follows the same rules: plain
 // data, ID references, nothing that JSON cannot represent.
 
+import type { ScenarioName } from './scenario';
+
+export type { ScenarioName };
+
 export type TileId = string; // `${x},${y}`
 export type ColonistId = string;
 export type BuildingId = string;
@@ -345,6 +349,12 @@ export interface GameState {
    * grassland the herds graze on.
    */
   forestCapacity: number;
+  /**
+   * [ext] Which opening this map was generated under (src/core/scenario.ts).
+   * Stored because it keeps mattering after generation: how many predators the
+   * map sustains is a rule that runs every day, not a one-off decision.
+   */
+  scenario: ScenarioName;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
   /** rolling event log surfaced in the UI (failed jobs, deaths of crops, ...) */

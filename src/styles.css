@@ -140,6 +140,15 @@ button.active {
   gap: 6px;
 }
 
+.topbar__scenario {
+  background: var(--panel-2);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+}
+
 .topbar__status {
   width: 100%;
   color: var(--accent);
