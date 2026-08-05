@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { startGameLoop } from '../game/loop';
 import { AlertPanel } from './AlertPanel';
 import { AnimalPanel } from './AnimalPanel';
+import { ColonistDetail } from './ColonistDetail';
 import { ColonistPanel } from './ColonistPanel';
 import { EventLog } from './EventLog';
 import { GameCanvas } from './GameCanvas';
@@ -31,6 +32,7 @@ export function App(): React.JSX.Element {
           <Minimap />
           <AlertPanel />
           <SelectionPanel />
+          <ColonistDetail />
           <ColonistPanel />
           <WorkPriorityTable />
           <ResourcePanel />

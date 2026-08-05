@@ -35,6 +35,8 @@ const BUILDING: Record<string, Rgb> = {
 };
 
 const PASTURE: Rgb = [104, 140, 78];
+/** A structure something is chewing on. Red enough to find at 60x60. */
+const DAMAGED: Rgb = [198, 84, 60];
 const DESIGNATED: Rgb = [232, 152, 60];
 const BLUEPRINT: Rgb = [120, 140, 180];
 const COLONIST: Rgb = [255, 255, 255];
@@ -69,7 +71,16 @@ export function paintMinimap(state: GameState, data: Uint8ClampedArray): void {
     const building = state.buildings[buildingId];
     const tile = state.tiles[building.tileId];
     if (!tile) continue;
-    put(data, tile.x, tile.y, building.isBlueprint ? BLUEPRINT : BUILDING[building.type] ?? BLUEPRINT);
+    put(
+      data,
+      tile.x,
+      tile.y,
+      building.isBlueprint
+        ? BLUEPRINT
+        : building.hpCurrent < building.hpMax
+          ? DAMAGED // a fence coming down is worth finding on the map, not just in an alert
+          : BUILDING[building.type] ?? BLUEPRINT,
+    );
   }
   for (const tileId in state.tiles) {
     const tile = state.tiles[tileId];

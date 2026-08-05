@@ -6,7 +6,7 @@ import { placePastureZone, setDesignation } from '../core/actions';
 import { MAP_HEIGHT, MAP_WIDTH } from '../core/constants';
 import { tileIdOf } from '../core/state';
 import { createHarness, nearestTilesWithTerrain } from '../core/testUtils';
-import { createAnimal } from '../core/worldgen';
+import { addBuilding, createAnimal } from '../core/worldgen';
 import type { GameState } from '../core/types';
 import { paintMinimap } from './Minimap';
 
@@ -118,6 +118,20 @@ describe('minimap', () => {
     const [r, g, b] = pixel(after, tile.x, tile.y);
     expect(g).toBeGreaterThan(r);
     expect(g).toBeGreaterThan(b);
+  });
+
+  it('marks a structure something is chewing on', () => {
+    const harness = createHarness(5137);
+    const at = Object.values(harness.state.colonists)[0].position;
+    const wall = addBuilding(harness.state, 'wall', tileIdOf(at.x + 3, at.y - 3));
+    const whole = pixel(paint(harness.state), at.x + 3, at.y - 3);
+
+    harness.state.buildings[wall.id] = { ...wall, hpCurrent: wall.hpMax - 1 };
+    const chewed = pixel(paint(harness.state), at.x + 3, at.y - 3);
+    expect(chewed).not.toEqual(whole);
+    // reddest of the three channels: findable on a 60x60 map at a glance
+    expect(chewed[0]).toBeGreaterThan(chewed[1]);
+    expect(chewed[0]).toBeGreaterThan(chewed[2]);
   });
 
   it('costs one pass over the world, however long the game has run', () => {
