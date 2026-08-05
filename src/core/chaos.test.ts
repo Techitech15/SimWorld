@@ -26,6 +26,7 @@ import {
 import { MAP_HEIGHT, MAP_WIDTH, RESOURCE_TYPES } from './constants';
 import { mulberry32 } from './rng';
 import { tileIdOf } from './state';
+import { candidatesFor } from './jobs/assign';
 import { createHarness } from './testUtils';
 import { JOB_TYPES } from './types';
 import type { BuildingType, Designation, GameState } from './types';
@@ -176,6 +177,37 @@ function assertDescribable(state: GameState): void {
   }
 }
 
+/**
+ * Idle beside work you could be doing.
+ *
+ * This is the wall bug stated directly: colonists standing about while jobs sit
+ * pending. It asks the assignment stage itself which jobs are candidates, so it
+ * cannot drift from the engine's definition - a second copy of that rule
+ * written here would eventually stop describing the real one.
+ *
+ * A colonist can legitimately be idle for a tick or two: the path-attempt
+ * budget is per tick, and a job may be claimed by someone else in between. What
+ * is never legitimate is idling for hundreds of ticks with a job the engine
+ * agrees they could take.
+ */
+function stalledColonists(
+  harness: ReturnType<typeof createHarness>,
+  ticks: number,
+): Record<string, number> {
+  const streak: Record<string, number> = {};
+  const worst: Record<string, number> = {};
+  harness.run(ticks, (state) => {
+    for (const id in state.colonists) {
+      const colonist = state.colonists[id];
+      const free = !colonist.currentJobId && colonist.activity.kind === 'none';
+      const hasWork = free && candidatesFor(state, harness.ctx, id).length > 0;
+      streak[id] = hasWork ? (streak[id] ?? 0) + 1 : 0;
+      worst[id] = Math.max(worst[id] ?? 0, streak[id]);
+    }
+  });
+  return worst;
+}
+
 describe('playing badly', () => {
   it('cannot wedge the colony into a state that does not make sense', () => {
     const harness = createHarness(9501);
@@ -203,6 +235,30 @@ describe('playing badly', () => {
       assertDescribable(harness.state);
     }
     expect(Object.keys(harness.state.colonists).length).toBeGreaterThan(0);
+  }, 120000);
+
+  it('never leaves anyone idle beside work the engine says they could take', () => {
+    // This was written to be "the wall bug stated directly", and it is not:
+    // reverting the wall fix leaves it passing. A colonist sealed inside a wall
+    // has no region, so isReachable rejects every job and the engine honestly
+    // reports that there is no work for them - the queue was never the broken
+    // part, the point of view was. The walkable-tile assertion above is what
+    // catches that one.
+    //
+    // It is still worth having, for the different wedge: work that is takeable
+    // by the engine's own rule and never taken.
+    const harness = createHarness(9531);
+    const rnd = mulberry32(9531);
+
+    let longest = 0;
+    for (let round = 0; round < 15; round++) {
+      for (let i = 0; i < 2; i++) harness.state = act(harness.state, rnd);
+      const worst = stalledColonists(harness, 400);
+      longest = Math.max(longest, ...Object.values(worst));
+      assertDescribable(harness.state);
+    }
+    // a tick or two of hesitation is the path budget; hundreds is a wedge
+    expect(longest).toBeLessThan(200);
   }, 120000);
 
   it('never loses or invents a resource while shuffling it about', () => {

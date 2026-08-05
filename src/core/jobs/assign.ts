@@ -125,9 +125,21 @@ export function runAssignment(state: GameState, ctx: SimContext): void {
   }
 }
 
-function assignJobTo(state: GameState, ctx: SimContext, colonistId: string): void {
+/**
+ * Stage 2 of the lifecycle: every job this colonist could take, in the order
+ * they should be tried.
+ *
+ * Exported so that "is this colonist idle next to work they could be doing"
+ * can be asked with the engine's own definition of could rather than a second
+ * one written alongside it - a copy of this rule in a test would drift from it
+ * and stop catching the thing it was written for (see chaos.test.ts).
+ */
+export function candidatesFor(
+  state: GameState,
+  ctx: SimContext,
+  colonistId: string,
+): { job: Job; workPriority: number; distance: number }[] {
   const colonist = state.colonists[colonistId];
-
   const candidates: { job: Job; workPriority: number; distance: number }[] = [];
   for (const jobId in state.jobs) {
     const job = state.jobs[jobId];
@@ -143,13 +155,21 @@ function assignJobTo(state: GameState, ctx: SimContext, colonistId: string): voi
     if (!isReachable(ctx, colonist.position, site.position, site.adjacent)) continue;
     // (b) nothing already reserved by someone else
     if (candidateBlocked(state, job, colonist)) continue;
+    // and the job's own targets must still be claimable, or it is not work
+    // anybody can pick up - a haul with nowhere left to put the stack is
+    // pending for ever and belongs to nobody
+    if (!reservationTargets(state, job)) continue;
     candidates.push({
       job,
       workPriority,
       distance: manhattan(colonist.position, site.position),
     });
   }
+  return candidates;
+}
 
+function assignJobTo(state: GameState, ctx: SimContext, colonistId: string): void {
+  const candidates = candidatesFor(state, ctx, colonistId);
   if (candidates.length === 0) return;
 
   candidates.sort(
