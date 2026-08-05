@@ -7,6 +7,7 @@ import { tileIdOf } from '../core/state';
 import type { Building, Colonist, GameState, Item, Tile } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
+import { damageStep, damageTint } from './damage';
 import type { Camera } from './camera';
 import { loadTextures } from './textures';
 import type { GameTextures } from './textures';
@@ -223,7 +224,10 @@ export class GameRenderer {
       const tile = state.tiles[building.tileId];
       seen.add(id);
       const texture = this.buildingTexture(building, state);
-      const key = `${texture.uid}:${building.isBlueprint}`;
+      // damage is part of the key: without it the sprite keeps the tint it was
+      // built with and a wall being chewed through never changes on the map
+      const damage = damageStep(building);
+      const key = `${texture.uid}:${building.isBlueprint}:${damage}`;
       let view = this.buildingSprites.get(id);
       if (!view) {
         const base = new Sprite(texture);
@@ -239,7 +243,7 @@ export class GameRenderer {
         // a blueprint reads as a ghost of the finished building, tinted towards
         // the blueprint blue so it never looks like a dark hole in the map
         view.base.alpha = building.isBlueprint ? 0.55 : 1;
-        view.base.tint = building.isBlueprint ? 0x8fd0ff : 0xffffff;
+        view.base.tint = building.isBlueprint ? 0x8fd0ff : damageTint(damage);
         if (building.isBlueprint && !view.blueprint) {
           const frame = new Sprite(this.textures.tiles.wallBlueprint);
           frame.x = tile.x * TILE_SIZE;
