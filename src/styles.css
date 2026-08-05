@@ -242,6 +242,14 @@ button.active {
   gap: 6px;
 }
 
+/* the one thought dragging this colonist down, under their mood bar */
+.colonist__thought {
+  font-size: 11px;
+  color: var(--warn);
+  margin: 1px 0 0 24px;
+  cursor: help;
+}
+
 .colonist__swatch {
   width: 10px;
   height: 10px;

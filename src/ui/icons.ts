@@ -14,6 +14,7 @@ export const icons = {
   hunger: sprites.needHunger,
   sleep: sprites.needSleep,
   health: sprites.needHealth,
+  mood: sprites.needMood,
   wood: sprites.wood,
   stone: sprites.stoneItem,
   food: sprites.food,

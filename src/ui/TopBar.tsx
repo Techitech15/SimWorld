@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
+import { colonyMood, moodLabel } from '../core/mood';
 import type { GameState } from '../core/types';
 import { DEFAULT_SCENARIO, SCENARIOS, SCENARIO_NAMES } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
@@ -27,6 +28,8 @@ export function TopBar(): React.JSX.Element {
   const statusMessage = useGameStore((s) => s.statusMessage);
   const jobs = useJobCounts();
   const population = useGameStore((s) => Object.keys(s.state.colonists).length);
+  // a number, not an object: the selector has to stay shallow-comparable
+  const mood = useGameStore((s) => colonyMood(s.state));
 
   const day = Math.floor(tick / TICKS_PER_DAY) + 1;
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);
@@ -64,6 +67,11 @@ export function TopBar(): React.JSX.Element {
         {population} {population === 1 ? 'colonist' : 'colonists'} · jobs: {jobs.active} active /{' '}
         {jobs.pending} queued
         {jobs.failed > 0 ? ` / ${jobs.failed} failed` : ''}
+        {/* one number for how the colony is bearing it; the panel has the detail */}
+        <span title="average mood — hover a colonist's mood bar for the reasons">
+          {' '}
+          · mood {mood} ({moodLabel(mood)})
+        </span>
       </div>
 
       <div className="topbar__actions">

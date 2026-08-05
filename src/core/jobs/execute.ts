@@ -23,6 +23,7 @@ import {
 import { clearColonistPath, invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
 import { advanceTowards, chase } from '../movement';
+import { moodOf } from '../mood';
 import { mulberry32 } from '../rng';
 import { grantWorkExperience, workRate } from '../skills';
 import {
@@ -106,7 +107,8 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
  * nobody anything and a novice's tick is worth exactly the old flat 1.
  */
 function putInWork(state: GameState, colonistId: string, workType: JobType): number {
-  const rate = workRate(state.colonists[colonistId], workType);
+  const colonist = state.colonists[colonistId];
+  const rate = workRate(colonist, workType, moodOf(state, colonist));
   grantWorkExperience(state, colonistId, workType);
   return rate;
 }

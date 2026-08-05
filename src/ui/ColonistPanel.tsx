@@ -1,4 +1,5 @@
 import { HUNGER_THRESHOLD, SLEEP_THRESHOLD } from '../core/constants';
+import { MOOD_LOW, moodLabel, moodOf, thoughtsOf } from '../core/mood';
 import { SKILL_LABELS, SKILL_NAMES, levelOf } from '../core/skills';
 import { TRAITS } from '../core/traits';
 import type { Colonist, GameState } from '../core/types';
@@ -16,6 +17,8 @@ function activityLabel(colonist: Colonist, state: GameState): string {
       return 'walking';
     case 'fleeing':
       return 'fleeing!';
+    case 'brooding':
+      return 'refusing to work';
     default:
       break;
   }
@@ -50,6 +53,31 @@ function NeedBar({
       </div>
       <span className="need__value">{pct}</span>
     </div>
+  );
+}
+
+/**
+ * Mood, and the reason for it. The bar alone would only tell the player that
+ * somebody is unhappy; the hover text names the thought that is costing the
+ * most, which is the thing they can actually go and fix.
+ */
+function MoodBar({ colonist, state }: { colonist: Colonist; state: GameState }): React.JSX.Element {
+  const mood = moodOf(state, colonist);
+  const thoughts = thoughtsOf(state, colonist);
+  const title = [
+    `Mood ${mood} — ${moodLabel(mood)}`,
+    ...thoughts.map((t) => `${t.amount > 0 ? '+' : ''}${t.amount} ${t.label}`),
+  ].join('\n');
+  const worst = thoughts[0];
+  return (
+    <>
+      <NeedBar icon={icons.mood} label={title} value={mood} threshold={100 - MOOD_LOW} invert />
+      {worst && worst.amount < 0 && (
+        <div className="colonist__thought" title={title}>
+          {worst.label}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -125,6 +153,7 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
         value={colonist.needs.sleep}
         threshold={SLEEP_THRESHOLD}
       />
+      <MoodBar colonist={colonist} state={state} />
       <SkillTags colonist={colonist} />
       {colonist.traits?.length > 0 && (
         <div className="skills">

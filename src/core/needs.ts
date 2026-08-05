@@ -18,6 +18,7 @@ import {
   STARVATION_WARNING_INTERVAL_TICKS,
 } from './constants';
 import type { SimContext } from './derived';
+import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
 import { advanceTowards } from './movement';
 import { addLog, removeItem, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
@@ -38,6 +39,7 @@ export function runNeeds(state: GameState, ctx: SimContext): void {
     decayNeeds(state, colonistId);
     if (!state.colonists[colonistId]) continue; // starved to death this tick
     startNeedBehaviour(state, ctx, colonistId);
+    runMoodBreak(state, ctx, colonistId);
     runNeedBehaviour(state, ctx, colonistId);
   }
 }
@@ -158,6 +160,44 @@ function releaseCurrentJob(state: GameState, ctx: SimContext, colonistId: string
       cooldownUntilTick: null,
     };
   }
+}
+
+/**
+ * A colonist who has run out of patience puts their tools down.
+ *
+ * This sits with the needs rather than the job system for the same reason
+ * eating does: it is not work the player can prioritise, and it has to be able
+ * to pre-empt a job. Hunger and sleep still win over it - a starving colonist
+ * goes to the larder rather than sulking to death - because those branches run
+ * first and this one only touches an idle colonist.
+ */
+function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): void {
+  const colonist = state.colonists[colonistId];
+  if (colonist.activity.kind === 'brooding') {
+    // The break outlasts whatever set it off. Ending it the moment mood ticks
+    // back over the line would make one meal cancel the whole thing, and the
+    // player would never see that anything had happened.
+    if (state.tick >= colonist.activity.untilTick) {
+      updateColonist(state, colonistId, { activity: { kind: 'none' } });
+      addLog(state, `${colonist.name} goes back to work`);
+    }
+    return;
+  }
+  if (colonist.activity.kind !== 'none' && colonist.activity.kind !== 'moving') return;
+  if (moodOf(state, colonist) >= MOOD_BREAK) return;
+
+  releaseCurrentJob(state, ctx, colonistId);
+  updateColonist(state, colonistId, {
+    activity: { kind: 'brooding', untilTick: state.tick + MOOD_BREAK_TICKS },
+  });
+  const worst = thoughtsOf(state, colonist)[0];
+  addLog(
+    state,
+    worst
+      ? `${colonist.name} has had enough: ${worst.label.toLowerCase()}`
+      : `${colonist.name} has had enough`,
+    'incident',
+  );
 }
 
 function runNeedBehaviour(state: GameState, ctx: SimContext, colonistId: string): void {

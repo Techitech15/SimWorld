@@ -53,6 +53,7 @@ export const sprites = {
   needHunger: spriteUrl('ui/need_hunger.png'),
   needSleep: spriteUrl('ui/need_sleep.png'),
   needHealth: spriteUrl('ui/need_health.png'),
+  needMood: spriteUrl('ui/need_mood.png'),
   deer: spriteUrl('animals/deer.png'),
   boar: spriteUrl('animals/boar.png'),
   rabbit: spriteUrl('animals/rabbit.png'),

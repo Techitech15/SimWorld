@@ -91,7 +91,14 @@ export type ColonistActivity =
   | { kind: 'eating'; itemId: ItemId | null; ticksRemaining: number }
   | { kind: 'sleeping'; bedId: BuildingId | null }
   /** [ext] running from a predator. Colonists never fight back (design-animals.md 5) */
-  | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number };
+  | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number }
+  /**
+   * [ext] Too miserable to work (src/core/mood.ts). Stored rather than derived
+   * because a break has to outlast the moment that caused it - otherwise
+   * feeding someone one meal puts them straight back to work and the player
+   * never sees that anything happened.
+   */
+  | { kind: 'brooding'; untilTick: number };
 
 export interface CarriedStack {
   type: ResourceType;
@@ -146,7 +153,9 @@ export type TraitName =
   | 'heavySleeper'
   | 'restless'
   | 'tough'
-  | 'frail';
+  | 'frail'
+  | 'cheerful'
+  | 'gloomy';
 
 export type BuildingType =
   | 'wall'

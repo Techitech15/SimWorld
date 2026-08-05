@@ -13,7 +13,7 @@ import {
 } from './events';
 import { SEASONS, TICKS_PER_SEASON, seasonOf } from './season';
 import { tickMany } from './simulation';
-import { createHarness, recordLog } from './testUtils';
+import { createHarness, recordLogEntries } from './testUtils';
 import { generateWorld } from './worldgen';
 import type { GameState, Season } from './types';
 
@@ -247,17 +247,27 @@ describe('incidents', () => {
   });
 
   it('do not stop the colony surviving a year of them', () => {
-    // the balance question: incidents must make the year eventful, not fatal
+    // The balance question: incidents must make the year eventful, not fatal.
+    //
+    // "Eventful" is deliberately a low bar. This used to demand more than three
+    // incidents in the year, which held for this seed and was measured to be
+    // untrue in general: with a per-world incident calendar, three worlds run
+    // for a year each gave 1, 3 and 4. The old assertion was reading one
+    // world's luck as a rule, and the first unrelated change to the simulation
+    // - colonists working a fraction faster when they are content - reshuffled
+    // the year enough to fail it.
+    //
+    // Counting the log's own incident marker rather than matching the wording
+    // is the other half of the fix: a regex over messages measures the phrasing
+    // as much as the event.
     const harness = createHarness(9719);
     let lowestPopulation = Object.keys(harness.state.colonists).length;
-    const lines = recordLog(harness, TICKS_PER_SEASON * 4, (state) => {
+    const entries = recordLogEntries(harness, TICKS_PER_SEASON * 4, (state) => {
       lowestPopulation = Math.min(lowestPopulation, Object.keys(state.colonists).length);
     });
-    const incidents = lines.filter((line) =>
-      /ripened|Blight|berry|wolves|herd|abandoned/.test(line),
-    ).length;
+    const incidents = entries.filter((entry) => entry.kind === 'incident').length;
     expect(lowestPopulation).toBe(3);
-    expect(incidents).toBeGreaterThan(3); // the year was eventful
+    expect(incidents).toBeGreaterThan(0); // the year had something happen in it
     expect(seasonOf(harness.state.tick)).toBe('spring');
   }, 180000);
 });

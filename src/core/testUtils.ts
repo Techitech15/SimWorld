@@ -6,7 +6,7 @@ import { tickOnce } from './simulation';
 import { placePastureZone } from './actions';
 import { tileIdOf } from './state';
 import { generateWorld } from './worldgen';
-import type { GameState, TerrainType, TileId, ZoneId } from './types';
+import type { GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
 
 export interface Harness {
   state: GameState;
@@ -49,7 +49,23 @@ export function recordLog(
   ticks: number,
   onTick?: (state: GameState) => void,
 ): string[] {
-  const lines: string[] = [];
+  return recordLogEntries(harness, ticks, onTick).map((entry) => entry.message);
+}
+
+/**
+ * The same recording, keeping each entry's kind.
+ *
+ * A test that wants "how many incidents were there" should count the marker the
+ * log already carries rather than matching the wording: a regex over messages
+ * measures the phrasing as much as the event, and quietly stops counting an
+ * incident the day somebody rewrites its sentence.
+ */
+export function recordLogEntries(
+  harness: Harness,
+  ticks: number,
+  onTick?: (state: GameState) => void,
+): LogEntry[] {
+  const entries: LogEntry[] = [];
   let lastKey = '';
   const seed = harness.state.log[harness.state.log.length - 1];
   if (seed) lastKey = `${seed.tick}:${seed.message}`;
@@ -63,11 +79,11 @@ export function recordLog(
       const key = `${last.tick}:${last.message}`;
       if (key !== lastKey) {
         lastKey = key;
-        lines.push(last.message);
+        entries.push(last);
       }
     }
   });
-  return lines;
+  return entries;
 }
 
 /**

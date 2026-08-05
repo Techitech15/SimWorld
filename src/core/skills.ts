@@ -10,6 +10,7 @@
 // colonist (section 4), experience is granted in the execute stage of the job
 // lifecycle (section 6), and nothing here reads or writes anything outside
 // `state.colonists`.
+import { moodWorkFactor } from './mood';
 import { mulberry32 } from './rng';
 import { addLog, updateColonist } from './state';
 import { traitMultiplier } from './traits';
@@ -67,11 +68,15 @@ export function skillLevel(colonist: Colonist, workType: JobType): number {
  * 1.8, so skill is worth having without making an expert colonist a different
  * game. WORK_TICKS is unchanged: the same job simply fills up faster.
  */
-export function workRate(colonist: Colonist, workType: JobType): number {
+export function workRate(colonist: Colonist, workType: JobType, mood?: number): number {
   const skilled = 1 + skillLevel(colonist, workType) * SKILL_SPEED_PER_LEVEL;
   // a trait bends the whole rate rather than the skill: being industrious is
   // not the same as being practised, and the two compound
-  return skilled * traitMultiplier(colonist, 'work');
+  const rate = skilled * traitMultiplier(colonist, 'work');
+  // Mood is passed in rather than computed here: it depends on the whole colony
+  // (beds, stores, season), and this module deliberately reads nothing outside
+  // `state.colonists`. A caller with no opinion gets the pre-mood behaviour.
+  return mood === undefined ? rate : rate * moodWorkFactor(mood);
 }
 
 export function emptySkills(): Record<SkillName, number> {

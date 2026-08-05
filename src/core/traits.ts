@@ -27,6 +27,12 @@ export interface TraitEffects {
   rest?: number;
   /** health regained per tick of rest */
   healing?: number;
+  /**
+   * How much a good thing lifts them and a bad thing weighs on them. Above 1
+   * both directions ease off (src/core/mood.ts explains why one multiplier can
+   * do both), below 1 both bite harder.
+   */
+  mood?: number;
 }
 
 export type TraitEffect = keyof TraitEffects;
@@ -100,6 +106,18 @@ export const TRAITS: Record<TraitName, Trait> = {
     description: 'Slow to heal. Keep this one away from the wolves.',
     family: 'constitution',
     effects: { healing: 0.5 },
+  },
+  cheerful: {
+    label: 'Cheerful',
+    description: 'Makes the best of it. Hard to push into a break.',
+    family: 'temperament',
+    effects: { mood: 1.25 },
+  },
+  gloomy: {
+    label: 'Gloomy',
+    description: 'Feels every hardship twice. Give this one a bed early.',
+    family: 'temperament',
+    effects: { mood: 0.8 },
   },
 };
 

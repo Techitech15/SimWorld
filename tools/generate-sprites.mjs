@@ -964,6 +964,21 @@ function iconHealth() {
   return c;
 }
 
+// A face, because mood is the one gauge whose meaning is not obvious from a
+// bar: the icon says which direction is good.
+function iconMood() {
+  const c = new Canvas(ICON, ICON);
+  c.disc(12, 12, 9, '#e8c34a');
+  c.disc(12, 11, 8, '#f2d97a');
+  c.disc(9, 10, 1, '#3a2f14');
+  c.disc(15, 10, 1, '#3a2f14');
+  // a shallow smile: three rows narrowing towards the corners
+  c.hline(9, 15, 7, '#3a2f14');
+  c.hline(10, 16, 5, '#3a2f14');
+  c.outline(P.outline);
+  return c;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1007,6 +1022,7 @@ written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));
 written.push(save('ui/need_health.png', iconHealth()));
+written.push(save('ui/need_mood.png', iconMood()));
 
 console.log(`generated ${written.length} sprites into ${path.relative(process.cwd(), OUT_DIR)}`);
 for (const name of written) console.log(`  ${name}`);
