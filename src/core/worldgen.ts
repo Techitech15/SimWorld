@@ -169,7 +169,12 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   // Farm plots: one row north of the camp. Sized so three colonists build a
   // real surplus over spring and summer without the stores running away - the
   // point of the seasons is that the winter buffer has to be earned.
-  for (let x = cx - 2; x < cx + 3; x++) addBuilding(state, 'farmPlot', tileIdOf(x, cy - 4));
+  for (let i = 0; i < scenario.farmPlots; i++) {
+    // a row that grows outwards from the camp, so a bigger farm is a wider one
+    const x = cx - 2 + (i % 5);
+    const y = cy - 4 - Math.floor(i / 5);
+    addBuilding(state, 'farmPlot', tileIdOf(x, y));
+  }
 
   // beds
   for (let i = 0; i < 3; i++) addBuilding(state, 'bed', tileIdOf(cx - 4 + i * 2, cy));
@@ -192,7 +197,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   }
 
   // colonists
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < scenario.colonists; i++) {
     // the founders' backgrounds come out of the world seed, so "new map" also
     // means a different set of people, not the same three under a new sky
     addColonist(

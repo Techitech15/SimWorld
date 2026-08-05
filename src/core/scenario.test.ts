@@ -31,6 +31,17 @@ describe('scenarios', () => {
       for (const [type, quantity] of Object.entries(SCENARIOS[name].startingResources)) {
         expect(countResource(state, type as 'food')).toBe(quantity);
       }
+      expect(Object.keys(state.colonists).length).toBe(SCENARIOS[name].colonists);
+      expect(Object.values(state.buildings).filter((b) => b.type === 'farmPlot').length).toBe(
+        SCENARIOS[name].farmPlots,
+      );
+      // every colonist has somewhere to stand and every plot is on real ground
+      for (const colonist of Object.values(state.colonists)) {
+        expect(state.tiles[`${colonist.position.x},${colonist.position.y}`]).toBeDefined();
+      }
+      for (const building of Object.values(state.buildings)) {
+        expect(state.tiles[building.tileId]?.buildingId).toBe(building.id);
+      }
     }
   });
 
@@ -85,16 +96,38 @@ describe('scenarios', () => {
     expect(countResource(state, 'food')).toBe(120);
     expect(countResource(state, 'wood')).toBe(60);
     expect(countResource(state, 'stone')).toBe(0);
+    expect(Object.keys(state.colonists).length).toBe(3);
+    expect(Object.values(state.buildings).filter((b) => b.type === 'farmPlot').length).toBe(5);
   });
 
-  it('make the hard frontier genuinely harder to feed', () => {
-    // not just fewer numbers on paper: run both a week and compare the larder
+  it('differ in a way that outlasts the first two days', () => {
+    // The first attempt at this moved only the starting stock, and measured
+    // over a year gentle and harsh both finished at six colonists with fourteen
+    // hundred food: a larder is spent in two days and then the farm decides
+    // everything. So the test has to look past the opening, which is why it
+    // runs ten days rather than five.
     const after = (name: ScenarioName) => {
       let state = generateWorld({ seed: 9323, scenario: name });
-      state = tickMany(state, createSimContext(state), TICKS_PER_DAY * 5);
-      return countResource(state, 'food');
+      state = tickMany(state, createSimContext(state), TICKS_PER_DAY * 10);
+      return {
+        food: countResource(state, 'food'),
+        population: Object.keys(state.colonists).length,
+        starved: state.log.filter((e) => e.message.includes('starved to death')).length,
+      };
     };
-    expect(after('harsh')).toBeLessThan(after('standard'));
-    expect(after('standard')).toBeLessThan(after('gentle'));
+    const harsh = after('harsh');
+    const standard = after('standard');
+    const gentle = after('gentle');
+
+    // the gap is not a transient: it is wider at day ten than at day one
+    expect(harsh.food).toBeLessThan(standard.food * 0.8);
+    expect(gentle.food).toBeGreaterThan(standard.food * 1.2);
+
+    // harder, and still a game: the hard frontier is behind, not dead
+    expect(harsh.starved).toBe(0);
+    expect(harsh.population).toBeGreaterThanOrEqual(
+      SCENARIOS.harsh.colonists,
+    );
+    expect(gentle.population).toBeGreaterThan(harsh.population);
   });
 });

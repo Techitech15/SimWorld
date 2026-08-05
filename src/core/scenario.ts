@@ -18,6 +18,15 @@ export interface Scenario {
   description: string;
   /** what is waiting in the store on day one */
   startingResources: Partial<Record<ResourceType, number>>;
+  /**
+   * Ground already broken, and hands to work it. These two are the scenario's
+   * real levers: a larder is spent in two days and then the farm decides
+   * everything, so a scenario that only moved the starting stock was cosmetic -
+   * measured over a year, gentle and harsh both finished at six colonists with
+   * fourteen hundred food.
+   */
+  farmPlots: number;
+  colonists: number;
   /** multiplier on each species' starting head count */
   wildlife: number;
   /** how many predators the map sustains at once */
@@ -27,8 +36,10 @@ export interface Scenario {
 export const SCENARIOS: Record<ScenarioName, Scenario> = {
   gentle: {
     label: 'Sheltered valley',
-    description: 'A full larder, game everywhere and one wolf. Room to learn the controls.',
+    description: 'Four hands, eight plots broken, game everywhere and one wolf. Room to learn the controls.',
     startingResources: { food: 240, wood: 120, stone: 30 },
+    farmPlots: 8,
+    colonists: 4,
     wildlife: 1.5,
     predators: 1,
   },
@@ -36,13 +47,17 @@ export const SCENARIOS: Record<ScenarioName, Scenario> = {
     label: 'Open country',
     description: 'The colony as designed: enough to get started and no more.',
     startingResources: { food: 120, wood: 60, stone: 0 },
+    farmPlots: 5,
+    colonists: 3,
     wildlife: 1,
     predators: 2,
   },
   harsh: {
     label: 'Hard frontier',
-    description: 'Half the stores, thin game and four wolves. The first winter is the test.',
+    description: 'Two hands, two plots, thin game and four wolves. The first winter is the test.',
     startingResources: { food: 60, wood: 40, stone: 0 },
+    farmPlots: 2,
+    colonists: 2,
     wildlife: 0.6,
     predators: 4,
   },
