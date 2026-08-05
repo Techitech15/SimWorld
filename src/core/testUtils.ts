@@ -28,6 +28,46 @@ export function createHarness(seed = 42): Harness {
   return harness;
 }
 
+/**
+ * Every line the log emits during a run, truncation included.
+ *
+ * `state.log` keeps only its last hundred entries, so anything that reads the
+ * log after a long run is measuring the buffer rather than the run - a year of
+ * play produces more lines than it holds. Counting the tail on every tick is
+ * the other trap and is worse, because it silently counts the same entry
+ * thousands of times: it made one measurement here report twenty-five thousand
+ * level-ups in a game where four hundred is the ceiling.
+ *
+ * This watches the last entry and records it when its identity changes, which
+ * is exact for the one-entry-per-tick case and the reason it lives here rather
+ * than being written out again at each call site.
+ */
+export function recordLog(
+  harness: Harness,
+  ticks: number,
+  onTick?: (state: GameState) => void,
+): string[] {
+  const lines: string[] = [];
+  let lastKey = '';
+  const seed = harness.state.log[harness.state.log.length - 1];
+  if (seed) lastKey = `${seed.tick}:${seed.message}`;
+  harness.run(ticks, (state) => {
+    // the caller's hook runs first: a test that writes its own lines from
+    // onTick would otherwise have the last tick's line recorded a tick late,
+    // and the final one not at all
+    onTick?.(state);
+    const last = state.log[state.log.length - 1];
+    if (last) {
+      const key = `${last.tick}:${last.message}`;
+      if (key !== lastKey) {
+        lastKey = key;
+        lines.push(last.message);
+      }
+    }
+  });
+  return lines;
+}
+
 export function tilesWithTerrain(
   state: GameState,
   terrain: TerrainType,

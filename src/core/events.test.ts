@@ -13,7 +13,7 @@ import {
 } from './events';
 import { SEASONS, TICKS_PER_SEASON, seasonOf } from './season';
 import { tickMany } from './simulation';
-import { createHarness } from './testUtils';
+import { createHarness, recordLog } from './testUtils';
 import { generateWorld } from './worldgen';
 import type { GameState, Season } from './types';
 
@@ -250,17 +250,12 @@ describe('incidents', () => {
     // the balance question: incidents must make the year eventful, not fatal
     const harness = createHarness(9719);
     let lowestPopulation = Object.keys(harness.state.colonists).length;
-    // the log keeps only the last hundred entries, so counting incidents from
-    // it at the end of a year measures the truncation, not the year
-    let seen = 0;
-    let incidents = 0;
-    harness.run(TICKS_PER_SEASON * 4, (state) => {
+    const lines = recordLog(harness, TICKS_PER_SEASON * 4, (state) => {
       lowestPopulation = Math.min(lowestPopulation, Object.keys(state.colonists).length);
-      for (const entry of state.log.slice(seen === 0 ? 0 : -1)) {
-        if (/ripened|Blight|berry|wolves|herd|abandoned/.test(entry.message)) incidents++;
-      }
-      seen = state.log.length;
     });
+    const incidents = lines.filter((line) =>
+      /ripened|Blight|berry|wolves|herd|abandoned/.test(line),
+    ).length;
     expect(lowestPopulation).toBe(3);
     expect(incidents).toBeGreaterThan(3); // the year was eventful
     expect(seasonOf(harness.state.tick)).toBe('spring');
