@@ -185,12 +185,13 @@ export type JobType =
   | 'haul'
   | 'hunt'
   | 'handle'
-  | 'deconstruct';
+  | 'deconstruct'
+  | 'repair';
 
 /**
- * The columns of the work-priority table. `deconstruct` is deliberately absent:
- * it runs under the `build` work type, so tearing a wall down is governed by the
- * same column that put it up.
+ * The columns of the work-priority table. `deconstruct` and `repair` are
+ * deliberately absent: both run under the `build` work type, so tearing a wall
+ * down and patching it up are governed by the same column that put it up.
  */
 export const JOB_TYPES: JobType[] = [
   'chop',
@@ -204,10 +205,10 @@ export const JOB_TYPES: JobType[] = [
 
 /**
  * [ext] The skills a colonist can practise: one per column of the work table.
- * `deconstruct` has no skill of its own because it has no column of its own -
- * it is construction work either way (see skillFor).
+ * `deconstruct` and `repair` have no skill of their own because they have no
+ * column of their own - both are construction work (see skillFor).
  */
-export type SkillName = Exclude<JobType, 'deconstruct'>;
+export type SkillName = Exclude<JobType, 'deconstruct' | 'repair'>;
 
 export type JobState = 'pending' | 'reserved' | 'active' | 'completed' | 'failed' | 'cancelled';
 
@@ -272,9 +273,14 @@ export type AnimalActivity =
   | { kind: 'grazing'; ticksRemaining: number }
   | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number }
   | { kind: 'stalking'; targetKind: 'animal' | 'colonist'; targetId: string }
+  /**
+   * `building` is what a predator falls back to when the prey is behind a door
+   * it cannot open: it chews on the door instead. That is what gives a pen its
+   * cost - it keeps the wolves out until it does not.
+   */
   | {
       kind: 'attacking';
-      targetKind: 'animal' | 'colonist';
+      targetKind: 'animal' | 'colonist' | 'building';
       targetId: string;
       nextBiteTick: number;
     };

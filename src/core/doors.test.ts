@@ -73,5 +73,15 @@ describe('doors', () => {
     expect(survivor).toBeDefined();
     expect(penned(survivor.position)).toBe(true); // and the deer never got out
     expect(survivor.health).toBe(60);
+
+    // The fence is not untouchable, though: a wolf that cannot get round it
+    // chews on whatever part of it is in the way - which is a wall as often as
+    // the door. What makes the pen work is that one visit is not enough.
+    const fence = Object.values(harness.state.buildings).filter(
+      (b) => b.type === 'door' || b.type === 'wall',
+    );
+    const chewed = fence.filter((b) => b.hpCurrent < b.hpMax);
+    expect(chewed.length).toBeGreaterThan(0);
+    for (const part of chewed) expect(part.hpCurrent).toBeGreaterThan(part.hpMax / 2);
   });
 });

@@ -63,6 +63,7 @@ export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   mine: 2,
   handle: 2,
   haul: 3,
+  repair: 1, // a hole in the fence is not something to get round to
 };
 
 /** Work ticks required once the colonist stands in place. */
@@ -75,6 +76,7 @@ export const WORK_TICKS: Record<JobType, number> = {
   hunt: 60,
   handle: 45,
   deconstruct: 30, // faster to tear down than to put up
+  repair: 30,
 };
 
 /**
@@ -297,6 +299,16 @@ export const PREDATOR_PURSUIT_TICKS = 300;
 /** After giving up a chase a predator leaves its quarry alone for this long. */
 export const PREDATOR_GIVE_UP_COOLDOWN_TICKS = 600;
 export const PREDATOR_HUNGER_PER_KILL = 70;
+/**
+ * Gnawing at a door. Slower and weaker than a bite, and bounded by the same
+ * PREDATOR_PURSUIT_TICKS that ends any other chase: a wolf gets at most about a
+ * dozen goes at a door per visit, so a wooden door survives roughly three
+ * uninterrupted visits and a stone wall effectively never falls. A fence is
+ * meant to be a barrier that needs keeping up, not a formality and not a wall
+ * of infinite patience.
+ */
+export const PREDATOR_STRUCTURE_DAMAGE = 3;
+export const PREDATOR_GNAW_INTERVAL_TICKS = 25;
 /** Predators only appear from day 2 and never right next to the camp. */
 export const PREDATOR_FIRST_SPAWN_TICK = TICKS_PER_DAY;
 export const PREDATOR_MIN_SPAWN_DISTANCE = 20;

@@ -41,11 +41,12 @@ export const SKILL_LABELS: Record<SkillName, string> = {
 };
 
 /**
- * Which skill governs a job. `deconstruct` runs under the construction column,
- * so tearing a wall down trains the same skill that put it up.
+ * Which skill governs a job. `deconstruct` and `repair` run under the
+ * construction column, so tearing a wall down or patching it up trains the same
+ * skill that put it up.
  */
 export function skillFor(workType: JobType): SkillName {
-  return workType === 'deconstruct' ? 'build' : workType;
+  return workType === 'deconstruct' || workType === 'repair' ? 'build' : workType;
 }
 
 export function xpForLevel(level: number): number {

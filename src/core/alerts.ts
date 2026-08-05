@@ -103,6 +103,31 @@ export function collectAlerts(state: GameState): Alert[] {
     }
   }
 
+  // Something is chewing on the fence. A repair job is generated automatically,
+  // but the player still wants to know - a door coming down is how a pen full
+  // of livestock stops being a pen.
+  let worst: { id: string; fraction: number } | null = null;
+  let damagedCount = 0;
+  for (const id in state.buildings) {
+    const building = state.buildings[id];
+    if (building.isBlueprint || building.hpCurrent >= building.hpMax) continue;
+    damagedCount++;
+    const fraction = building.hpCurrent / building.hpMax;
+    if (!worst || fraction < worst.fraction) worst = { id, fraction };
+  }
+  if (worst) {
+    const building = state.buildings[worst.id];
+    const tile = state.tiles[building.tileId];
+    alerts.push({
+      level: worst.fraction < 0.4 ? 'critical' : 'warning',
+      message:
+        damagedCount === 1
+          ? `The ${building.type} is damaged (${Math.round(worst.fraction * 100)}%)`
+          : `${damagedCount} structures are damaged (worst ${Math.round(worst.fraction * 100)}%)`,
+      at: tile ? { x: tile.x, y: tile.y } : undefined,
+    });
+  }
+
   // a blueprint waiting on a resource the colony has none of will sit there for
   // ever, and the queue counter in the top bar looks the same either way
   const stalled = new Set<string>();

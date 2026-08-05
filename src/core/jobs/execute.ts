@@ -165,6 +165,12 @@ function applyJobEffect(
       }
       break;
     }
+    case 'repair': {
+      const building = state.buildings[job.targetEntityId!];
+      updateBuilding(state, building.id, { hpCurrent: building.hpMax });
+      addLog(state, `the ${building.type} at ${building.tileId} was repaired`);
+      break;
+    }
     case 'deconstruct': {
       const building = state.buildings[job.targetEntityId!];
       const tile = state.tiles[building.tileId];

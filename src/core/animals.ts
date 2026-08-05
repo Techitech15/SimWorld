@@ -50,8 +50,12 @@ import {
   SPECIES,
   WILDLIFE_MIN_SPAWN_DISTANCE,
   WILDLIFE_RESPAWN_INTERVAL_TICKS,
+  PREDATOR_STRUCTURE_DAMAGE,
+  PREDATOR_GNAW_INTERVAL_TICKS,
+  BLOCKS_MOVEMENT,
 } from './constants';
 import { killColonist } from './death';
+import { invalidateTile } from './derived';
 import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
 import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
@@ -65,10 +69,11 @@ import {
   updateItem,
   tileIdOf,
   updateAnimal,
+  updateBuilding,
   updateColonist,
   updateTile,
 } from './state';
-import { releaseByJob } from './jobs/reservations';
+import { releaseByJob, releaseEntity } from './jobs/reservations';
 import type { Animal, AnimalId, AnimalSpecies, GameState, Vector2 } from './types';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
 
@@ -384,7 +389,7 @@ function runPredator(state: GameState, ctx: SimContext, id: AnimalId): void {
   }
 
   if (animal.activity.kind === 'attacking') {
-    runAttack(state, id);
+    runAttack(state, ctx, id);
     return;
   }
 
@@ -405,10 +410,25 @@ function runPredator(state: GameState, ctx: SimContext, id: AnimalId): void {
       });
       // bite in the same tick contact is made: anything that runs is gone again
       // by the next one, so a "wind-up" tick means a predator never lands a hit
-      runAttack(state, id);
+      runAttack(state, ctx, id);
       return;
     }
-    pursue(state, ctx, id, target);
+    if (pursue(state, ctx, id, target) === 'blocked') {
+      const wall = blockingStructure(state, state.animals[id], target);
+      if (wall) {
+        updateAnimal(state, id, {
+          activity: {
+            kind: 'attacking',
+            targetKind: 'building',
+            targetId: wall,
+            nextBiteTick: state.tick,
+          },
+          path: null,
+          pathExpiresAtTick: null,
+        });
+        runAttack(state, ctx, id);
+      }
+    }
     return;
   }
 
@@ -459,7 +479,7 @@ function findPrey(
   return chosen ? { kind: chosen.kind, id: chosen.id } : null;
 }
 
-function runAttack(state: GameState, id: AnimalId): void {
+function runAttack(state: GameState, ctx: SimContext, id: AnimalId): void {
   const animal = state.animals[id];
   if (animal.activity.kind !== 'attacking') return;
   const { targetKind, targetId, nextBiteTick } = animal.activity;
@@ -469,7 +489,13 @@ function runAttack(state: GameState, id: AnimalId): void {
     return;
   }
   if (manhattan(animal.position, target) > 1) {
-    updateAnimal(state, id, { activity: { kind: 'stalking', targetKind, targetId } });
+    // a structure is not something to chase: step away from a wall and the
+    // animal simply goes back to looking for prey
+    if (targetKind === 'building') {
+      updateAnimal(state, id, { activity: { kind: 'idle' } });
+    } else {
+      updateAnimal(state, id, { activity: { kind: 'stalking', targetKind, targetId } });
+    }
     return;
   }
   if (state.tick < nextBiteTick) return;
@@ -479,9 +505,16 @@ function runAttack(state: GameState, id: AnimalId): void {
       kind: 'attacking',
       targetKind,
       targetId,
-      nextBiteTick: state.tick + PREDATOR_BITE_INTERVAL_TICKS,
+      nextBiteTick:
+        state.tick +
+        (targetKind === 'building' ? PREDATOR_GNAW_INTERVAL_TICKS : PREDATOR_BITE_INTERVAL_TICKS),
     },
   });
+
+  if (targetKind === 'building') {
+    gnawStructure(state, ctx, id, targetId);
+    return;
+  }
 
   if (targetKind === 'animal') {
     const prey = state.animals[targetId];
@@ -512,10 +545,64 @@ function runAttack(state: GameState, id: AnimalId): void {
   }
 }
 
-/** Move towards a moving target. Uses the shared per-tick A* budget. */
-function pursue(state: GameState, ctx: SimContext, id: AnimalId, target: Vector2): void {
+/**
+ * A predator chewing on a structure it cannot get past. A door standing between
+ * a wolf and a pen full of livestock is the case this exists for: the fence
+ * works until it does not, and the colony has to keep it standing.
+ */
+function gnawStructure(
+  state: GameState,
+  ctx: SimContext,
+  id: AnimalId,
+  buildingId: string,
+): void {
   const animal = state.animals[id];
-  if (!canStep(state, animal)) return;
+  const building = state.buildings[buildingId];
+  if (!building) {
+    updateAnimal(state, id, { activity: { kind: 'idle' } });
+    return;
+  }
+  const hpCurrent = building.hpCurrent - PREDATOR_STRUCTURE_DAMAGE;
+  if (hpCurrent > 0) {
+    updateBuilding(state, buildingId, { hpCurrent });
+    if (building.hpCurrent === building.hpMax) {
+      addLog(
+        state,
+        `${animal.name} the ${SPECIES[animal.species].label.toLowerCase()} is tearing at the ${building.type}`,
+      );
+    }
+    return;
+  }
+
+  const tile = state.tiles[building.tileId];
+  releaseEntity(state, buildingId);
+  const { [buildingId]: _removed, ...rest } = state.buildings;
+  state.buildings = rest;
+  updateTile(state, tile.id, { buildingId: null, designation: null });
+  if (BLOCKS_MOVEMENT[building.type]) {
+    updateTile(state, tile.id, { walkable: true });
+    invalidateTile(ctx, state, tile.id);
+  }
+  addLog(state, `the ${building.type} at ${tile.id} was broken open`);
+  // whatever it was after is on the other side; go and look again
+  updateAnimal(state, id, { activity: { kind: 'idle' }, path: null, pathExpiresAtTick: null });
+}
+
+/**
+ * Move towards a moving target. Uses the shared per-tick A* budget.
+ *
+ * Returns 'blocked' only when a route was actually looked for and there was
+ * none - not when the animal is merely between steps or out of path budget.
+ * The caller uses that to decide the prey is behind something.
+ */
+function pursue(
+  state: GameState,
+  ctx: SimContext,
+  id: AnimalId,
+  target: Vector2,
+): 'ok' | 'blocked' {
+  const animal = state.animals[id];
+  if (!canStep(state, animal)) return 'ok';
 
   const pathStale =
     !animal.path ||
@@ -525,14 +612,14 @@ function pursue(state: GameState, ctx: SimContext, id: AnimalId, target: Vector2
 
   if (pathStale) {
     // greedy step first: it is free, and predators are usually already close
-    if (greedyStep(state, id, target)) return;
-    if (ctx.animalPathBudget <= 0) return;
+    if (greedyStep(state, id, target)) return 'ok';
+    if (ctx.animalPathBudget <= 0) return 'ok';
     ctx.animalPathBudget -= 1;
     const path = findPath(state, animal.position, target, { adjacent: true });
-    if (!path || path.length === 0) return;
+    if (!path || path.length === 0) return 'blocked';
     // A* does not know about doors, so a route through one is useless to an
     // animal: drop it rather than walking into the door every tick
-    if (path.some((step) => !isWalkableByAnimal(state, step.x, step.y))) return;
+    if (path.some((step) => !isWalkableByAnimal(state, step.x, step.y))) return 'blocked';
     updateAnimal(state, id, {
       path,
       pathExpiresAtTick: state.tick + ANIMAL_PATH_TTL_TICKS,
@@ -541,12 +628,13 @@ function pursue(state: GameState, ctx: SimContext, id: AnimalId, target: Vector2
 
   const current = state.animals[id];
   const next = current.path?.[0];
-  if (!next) return;
+  if (!next) return 'ok';
   if (stepTo(state, id, next.x, next.y)) {
     updateAnimal(state, id, { path: current.path!.slice(1) });
   } else {
     updateAnimal(state, id, { path: null, pathExpiresAtTick: null });
   }
+  return 'ok';
 }
 
 /** One step that reduces the distance, if such a step is walkable. */
@@ -706,11 +794,44 @@ function hashId(id: string): number {
 
 function targetPosition(
   state: GameState,
-  kind: 'animal' | 'colonist',
+  kind: 'animal' | 'colonist' | 'building',
   id: string,
 ): Vector2 | null {
+  if (kind === 'building') {
+    const building = state.buildings[id];
+    const tile = building ? state.tiles[building.tileId] : undefined;
+    return tile ? { x: tile.x, y: tile.y } : null;
+  }
   const entity = kind === 'animal' ? state.animals[id] : state.colonists[id];
   return entity ? entity.position : null;
+}
+
+/**
+ * A finished structure next to the animal that stands between it and where it
+ * wants to be. This is the whole of "the wolf noticed the door": no pathfinding
+ * against buildings, just the neighbour that blocks and that faces the prey.
+ */
+function blockingStructure(state: GameState, animal: Animal, target: Vector2): string | null {
+  const here = manhattan(animal.position, target);
+  const neighbours = [
+    { x: animal.position.x + 1, y: animal.position.y },
+    { x: animal.position.x - 1, y: animal.position.y },
+    { x: animal.position.x, y: animal.position.y + 1 },
+    { x: animal.position.x, y: animal.position.y - 1 },
+  ];
+  let best: string | null = null;
+  let bestDistance = here;
+  for (const at of neighbours) {
+    if (manhattan(at, target) >= bestDistance) continue;
+    const tile = state.tiles[tileIdOf(at.x, at.y)];
+    if (!tile?.buildingId) continue;
+    const building = state.buildings[tile.buildingId];
+    if (!building || building.isBlueprint) continue;
+    if (isWalkableByAnimal(state, at.x, at.y)) continue; // it is not in the way
+    best = building.id;
+    bestDistance = manhattan(at, target);
+  }
+  return best;
 }
 
 export function nearestPredator(state: GameState, from: Vector2, range: number): Animal | null {

@@ -22,6 +22,7 @@ function jobKey(job: Job): string {
         : `haul:${job.targetEntityId}`;
     case 'build':
     case 'deconstruct':
+    case 'repair':
       return `${job.type}:${job.targetEntityId}`;
     default:
       return `${job.type}:${job.targetTileId}`;
@@ -177,6 +178,25 @@ export function runJobGenerator(state: GameState): void {
     }
   }
 
+  // --- damaged structures -> repair -----------------------------------------
+  // Nothing damaged a building until predators started chewing on doors, which
+  // is what makes this worth generating: a fence keeps wolves out only while
+  // somebody keeps it standing. No materials, because a patch is work rather
+  // than a rebuild - and because a delivery chain for it would be a second
+  // blueprint system.
+  for (const buildingId in state.buildings) {
+    const building = state.buildings[buildingId];
+    if (building.isBlueprint || building.hpCurrent >= building.hpMax) continue;
+    const key = `repair:${buildingId}`;
+    if (has(key)) continue;
+    createJob(state, 'repair', {
+      workType: 'build', // patching a wall is construction work, like tearing it down
+      targetTileId: building.tileId,
+      targetEntityId: buildingId,
+    });
+    claim(key);
+  }
+
   // --- designated animals: hunt / tame / slaughter ---------------------------
   for (const animalId in state.animals) {
     const animal = state.animals[animalId];
@@ -248,6 +268,10 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
       return !!building && !building.isBlueprint && tile?.designation === 'deconstruct';
+    }
+    case 'repair': {
+      const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      return !!building && !building.isBlueprint && building.hpCurrent < building.hpMax;
     }
     case 'hunt':
     case 'handle': {
