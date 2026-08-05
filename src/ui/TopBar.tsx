@@ -28,9 +28,10 @@ export function TopBar(): React.JSX.Element {
     <header className="topbar">
       <div className="topbar__clock">
         <strong>Day {day}</strong>
-        <span title={`day ${dayOfSeason(tick)} of ${DAYS_PER_SEASON}, year ${yearOf(tick)}`}>
-          {SEASON_LABEL[seasonOf(tick)]}
+        <span title={`day ${dayOfSeason(tick)} of ${DAYS_PER_SEASON}`}>
+          {SEASON_LABEL[seasonOf(tick)]} {dayOfSeason(tick)}/{DAYS_PER_SEASON}
         </span>
+        <span className="muted">Year {yearOf(tick)}</span>
         <span>
           {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
         </span>
