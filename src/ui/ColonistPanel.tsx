@@ -55,6 +55,8 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
   const colonist = useColonist(id);
   const selectedId = useGameStore((s) => s.selectedColonistId);
   const select = useGameStore((s) => s.selectColonist);
+  const focusOnTile = useGameStore((s) => s.focusOnTile);
+  const selectTile = useGameStore((s) => s.selectTile);
   const state = useGameStore((s) => s.state);
   if (!colonist) return null;
 
@@ -62,7 +64,13 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
     <button
       type="button"
       className={`colonist ${selectedId === id ? 'colonist--selected' : ''}`}
-      onClick={() => select(id)}
+      onClick={() => {
+        // clicking a name in a list of eight means "show me this one" - on a
+        // 60x60 map, selecting without moving the camera answers nothing
+        select(id);
+        focusOnTile({ ...colonist.position });
+        selectTile(`${colonist.position.x},${colonist.position.y}`);
+      }}
     >
       <div className="colonist__head">
         <span
