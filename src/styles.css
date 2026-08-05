@@ -270,6 +270,29 @@ button.active {
   background: var(--crit);
 }
 
+.skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.skill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #ffffff14;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.skill b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .need__value {
   width: 24px;
   text-align: right;

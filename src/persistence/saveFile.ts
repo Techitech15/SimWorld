@@ -5,9 +5,10 @@
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
 import { COLONIST_MAX_HEALTH } from '../core/constants';
+import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -63,6 +64,22 @@ export const migrations: Record<number, Migration> = {
       animals[id] = { ...animal, huntCooldownUntilTick: animal.huntCooldownUntilTick ?? null };
     }
     return { ...state, animals };
+  },
+
+  /**
+   * 3 -> 4: colonists learned to get better at their work. An existing colony
+   * has no record of what its people have been doing, and inventing a history
+   * for them would be a lie, so everybody starts from zero: the same work at
+   * the same speed as before, improving from here.
+   */
+  3: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = { ...colonist, skills: { ...emptySkills(), ...(colonist.skills ?? {}) } };
+    }
+    return { ...state, colonists };
   },
 };
 

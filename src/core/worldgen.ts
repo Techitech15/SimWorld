@@ -11,6 +11,7 @@ import {
   STACK_MAX,
 } from './constants';
 import { mulberry32, valueNoise2D } from './rng';
+import { rollStartingSkills } from './skills';
 import { createEmptyState, nextId, own, tileIdOf, updateTile } from './state';
 import { JOB_TYPES } from './types';
 import type {
@@ -182,7 +183,14 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   // colonists
   for (let i = 0; i < 3; i++) {
-    addColonist(state, { x: cx - 1 + i, y: cy + 6 }, { hunger: 20 + i * 5, sleep: 10 + i * 5 });
+    // the founders' backgrounds come out of the world seed, so "new map" also
+    // means a different set of people, not the same three under a new sky
+    addColonist(
+      state,
+      { x: cx - 1 + i, y: cy + 6 },
+      { hunger: 20 + i * 5, sleep: 10 + i * 5 },
+      seed * 31 + i * 7919,
+    );
   }
 
   scatterBerryBushes(state, seed, { x: cx, y: cy });
@@ -275,6 +283,8 @@ export function addColonist(
   state: GameState,
   position: { x: number; y: number },
   needs: { hunger: number; sleep: number } = { hunger: 15, sleep: 15 },
+  /** what the newcomer already knows; defaults to something the world decides */
+  skillSeed: number = state.tick * 7919 + Object.keys(state.colonists).length,
 ): Colonist {
   const id = nextId(state, 'c');
   const index = Number(id.slice(1)) - 1;
@@ -291,6 +301,7 @@ export function addColonist(
     carrying: null,
     activity: { kind: 'none' },
     workPriorities: defaultPriorities(),
+    skills: rollStartingSkills(skillSeed),
   };
   state.colonists[id] = colonist;
   return colonist;

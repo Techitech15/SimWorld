@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { setDesignation } from '../core/actions';
 import { COLONIST_MAX_HEALTH } from '../core/constants';
+import { SKILL_NAMES, emptySkills } from '../core/skills';
 import { createEmptyState } from '../core/state';
 import type { GameState } from '../core/types';
 import { createHarness, nearestTilesWithTerrain } from '../core/testUtils';
@@ -154,6 +155,37 @@ describe('save file versioning', () => {
     }
     const ctx = createSimContext(migrated.state);
     expect(tickMany(migrated.state, ctx, 200).tick).toBe(harness.state.tick + 200);
+  });
+
+  it('migrates a version 3 save into the skill layer', () => {
+    const harness = createHarness(73);
+    harness.run(150);
+    const v3 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v3.colonists) {
+      const { skills: _dropped, ...rest } = v3.colonists[id];
+      v3.colonists[id] = rest as GameState['colonists'][string];
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 3,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-05T00:00:00.000Z',
+      state: v3,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.colonists) {
+      // no invented history: an existing colony starts the ladder at the bottom
+      expect(migrated.state.colonists[id].skills).toEqual(emptySkills());
+    }
+    const ctx = createSimContext(migrated.state);
+    const after = tickMany(migrated.state, ctx, 400);
+    expect(after.tick).toBe(harness.state.tick + 400);
+    // and from there they learn like anyone else
+    const learned = Object.values(after.colonists).some((c) =>
+      SKILL_NAMES.some((name) => c.skills[name] > 0),
+    );
+    expect(learned).toBe(true);
   });
 
   it('rejects malformed json and missing fields', () => {

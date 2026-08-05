@@ -24,6 +24,7 @@ import { invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
 import { advanceTowards, chase } from '../movement';
 import { mulberry32 } from '../rng';
+import { grantWorkExperience, workRate } from '../skills';
 import {
   addLog,
   removeItem,
@@ -36,7 +37,7 @@ import {
 } from '../state';
 import { addItem } from '../worldgen';
 import { depositCarried } from '../death';
-import type { GameState } from '../types';
+import type { GameState, JobType } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
 import { releaseByJob, releaseEntity, releaseJobTarget } from './reservations';
@@ -90,12 +91,23 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
   }
   if (move !== 'arrived') return;
 
-  const progress = job.workProgress + 1;
+  const progress = job.workProgress + putInWork(state, colonistId, job.workType);
   if (progress < WORK_TICKS[job.type]) {
     updateJob(state, jobId, { workProgress: progress });
     return;
   }
   applyJobEffect(state, ctx, jobId, colonistId);
+}
+
+/**
+ * One tick of work: how much progress it makes, and the practice it is worth.
+ * Only called once the colonist is in place, so walking to the site teaches
+ * nobody anything and a novice's tick is worth exactly the old flat 1.
+ */
+function putInWork(state: GameState, colonistId: string, workType: JobType): number {
+  const rate = workRate(state.colonists[colonistId], workType);
+  grantWorkExperience(state, colonistId, workType);
+  return rate;
 }
 
 function applyJobEffect(
@@ -214,7 +226,7 @@ function executeAnimalJob(
   }
   if (move !== 'arrived') return;
 
-  const progress = job.workProgress + 1;
+  const progress = job.workProgress + putInWork(state, colonistId, job.workType);
   if (progress < WORK_TICKS[job.type]) {
     updateJob(state, jobId, { workProgress: progress });
     return;
@@ -296,7 +308,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     }
     if (move !== 'arrived') return;
 
-    const progress = job.workProgress + 1;
+    const progress = job.workProgress + putInWork(state, colonistId, job.workType);
     if (progress < WORK_TICKS.haul) {
       updateJob(state, jobId, { workProgress: progress });
       return;

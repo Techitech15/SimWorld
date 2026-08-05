@@ -25,12 +25,18 @@ describe('a hunted boar', () => {
     // A charge is a roll per tick while the hunter is close. The roll is a hash
     // of the tick and the animal's id, so replaying the same hunt at the same
     // tick gives the same answer every time - varying the world seed would not
-    // be six trials, it would be one trial six times. What has to vary is *when*
-    // the hunt happens.
+    // be a set of trials, it would be one trial repeated. What has to vary is
+    // *when* the hunt happens.
+    //
+    // Two dozen of them, because a charge is uncommon by design: at six the
+    // sample was small enough that an unrelated change to how long a hunt takes
+    // could push it to zero and read as a broken boar.
     let charges = 0;
+    let trials = 0;
     let everybodyLived = true;
 
-    for (const startTick of [0, 137, 411, 923, 1502, 2311]) {
+    for (let startTick = 0; startTick < 24 * 163; startTick += 163) {
+      trials++;
       const harness = createHarness(1601);
       harness.state.tick = startTick;
       harness.state.animals = {};
@@ -66,7 +72,9 @@ describe('a hunted boar', () => {
       }
     }
 
-    expect(charges).toBeGreaterThan(0);
+    // uncommon, but not a rumour - and not something a boar does every time
+    expect(charges).toBeGreaterThanOrEqual(3);
+    expect(charges).toBeLessThan(trials);
     expect(everybodyLived).toBe(true);
   });
 

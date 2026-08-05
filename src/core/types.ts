@@ -116,6 +116,12 @@ export interface Colonist {
   activity: ColonistActivity;
   /** [ext] 0 = disabled, 1 (highest) .. 3 (lowest) */
   workPriorities: Record<JobType, number>;
+  /**
+   * [ext] Accumulated experience per skill. Levels are derived from it rather
+   * than stored, so there is exactly one number to save and one place that
+   * decides what a level means (src/core/skills.ts).
+   */
+  skills: Record<SkillName, number>;
 }
 
 export type BuildingType =
@@ -176,6 +182,13 @@ export const JOB_TYPES: JobType[] = [
   'hunt',
   'handle',
 ];
+
+/**
+ * [ext] The skills a colonist can practise: one per column of the work table.
+ * `deconstruct` has no skill of its own because it has no column of its own -
+ * it is construction work either way (see skillFor).
+ */
+export type SkillName = Exclude<JobType, 'deconstruct'>;
 
 export type JobState = 'pending' | 'reserved' | 'active' | 'completed' | 'failed' | 'cancelled';
 

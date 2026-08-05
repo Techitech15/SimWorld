@@ -100,6 +100,7 @@ export function beginTick(state: GameState): GameState {
       activity: { ...c.activity },
       carrying: c.carrying ? { ...c.carrying } : null,
       workPriorities: { ...c.workPriorities },
+      skills: { ...c.skills },
     };
   }
   const jobs: Record<JobId, Job> = {};

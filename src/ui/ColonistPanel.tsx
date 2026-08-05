@@ -1,4 +1,5 @@
 import { HUNGER_THRESHOLD, SLEEP_THRESHOLD } from '../core/constants';
+import { SKILL_LABELS, SKILL_NAMES, levelOf } from '../core/skills';
 import type { Colonist, GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
@@ -47,6 +48,28 @@ function NeedBar({
         <div className={`need__fill need__fill--${state}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="need__value">{pct}</span>
+    </div>
+  );
+}
+
+/**
+ * What this colonist is good at. Only levels above zero, best first, capped at
+ * three: the point is "this is the hunter", not a character sheet.
+ */
+function SkillTags({ colonist }: { colonist: Colonist }): React.JSX.Element | null {
+  const shown = SKILL_NAMES.map((name) => ({ name, level: levelOf(colonist.skills?.[name] ?? 0) }))
+    .filter((skill) => skill.level > 0)
+    .sort((a, b) => b.level - a.level || (a.name < b.name ? -1 : 1))
+    .slice(0, 3);
+  if (shown.length === 0) return null;
+  return (
+    <div className="skills">
+      {shown.map((skill) => (
+        <span className="skill" key={skill.name} title={`${SKILL_LABELS[skill.name]} level ${skill.level}`}>
+          {SKILL_LABELS[skill.name]}
+          <b>{skill.level}</b>
+        </span>
+      ))}
     </div>
   );
 }
@@ -101,6 +124,7 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
         value={colonist.needs.sleep}
         threshold={SLEEP_THRESHOLD}
       />
+      <SkillTags colonist={colonist} />
     </button>
   );
 }
