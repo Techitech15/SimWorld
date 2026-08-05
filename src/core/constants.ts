@@ -94,7 +94,7 @@ export const FOOD_PER_HARVEST = 16;
  * a farm running - and a reason to walk into the woods at all.
  */
 export const FOOD_PER_BERRY_HARVEST = 9;
-export const BERRY_REGROW_PER_TICK = 1 / 4500;
+export const BERRY_REGROW_PER_TICK = 1 / 12000; // four days a bush, so it never rivals a farm
 export const BERRY_BUSH_COUNT = 26;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;

@@ -2,7 +2,14 @@
 // reason to walk into the woods at all. A bush needs no sowing - it ripens on
 // its own and can be picked whenever it is ready.
 import { describe, expect, it } from 'vitest';
-import { BERRY_BUSH_COUNT, FOOD_PER_BERRY_HARVEST, TICKS_PER_DAY } from './constants';
+import {
+  BERRY_BUSH_COUNT,
+  BERRY_REGROW_PER_TICK,
+  CROP_GROWTH_PER_TICK,
+  FOOD_PER_BERRY_HARVEST,
+  FOOD_PER_HARVEST,
+  TICKS_PER_DAY,
+} from './constants';
 import { createSimContext } from './derived';
 import { TICKS_PER_SEASON } from './season';
 import { tickMany } from './simulation';
@@ -48,8 +55,22 @@ describe('berry bushes', () => {
     expect(bushes(harness.state).some((b) => b.growth < 1)).toBe(true);
   });
 
-  it('yield less than a tended plot', () => {
-    expect(FOOD_PER_BERRY_HARVEST).toBeLessThan(16);
+  it('feed a colony without rivalling its farm', () => {
+    // The claim is that berries are early food, not a farm replacement. In
+    // food per tick a bush is FOOD_PER_BERRY_HARVEST / its regrow time and a
+    // plot is FOOD_PER_HARVEST / its growth time, so the whole wild supply has
+    // to come out below the farm the colony starts with.
+    const perBush = FOOD_PER_BERRY_HARVEST * BERRY_REGROW_PER_TICK;
+    const perPlot = FOOD_PER_HARVEST * CROP_GROWTH_PER_TICK;
+    expect(perBush).toBeLessThan(perPlot);
+
+    const state = generateWorld({ seed: 2017 });
+    const plots = Object.values(state.buildings).filter((b) => b.type === 'farmPlot').length;
+    const wild = bushes(state).length * perBush;
+    const farmed = plots * perPlot;
+    expect(wild).toBeLessThan(farmed);
+    // and it is not negligible either, or there was no point adding them
+    expect(wild).toBeGreaterThan(farmed * 0.2);
   });
 
   it('stop ripening in winter like everything else', () => {
