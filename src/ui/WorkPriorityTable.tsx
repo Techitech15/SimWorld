@@ -43,6 +43,22 @@ function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: Jo
 export function WorkPriorityTable(): React.JSX.Element {
   const ids = useColonistIds();
   const colonists = useGameStore((s) => s.state.colonists);
+  const setJobPriority = useGameStore((s) => s.setJobPriority);
+
+  /**
+   * Set a whole column at once. Turning hauling off for the colony is three
+   * clicks with three colonists and thirty with thirty, which is the sort of
+   * thing that quietly stops a player from tuning anything at all.
+   *
+   * The step follows the column's *lowest* current value, so a mixed column
+   * moves together rather than each colonist cycling out of step.
+   */
+  const cycleColumn = (jobType: JobType) => {
+    const values = ids.map((id) => colonists[id]?.workPriorities[jobType] ?? 0);
+    const lowest = Math.min(...values);
+    const next = lowest >= 3 ? 0 : lowest + 1;
+    for (const id of ids) setJobPriority(id, jobType, next);
+  };
 
   return (
     <section className="panel">
@@ -52,8 +68,15 @@ export function WorkPriorityTable(): React.JSX.Element {
           <tr>
             <th />
             {JOB_TYPES.map((jobType) => (
-              <th key={jobType} title={jobType}>
-                <img src={JOB_ICON[jobType]} alt={jobType} width={20} height={20} />
+              <th key={jobType}>
+                <button
+                  type="button"
+                  className="work__column"
+                  title={`${jobType} — click to set this column for everyone`}
+                  onClick={() => cycleColumn(jobType)}
+                >
+                  <img src={JOB_ICON[jobType]} alt={jobType} width={20} height={20} />
+                </button>
               </th>
             ))}
           </tr>
@@ -69,7 +92,9 @@ export function WorkPriorityTable(): React.JSX.Element {
           ))}
         </tbody>
       </table>
-      <p className="muted small">1 = highest, 3 = lowest, – = will not do this work.</p>
+      <p className="muted small">
+        1 = highest, 3 = lowest, – = will not do this work. Click an icon to set the whole column.
+      </p>
     </section>
   );
 }
