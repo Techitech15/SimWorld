@@ -46,6 +46,7 @@ export function WorkPriorityTable(): React.JSX.Element {
   const ids = useColonistIds();
   const colonists = useGameStore((s) => s.state.colonists);
   const setJobPriority = useGameStore((s) => s.setJobPriority);
+  const assignWorkBySkill = useGameStore((s) => s.assignWorkBySkill);
 
   /**
    * Set a whole column at once. Turning hauling off for the colony is three
@@ -96,6 +97,14 @@ export function WorkPriorityTable(): React.JSX.Element {
       </table>
       <p className="muted small">
         1 = highest, 3 = lowest, – = will not do this work. Click an icon to set the whole column.
+      </p>
+      <button type="button" className="work__auto" onClick={() => assignWorkBySkill()}>
+        Assign by skill
+      </button>
+      <p className="muted small">
+        Puts each colonist first in line for the two things they are best at, so specialists do
+        their speciality. The cost is that everything else drops behind it, including work you have
+        just ordered. Nothing is switched off, and columns you have disabled stay disabled.
       </p>
     </section>
   );

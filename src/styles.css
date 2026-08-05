@@ -285,6 +285,27 @@ button.active {
   font-weight: 600;
 }
 
+/* the species name is the way to go and look at one */
+.animals__find {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted #ffffff40;
+}
+
+.animals__find:hover {
+  color: var(--accent);
+}
+
+.work__auto {
+  width: 100%;
+  margin-top: 6px;
+}
+
 .goals {
   list-style: none;
   margin: 0;

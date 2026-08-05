@@ -82,6 +82,7 @@ export interface GameStore {
   // player actions (section 3: UI writes to the store, the tick reacts to it)
   setJobPriority: (colonistId: ColonistId, jobType: JobType, priority: number) => void;
   setZoneAccepts: (zoneId: ZoneId, type: ResourceType, allowed: boolean) => void;
+  assignWorkBySkill: () => void;
   applyTool: (tileIds: TileId[]) => void;
   orderMove: (colonistId: ColonistId, target: Vector2) => void;
   toggleFarmSowing: (tileId: TileId) => void;
@@ -203,6 +204,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setZoneAccepts: (zoneId, type, allowed) =>
     set({ state: actions.setZoneAccepts(get().state, zoneId, type, allowed) }),
+
+  assignWorkBySkill: () => {
+    const state = actions.assignWorkBySkill(get().state);
+    set(
+      state === get().state
+        ? { statusMessage: 'Everyone is already on their best work.' }
+        : { state, statusMessage: 'Work assigned by skill.' },
+    );
+  },
 
   applyTool: (tileIds) => {
     const { tool, state } = get();

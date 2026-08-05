@@ -834,6 +834,34 @@ function blockingStructure(state: GameState, animal: Animal, target: Vector2): s
   return best;
 }
 
+/**
+ * The nearest animal of a species to a point, for "show me one".
+ *
+ * Thirty-three animals live on a sixty by sixty map and eight or nine of them
+ * are inside the opening camera - they are there, they are simply small and
+ * muted against grass and easy to miss in the trees. Being able to ask the
+ * panel to take you to one is the difference between a list of numbers and a
+ * list of creatures.
+ */
+export function nearestOfSpecies(
+  state: GameState,
+  species: AnimalSpecies,
+  from: Vector2,
+): Animal | null {
+  let best: Animal | null = null;
+  let bestDistance = Infinity;
+  for (const id in state.animals) {
+    const animal = state.animals[id];
+    if (animal.species !== species) continue;
+    const distance = manhattan(from, animal.position);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = animal;
+    }
+  }
+  return best;
+}
+
 export function nearestPredator(state: GameState, from: Vector2, range: number): Animal | null {
   let best: Animal | null = null;
   let bestDistance = range + 1;

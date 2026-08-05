@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { ANIMAL_SPECIES, SPECIES } from '../core/constants';
-import { herdSize, pastureCapacity } from '../core/animals';
+import { herdSize, nearestOfSpecies, pastureCapacity } from '../core/animals';
+import type { AnimalSpecies } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 
 /**
@@ -43,6 +44,26 @@ export function AnimalPanel(): React.JSX.Element | null {
     ),
   );
 
+  const focusOnTile = useGameStore((s) => s.focusOnTile);
+  const selectTile = useGameStore((s) => s.selectTile);
+  const setStatus = useGameStore((s) => s.setStatus);
+  /**
+   * Take the camera to one of them. Reads the state at click time rather than
+   * subscribing to it: the panel must not re-render every tick because an
+   * animal moved.
+   */
+  const findOne = (name: AnimalSpecies) => {
+    const state = useGameStore.getState().state;
+    const centre = Object.values(state.colonists)[0]?.position ?? { x: 30, y: 30 };
+    const animal = nearestOfSpecies(state, name, centre);
+    if (!animal) {
+      setStatus(`No ${SPECIES[name].plural.toLowerCase()} left on the map.`);
+      return;
+    }
+    focusOnTile({ ...animal.position });
+    selectTile(`${animal.position.x},${animal.position.y}`);
+  };
+
   const species = ANIMAL_SPECIES.filter(
     (name) => (counts[`${name}.wild`] ?? 0) + (counts[`${name}.tame`] ?? 0) > 0,
   );
@@ -63,7 +84,16 @@ export function AnimalPanel(): React.JSX.Element | null {
         <tbody>
           {species.map((name) => (
             <tr key={name}>
-              <th scope="row">{SPECIES[name].label}</th>
+              <th scope="row">
+                <button
+                  type="button"
+                  className="animals__find"
+                  title={`show me a ${SPECIES[name].label.toLowerCase()}`}
+                  onClick={() => findOne(name)}
+                >
+                  {SPECIES[name].label}
+                </button>
+              </th>
               <td>{counts[`${name}.wild`] ?? 0}</td>
               <td>{counts[`${name}.tame`] ?? 0}</td>
               <td>{counts[`${name}.marked`] || '–'}</td>

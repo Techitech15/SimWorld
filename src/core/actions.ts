@@ -17,6 +17,7 @@ import {
   updateColonist,
   updateTile,
 } from './state';
+import { JOB_TYPES } from './types';
 import type {
   AnimalDesignation,
   BuildingId,
@@ -32,6 +33,7 @@ import type {
   ZoneId,
 } from './types';
 import { releaseByJob, releaseEntity } from './jobs/reservations';
+import { skillLevel } from './skills';
 
 /** Shallow-copy the state so store subscribers see a new object. */
 function edit(state: GameState): GameState {
@@ -41,6 +43,47 @@ function edit(state: GameState): GameState {
 export function setSpeed(state: GameState, speed: GameState['speed']): GameState {
   if (state.speed === speed) return state;
   return { ...state, speed };
+}
+
+/**
+ * Set everybody's work table from what they are actually good at.
+ *
+ * Skills change how fast a colonist works and traits bend it further, and none
+ * of that has ever decided *who* does the work: every colonist starts at the
+ * same middling priority in every column and stays there unless the player
+ * fills the table in by hand, one cell at a time. A colony a year old is idle
+ * 57% of the time and its best woodcutter is as likely to be hauling as
+ * felling.
+ *
+ * The rule is deliberately blunt: your two best columns become first call,
+ * everything else you are willing to do stays where it was. It does not turn
+ * anything off - a colony that stops hauling because nobody is good at hauling
+ * would be a worse colony - and it never touches a column the player has
+ * already disabled, because that was a decision and this is a suggestion.
+ */
+export function assignWorkBySkill(state: GameState): GameState {
+  let next: GameState | null = null;
+  for (const colonistId in state.colonists) {
+    const colonist = state.colonists[colonistId];
+    const ranked = JOB_TYPES.filter((jobType) => (colonist.workPriorities[jobType] ?? 0) > 0)
+      .map((jobType) => ({ jobType, level: skillLevel(colonist, jobType) }))
+      .sort((a, b) => b.level - a.level || (a.jobType < b.jobType ? -1 : 1));
+    // somebody with no skills at all has no best two, and gets no opinion
+    const best = ranked.filter((entry) => entry.level > 0).slice(0, 2);
+    if (best.length === 0) continue;
+
+    const workPriorities = { ...colonist.workPriorities };
+    let changed = false;
+    for (const { jobType } of best) {
+      if (workPriorities[jobType] === 1) continue;
+      workPriorities[jobType] = 1;
+      changed = true;
+    }
+    if (!changed) continue;
+    next ??= edit(state);
+    updateColonist(next, colonistId, { workPriorities });
+  }
+  return next ?? state;
 }
 
 export function setJobPriority(

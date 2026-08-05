@@ -18,7 +18,7 @@ vi.mock('./pathfinding', async (importOriginal) => {
 });
 
 import { designateAnimals, placePastureZone } from './actions';
-import { herdSize, isPredator, killAnimal, pastureCapacity } from './animals';
+import { herdSize, isPredator, killAnimal, nearestOfSpecies, pastureCapacity } from './animals';
 import {
   ANIMAL_PATH_BUDGET_PER_TICK,
   COLONIST_MAX_HEALTH,
@@ -466,5 +466,27 @@ describe('animal pathfinding budget', () => {
     pathCalls.count = 0;
     harness.run(ticks);
     expect(pathCalls.count).toBeLessThanOrEqual(ticks * ANIMAL_PATH_BUDGET_PER_TICK);
+  });
+});
+
+describe('finding an animal', () => {
+  it('takes you to the nearest one of a species, or says there are none', () => {
+    // Thirty-three animals on a sixty by sixty map, eight or nine of them
+    // inside the opening camera: they are there and easy to miss, so the panel
+    // has to be able to point at one.
+    const harness = createHarness(1409);
+    harness.state.animals = {};
+    const at = Object.values(harness.state.colonists)[0].position;
+    const far = createAnimal(harness.state, 'deer', at.x + 12, at.y + 12);
+    const near = createAnimal(harness.state, 'deer', at.x + 3, at.y);
+    const other = createAnimal(harness.state, 'boar', at.x + 1, at.y);
+
+    expect(nearestOfSpecies(harness.state, 'deer', at)?.id).toBe(near.id);
+    expect(nearestOfSpecies(harness.state, 'boar', at)?.id).toBe(other.id);
+    expect(nearestOfSpecies(harness.state, 'wolf', at)).toBeNull();
+    void far;
+
+    // and it measures from where you ask, not from a fixed point
+    expect(nearestOfSpecies(harness.state, 'deer', { x: at.x + 12, y: at.y + 12 })?.id).toBe(far.id);
   });
 });
