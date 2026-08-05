@@ -6,6 +6,7 @@ import { ColonistDetail } from './ColonistDetail';
 import { ColonistPanel } from './ColonistPanel';
 import { EventLog } from './EventLog';
 import { GameCanvas } from './GameCanvas';
+import { GoalPanel } from './GoalPanel';
 import { Minimap } from './Minimap';
 import { ResourcePanel } from './ResourcePanel';
 import { SelectionPanel } from './SelectionPanel';
@@ -31,6 +32,7 @@ export function App(): React.JSX.Element {
         <aside className="sidebar sidebar--right">
           <Minimap />
           <AlertPanel />
+          <GoalPanel />
           <SelectionPanel />
           <ColonistDetail />
           <ColonistPanel />
