@@ -49,7 +49,7 @@ import {
 } from './constants';
 import { killColonist } from './death';
 import type { SimContext } from './derived';
-import { findPath } from './pathfinding';
+import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
 import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
 import { mulberry32 } from './rng';
 import {
@@ -231,7 +231,13 @@ function wander(state: GameState, id: AnimalId): void {
  * something with its back to a rock face has to be able to slip sideways, or it
  * simply stands there and is eaten.
  */
-export function fleeStep(state: GameState, from: Vector2, threat: Vector2): Vector2 | null {
+export function fleeStep(
+  state: GameState,
+  from: Vector2,
+  threat: Vector2,
+  /** colonists may use doors, animals may not - see isWalkableByAnimal */
+  canEnter: (state: GameState, x: number, y: number) => boolean = isWalkable,
+): Vector2 | null {
   const here = manhattan(from, threat);
   let best: Vector2 | null = null;
   let bestDistance = here;
@@ -242,8 +248,7 @@ export function fleeStep(state: GameState, from: Vector2, threat: Vector2): Vect
     { x: 0, y: -1 },
   ]) {
     const step = { x: from.x + delta.x, y: from.y + delta.y };
-    const tile = state.tiles[tileIdOf(step.x, step.y)];
-    if (!tile?.walkable) continue;
+    if (!canEnter(state, step.x, step.y)) continue;
     const distance = manhattan(step, threat);
     if (distance > bestDistance) {
       bestDistance = distance;
@@ -261,7 +266,7 @@ function fleeFrom(state: GameState, id: AnimalId, threatId: AnimalId): void {
     return;
   }
   if (!canStep(state, animal)) return;
-  const step = fleeStep(state, animal.position, threat.position);
+  const step = fleeStep(state, animal.position, threat.position, isWalkableByAnimal);
   if (step) stepTo(state, id, step.x, step.y);
 }
 
@@ -433,6 +438,9 @@ function pursue(state: GameState, ctx: SimContext, id: AnimalId, target: Vector2
     ctx.animalPathBudget -= 1;
     const path = findPath(state, animal.position, target, { adjacent: true });
     if (!path || path.length === 0) return;
+    // A* does not know about doors, so a route through one is useless to an
+    // animal: drop it rather than walking into the door every tick
+    if (path.some((step) => !isWalkableByAnimal(state, step.x, step.y))) return;
     updateAnimal(state, id, {
       path,
       pathExpiresAtTick: state.tick + ANIMAL_PATH_TTL_TICKS,
@@ -593,8 +601,7 @@ function canStep(state: GameState, animal: Animal): boolean {
 
 function stepTo(state: GameState, id: AnimalId, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return false;
-  const tile = state.tiles[tileIdOf(x, y)];
-  if (!tile?.walkable) return false;
+  if (!isWalkableByAnimal(state, x, y)) return false;
   updateAnimal(state, id, { position: { x, y } });
   return true;
 }

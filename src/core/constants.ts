@@ -116,7 +116,9 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   stoneWall: true,
   floor: false,
   stoneFloor: false,
-  door: false, // MVP: doors are always passable, they just render open/closed
+  // passable for colonists; animals cannot work a handle, which is what makes a
+  // walled pen with a door in it useful (see isWalkableByAnimal)
+  door: false,
   bed: false,
   farmPlot: false,
   storageZoneMarker: false,
