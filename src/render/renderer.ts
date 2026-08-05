@@ -498,7 +498,7 @@ export class GameRenderer {
   }
 
   private syncSelectionOverlay(state: GameState): void {
-    const { selectedColonistId, selectedTileId, tool } = useGameStore.getState();
+    const { selectedColonistId, selectedAnimalId, selectedTileId, tool } = useGameStore.getState();
     this.selectionOverlay.clear();
     this.drawAnimalMarkers(state);
 
@@ -516,6 +516,19 @@ export class GameRenderer {
         this.selectionOverlay
           .circle(view.sprite.x, view.sprite.y + 4, TILE_SIZE * 0.55)
           .stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+      }
+    }
+
+    // A selected animal gets the same ring a selected colonist does. Without it
+    // the animal panel sends the camera to a creature and marks nothing on the
+    // map - and since selecting an animal clears the tile selection, there was
+    // no mark at all, which is worse than the stale tile it replaced.
+    if (selectedAnimalId && state.animals[selectedAnimalId]) {
+      const view = this.animalViews.get(selectedAnimalId);
+      if (view) {
+        this.selectionOverlay
+          .circle(view.sprite.x, view.sprite.y + 4, TILE_SIZE * 0.55)
+          .stroke({ width: 2, color: 0xffe08a, alpha: 0.95 });
       }
     }
 
