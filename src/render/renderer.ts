@@ -466,9 +466,19 @@ export class GameRenderer {
   private drawAnimalMarkers(state: GameState): void {
     for (const id in state.animals) {
       const animal = state.animals[id];
-      if (!animal.designation) continue;
       const view = this.animalViews.get(id);
       if (!view) continue;
+
+      // Anything on the attack gets a filled warning dot, whether it is a wolf
+      // hunting or a boar that has turned on its hunter. A player who cannot
+      // see which animal is dangerous cannot react to it.
+      if (animal.activity.kind === 'stalking' || animal.activity.kind === 'attacking') {
+        this.selectionOverlay
+          .circle(view.sprite.x, view.sprite.y - TILE_SIZE * 0.55, 3)
+          .fill({ color: 0xd6452f, alpha: 0.95 });
+      }
+
+      if (!animal.designation) continue;
       const colour =
         animal.designation === 'hunt'
           ? 0xd6452f
