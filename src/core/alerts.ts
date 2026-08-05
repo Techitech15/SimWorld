@@ -98,6 +98,27 @@ export function collectAlerts(state: GameState): Alert[] {
     }
   }
 
+  // a blueprint waiting on a resource the colony has none of will sit there for
+  // ever, and the queue counter in the top bar looks the same either way
+  const stalled = new Set<string>();
+  for (const id in state.buildings) {
+    const building = state.buildings[id];
+    if (!building.isBlueprint) continue;
+    for (const need of building.requiredResources) {
+      if (need.quantity <= 0) continue;
+      const available = Object.values(state.items)
+        .filter((item) => item.type === need.type)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      if (available <= 0) stalled.add(need.type);
+    }
+  }
+  if (stalled.size > 0) {
+    alerts.push({
+      level: 'warning',
+      message: `Building work is stalled: no ${[...stalled].sort().join(' or ')} left`,
+    });
+  }
+
   const hungryLivestock = Object.values(state.animals).filter((a) => a.tame && a.hunger >= 95);
   if (hungryLivestock.length > 0) {
     const count = hungryLivestock.length;

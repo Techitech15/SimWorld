@@ -2,9 +2,11 @@
 // warning that scrolled past four hundred ticks ago reads the same as a live
 // one. So every alert here has to appear only while its condition holds.
 import { describe, expect, it } from 'vitest';
+import { placeBuildingBlueprint } from './actions';
 import { collectAlerts } from './alerts';
 import { PREDATOR_ALERT_DISTANCE } from './alerts';
 import { TICKS_PER_SEASON } from './season';
+import { tileIdOf } from './state';
 import { createHarness } from './testUtils';
 import { createAnimal } from './worldgen';
 import type { GameState } from './types';
@@ -70,6 +72,24 @@ describe('alerts', () => {
 
     harness.state.tick = TICKS_PER_SEASON * 2 + 1; // early autumn
     expect(messages(harness.state)).not.toContain('Winter: nothing is growing');
+  });
+
+  it('says when a blueprint is waiting on a resource the colony has none of', () => {
+    const harness = createHarness(831);
+    harness.state.animals = {};
+    const at = Object.values(harness.state.colonists)[0].position;
+    // no stone has been mined yet, so a stone wall cannot start
+    harness.state = placeBuildingBlueprint(harness.state, 'stoneWall', [
+      tileIdOf(at.x + 2, at.y - 6),
+    ]);
+    expect(messages(harness.state)).toContain('Building work is stalled: no stone left');
+
+    // a wooden wall is fine: the colony starts with wood
+    const clean = createHarness(833);
+    clean.state.animals = {};
+    const there = Object.values(clean.state.colonists)[0].position;
+    clean.state = placeBuildingBlueprint(clean.state, 'wall', [tileIdOf(there.x + 2, there.y - 6)]);
+    expect(messages(clean.state).some((m) => m.startsWith('Building work is stalled'))).toBe(false);
   });
 
   it('warns when the livestock have nothing left to eat', () => {
