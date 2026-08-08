@@ -47,6 +47,7 @@ describe('needs', () => {
 
   it('survives a multi-day unattended run without deadlocking (week 7)', () => {
     const harness = createHarness(31);
+    const founders = Object.keys(harness.state.colonists);
     let idleTicks = 0;
 
     harness.run(TICKS_PER_DAY * 4, (state) => {
@@ -58,6 +59,11 @@ describe('needs', () => {
       if (busy === 0) idleTicks++;
     });
 
+    // stage B of docs/design-animals.md: wolves start turning up on day 2, and
+    // an unattended colony still has to be alive four days later. The count can
+    // only go up now that wanderers join, so what matters is that none of the
+    // three we started with is gone.
+    for (const id of founders) expect(harness.state.colonists[id]).toBeDefined();
     for (const id in harness.state.colonists) {
       const colonist = harness.state.colonists[id];
       expect(colonist.needs.hunger).toBeLessThan(HUNGER_THRESHOLD + 45);

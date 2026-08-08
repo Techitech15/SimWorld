@@ -6,10 +6,15 @@ import { icons } from './icons';
 
 const BUILDINGS: { type: BuildingType; label: string }[] = [
   { type: 'wall', label: 'Wall' },
+  { type: 'stoneWall', label: 'Stone wall' },
   { type: 'floor', label: 'Floor' },
+  { type: 'stoneFloor', label: 'Stone floor' },
   { type: 'door', label: 'Door' },
   { type: 'bed', label: 'Bed' },
   { type: 'farmPlot', label: 'Farm' },
+  { type: 'manaFurnace', label: 'Mana furnace' },
+  { type: 'manaConduit', label: 'Conduit' },
+  { type: 'manaLamp', label: 'Mana lamp' },
 ];
 
 function costLabel(type: BuildingType): string {
@@ -21,6 +26,7 @@ function costLabel(type: BuildingType): string {
 function sameTool(a: Tool, b: Tool): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'designate' && b.kind === 'designate') return a.designation === b.designation;
+  if (a.kind === 'animal' && b.kind === 'animal') return a.designation === b.designation;
   if (a.kind === 'build' && b.kind === 'build') return a.building === b.building;
   return true;
 }
@@ -49,6 +55,12 @@ export function Toolbar(): React.JSX.Element {
         {button({ kind: 'select' }, 'Select', undefined, 'Select a colonist, then click to move')}
         {button({ kind: 'designate', designation: 'chop' }, 'Chop', icons.chop, 'Designate forest')}
         {button({ kind: 'designate', designation: 'mine' }, 'Mine', icons.mine, 'Designate stone')}
+        {button(
+          { kind: 'designate', designation: 'deconstruct' },
+          'Deconstruct',
+          icons.deconstruct,
+          'Dismantle a finished building and get half the materials back',
+        )}
         {button({ kind: 'clearDesignation' }, 'Clear')}
       </div>
 
@@ -63,11 +75,40 @@ export function Toolbar(): React.JSX.Element {
           ),
         )}
         {button({ kind: 'storage' }, 'Storage', icons.haul, 'Storage zone (free)')}
-        {button({ kind: 'cancel' }, 'Cancel', undefined, 'Remove blueprints')}
+        {button({ kind: 'pasture' }, 'Pasture', icons.handle, 'Pasture zone on grass (free)')}
+        {button({ kind: 'cancel' }, 'Cancel', undefined, 'Remove blueprints and zone tiles')}
+      </div>
+
+      <div className="toolbar__group">
+        <h3>Animals</h3>
+        {button(
+          { kind: 'animal', designation: 'hunt' },
+          'Hunt',
+          icons.hunt,
+          'Mark wild animals to be hunted for meat',
+        )}
+        {button(
+          { kind: 'animal', designation: 'tame' },
+          'Tame',
+          icons.handle,
+          'Mark wild animals to be tamed (wolves cannot be tamed)',
+        )}
+        {button(
+          { kind: 'animal', designation: 'slaughter' },
+          'Slaughter',
+          icons.handle,
+          'Mark tamed animals to be slaughtered',
+        )}
+        {button({ kind: 'clearAnimal' }, 'Clear marks')}
       </div>
 
       <p className="toolbar__hint muted">
-        Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms.
+        Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms; WASD or the
+        arrow keys pan too.
+        <br />
+        Keys: space pauses, 1/2/3/4 set speed, Esc selects. c chop, m mine, x deconstruct, q clear,
+        b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame,
+        k slaughter.
       </p>
     </div>
   );

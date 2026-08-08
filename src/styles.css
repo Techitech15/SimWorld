@@ -91,6 +91,27 @@ button.active {
   display: block;
 }
 
+.game-canvas__error {
+  position: absolute;
+  inset: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-content: start;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--crit);
+  border-radius: 8px;
+}
+
+.game-canvas__error p {
+  margin: 0;
+  max-width: 46ch;
+}
+
 /* --- top bar ------------------------------------------------------------- */
 .topbar {
   display: flex;
@@ -117,6 +138,15 @@ button.active {
   margin-left: auto;
   display: flex;
   gap: 6px;
+}
+
+.topbar__scenario {
+  background: var(--panel-2);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
 }
 
 .topbar__status {
@@ -212,6 +242,41 @@ button.active {
   gap: 6px;
 }
 
+/* supply against demand: the phase-2 decision, readable without a click */
+.mana {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.mana__label {
+  color: #a97cff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.mana__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.mana--short .mana__value {
+  color: var(--crit);
+}
+
+/* the one thought dragging this colonist down, under their mood bar */
+.colonist__thought {
+  font-size: 11px;
+  color: var(--warn);
+  margin: 1px 0 0 24px;
+  cursor: help;
+}
+
 .colonist__swatch {
   width: 10px;
   height: 10px;
@@ -247,6 +312,177 @@ button.active {
 
 .need__fill--critical {
   background: var(--crit);
+}
+
+/* A wolf pack arriving should not read like somebody reaching Hauling 2. */
+.log__incident {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* the species name is the way to go and look at one */
+.animals__find {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted #ffffff40;
+}
+
+.animals__find:hover {
+  color: var(--accent);
+}
+
+.work__auto {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.goals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.goal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: help;
+}
+
+.goal--done {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.goal__mark {
+  width: 12px;
+  text-align: center;
+  color: var(--ok);
+}
+
+.goal__label {
+  flex: 1;
+}
+
+.goal__bar {
+  width: 46px;
+  height: 5px;
+  border-radius: 3px;
+  background: #0006;
+  overflow: hidden;
+}
+
+.goal__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.minimap {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  /* 60x60 backing pixels blown up: keep the tiles square, not smeared */
+  image-rendering: pixelated;
+  cursor: crosshair;
+  background: #0006;
+}
+
+.minimap__key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.minimap__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+
+.minimap__dot:first-child {
+  margin-left: 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.filters__label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Off has to read as off at a glance, so it is dimmed and struck through
+   rather than merely a shade darker than on. */
+.filters__chip {
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid #ffffff1a;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.filters__chip--on {
+  border-color: var(--accent);
+  color: var(--text);
+  background: #ffffff14;
+  opacity: 1;
+  text-decoration: none;
+}
+
+.skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.skill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #ffffff14;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.skill--trait {
+  background: transparent;
+  border: 1px dashed #ffffff33;
+  color: var(--muted);
+  cursor: help;
+}
+
+.skill b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .need__value {
@@ -327,4 +563,113 @@ button.active {
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
+}
+
+/* --- selection / inspection ---------------------------------------------- */
+.panel__clear {
+  float: right;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.panel__clear:hover {
+  opacity: 1;
+}
+
+.inspect {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.inspect__row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.inspect__row dt {
+  flex: 0 0 74px;
+  opacity: 0.6;
+}
+
+.inspect__row dd {
+  margin: 0;
+  flex: 1;
+}
+
+/* --- alerts --------------------------------------------------------------- */
+.panel--alerts {
+  padding: 8px 10px;
+}
+
+.alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.alert {
+  border-left: 3px solid transparent;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.alert--critical {
+  border-left-color: #e5484d;
+  background: rgba(229, 72, 77, 0.14);
+}
+
+.alert--warning {
+  border-left-color: #f2a03d;
+  background: rgba(242, 160, 61, 0.12);
+}
+
+.alert--info {
+  border-left-color: #8ecae6;
+  background: rgba(142, 202, 230, 0.1);
+}
+
+.alert__jump {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.work__column {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  opacity: 0.9;
+}
+
+.work__column:hover {
+  opacity: 1;
+}
+
+.log--scroll {
+  max-height: 190px;
+  overflow-y: auto;
+  padding-right: 4px;
 }

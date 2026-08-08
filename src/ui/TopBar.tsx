@@ -1,22 +1,35 @@
+import { useState } from 'react';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
-import { useGameStore } from '../store/gameStore';
+import { colonyMood, moodLabel } from '../core/mood';
+import type { GameState } from '../core/types';
+import { DEFAULT_SCENARIO, SCENARIOS, SCENARIO_NAMES } from '../core/scenario';
+import type { ScenarioName } from '../core/scenario';
+import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
+import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
+import { getNetworks, useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 
-const SPEEDS: { value: 0 | 1 | 3; label: string; hint: string }[] = [
+const SPEEDS: { value: GameState['speed']; label: string; hint: string }[] = [
   { value: 0, label: '⏸', hint: 'Pause' },
   { value: 1, label: '▶', hint: '1x' },
   { value: 3, label: '▶▶▶', hint: '3x' },
+  { value: 10, label: '▶▶▶▶', hint: '10x — a day a minute' },
 ];
 
 export function TopBar(): React.JSX.Element {
+  const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
   const tick = useTick();
   const speed = useSpeed();
   const setSpeed = useGameStore((s) => s.setSpeed);
   const save = useGameStore((s) => s.save);
   const load = useGameStore((s) => s.load);
+  const hasAutosave = useGameStore((s) => s.hasAutosave);
   const newGame = useGameStore((s) => s.newGame);
   const statusMessage = useGameStore((s) => s.statusMessage);
   const jobs = useJobCounts();
+  const population = useGameStore((s) => Object.keys(s.state.colonists).length);
+  // a number, not an object: the selector has to stay shallow-comparable
+  const mood = useGameStore((s) => colonyMood(s.state, getNetworks(s.state)));
 
   const day = Math.floor(tick / TICKS_PER_DAY) + 1;
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);
@@ -26,6 +39,10 @@ export function TopBar(): React.JSX.Element {
     <header className="topbar">
       <div className="topbar__clock">
         <strong>Day {day}</strong>
+        <span title={`day ${dayOfSeason(tick)} of ${DAYS_PER_SEASON}`}>
+          {SEASON_LABEL[seasonOf(tick)]} {dayOfSeason(tick)}/{DAYS_PER_SEASON}
+        </span>
+        <span className="muted">Year {yearOf(tick)}</span>
         <span>
           {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
         </span>
@@ -47,8 +64,14 @@ export function TopBar(): React.JSX.Element {
       </div>
 
       <div className="topbar__jobs muted">
-        jobs: {jobs.active} active / {jobs.pending} queued
+        {population} {population === 1 ? 'colonist' : 'colonists'} · jobs: {jobs.active} active /{' '}
+        {jobs.pending} queued
         {jobs.failed > 0 ? ` / ${jobs.failed} failed` : ''}
+        {/* one number for how the colony is bearing it; the panel has the detail */}
+        <span title="average mood — hover a colonist's mood bar for the reasons">
+          {' '}
+          · mood {mood} ({moodLabel(mood)})
+        </span>
       </div>
 
       <div className="topbar__actions">
@@ -58,7 +81,34 @@ export function TopBar(): React.JSX.Element {
         <button type="button" onClick={() => void load()}>
           Load
         </button>
-        <button type="button" onClick={() => newGame(Math.floor(Math.random() * 1e9))}>
+        {hasAutosave ? (
+          <button
+            type="button"
+            title="the game saves once per in-game day, into its own slot"
+            onClick={() => void load(AUTOSAVE_SLOT)}
+          >
+            Load autosave
+          </button>
+        ) : null}
+        {/* the scenario picks itself when the player just wants a new map, and
+            is one click away when they want a different game */}
+        <select
+          className="topbar__scenario"
+          value={scenario}
+          onChange={(event) => setScenario(event.target.value as ScenarioName)}
+          title={SCENARIOS[scenario].description}
+        >
+          {SCENARIO_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {SCENARIOS[name].label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => newGame(scenario)}
+          title={SCENARIOS[scenario].description}
+        >
           New map
         </button>
       </div>

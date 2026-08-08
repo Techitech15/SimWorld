@@ -9,7 +9,12 @@ const JOB_ICON: Record<JobType, string> = {
   mine: icons.mine,
   farm: icons.farm,
   build: icons.build,
+  // neither of these is a column of its own: both are build work
+  repair: icons.build,
+  deconstruct: icons.deconstruct,
   haul: icons.haul,
+  hunt: icons.hunt,
+  handle: icons.handle,
 };
 
 /**
@@ -40,6 +45,23 @@ function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: Jo
 export function WorkPriorityTable(): React.JSX.Element {
   const ids = useColonistIds();
   const colonists = useGameStore((s) => s.state.colonists);
+  const setJobPriority = useGameStore((s) => s.setJobPriority);
+  const assignWorkBySkill = useGameStore((s) => s.assignWorkBySkill);
+
+  /**
+   * Set a whole column at once. Turning hauling off for the colony is three
+   * clicks with three colonists and thirty with thirty, which is the sort of
+   * thing that quietly stops a player from tuning anything at all.
+   *
+   * The step follows the column's *lowest* current value, so a mixed column
+   * moves together rather than each colonist cycling out of step.
+   */
+  const cycleColumn = (jobType: JobType) => {
+    const values = ids.map((id) => colonists[id]?.workPriorities[jobType] ?? 0);
+    const lowest = Math.min(...values);
+    const next = lowest >= 3 ? 0 : lowest + 1;
+    for (const id of ids) setJobPriority(id, jobType, next);
+  };
 
   return (
     <section className="panel">
@@ -49,8 +71,15 @@ export function WorkPriorityTable(): React.JSX.Element {
           <tr>
             <th />
             {JOB_TYPES.map((jobType) => (
-              <th key={jobType} title={jobType}>
-                <img src={JOB_ICON[jobType]} alt={jobType} width={20} height={20} />
+              <th key={jobType}>
+                <button
+                  type="button"
+                  className="work__column"
+                  title={`${jobType} — click to set this column for everyone`}
+                  onClick={() => cycleColumn(jobType)}
+                >
+                  <img src={JOB_ICON[jobType]} alt={jobType} width={20} height={20} />
+                </button>
               </th>
             ))}
           </tr>
@@ -66,7 +95,17 @@ export function WorkPriorityTable(): React.JSX.Element {
           ))}
         </tbody>
       </table>
-      <p className="muted small">1 = highest, 3 = lowest, – = will not do this work.</p>
+      <p className="muted small">
+        1 = highest, 3 = lowest, – = will not do this work. Click an icon to set the whole column.
+      </p>
+      <button type="button" className="work__auto" onClick={() => assignWorkBySkill()}>
+        Assign by skill
+      </button>
+      <p className="muted small">
+        Puts each colonist first in line for the two things they are best at, so specialists do
+        their speciality. The cost is that everything else drops behind it, including work you have
+        just ordered. Nothing is switched off, and columns you have disabled stay disabled.
+      </p>
     </section>
   );
 }

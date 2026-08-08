@@ -7,6 +7,8 @@
 // helper below replaces the individual entity object it touches.
 import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import type {
+  Animal,
+  AnimalId,
   Building,
   BuildingId,
   Colonist,
@@ -16,6 +18,8 @@ import type {
   ItemId,
   Job,
   JobId,
+  LogEntry,
+  TerrainType,
   Tile,
   TileId,
   Vector2,
@@ -58,7 +62,11 @@ export function createEmptyState(): GameState {
     items: {},
     jobs: {},
     zones: {},
+    animals: {},
     reservations: {},
+    forestCapacity: 0,
+    worldSeed: 0,
+    scenario: 'standard',
     nextIds: {},
     log: [],
   };
@@ -97,13 +105,25 @@ export function beginTick(state: GameState): GameState {
       activity: { ...c.activity },
       carrying: c.carrying ? { ...c.carrying } : null,
       workPriorities: { ...c.workPriorities },
+      skills: { ...c.skills },
+      traits: c.traits,
     };
   }
   const jobs: Record<JobId, Job> = {};
   for (const id in state.jobs) jobs[id] = { ...state.jobs[id] };
-  // colonists and jobs are small and change constantly, so they are copied up
-  // front; tiles/items/buildings/zones/reservations are copied on first write
-  const next: GameState = { ...state, colonists, jobs, log: state.log };
+  const animals: Record<AnimalId, Animal> = {};
+  for (const id in state.animals) {
+    const a = state.animals[id];
+    animals[id] = {
+      ...a,
+      position: { ...a.position },
+      path: a.path ? a.path.map((p) => ({ ...p })) : null,
+      activity: { ...a.activity },
+    };
+  }
+  // colonists, jobs and animals are small and change constantly, so they are
+  // copied up front; tiles/items/buildings/zones/reservations copy on first write
+  const next: GameState = { ...state, colonists, jobs, animals, log: state.log };
   ownedRecords.set(next, new Set());
   return next;
 }
@@ -131,6 +151,24 @@ export function updateJob(state: GameState, id: JobId, patch: Partial<Job>): Job
   return updated;
 }
 
+export function updateAnimal(state: GameState, id: AnimalId, patch: Partial<Animal>): Animal {
+  const updated = { ...state.animals[id], ...patch };
+  state.animals[id] = updated;
+  return updated;
+}
+
+export function removeAnimal(state: GameState, id: AnimalId): void {
+  if (!state.animals[id]) return;
+  const { [id]: _removed, ...rest } = state.animals;
+  state.animals = rest;
+}
+
+export function removeColonist(state: GameState, id: ColonistId): void {
+  if (!state.colonists[id]) return;
+  const { [id]: _removed, ...rest } = state.colonists;
+  state.colonists = rest;
+}
+
 export function updateBuilding(
   state: GameState,
   id: BuildingId,
@@ -149,8 +187,9 @@ export function updateItem(state: GameState, id: ItemId, patch: Partial<Item>): 
   return updated;
 }
 
-export function addLog(state: GameState, message: string): void {
-  state.log = [...state.log.slice(-99), { tick: state.tick, message }];
+export function addLog(state: GameState, message: string, kind?: LogEntry['kind']): void {
+  const entry: LogEntry = kind ? { tick: state.tick, message, kind } : { tick: state.tick, message };
+  state.log = [...state.log.slice(-99), entry];
 }
 
 /** Remove an item entirely (from the map index and the item record). */
@@ -166,4 +205,14 @@ export function removeItem(state: GameState, itemId: ItemId): void {
   }
   const { [itemId]: _removed, ...rest } = state.items;
   state.items = rest;
+}
+
+/**
+ * Rock faces: solid, unwalkable, and what the `mine` job removes. Mana crystal
+ * is one of them (11章 フェーズ2) - having a single predicate is what stopped
+ * the new terrain from being taught to the generator but not to the tool, or to
+ * the tool but not to the validity check.
+ */
+export function isRock(terrain: TerrainType): boolean {
+  return terrain === 'stone' || terrain === 'crystal';
 }

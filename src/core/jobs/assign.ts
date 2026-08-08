@@ -7,11 +7,11 @@
 //   (d) cooldown expired     -> job.cooldownUntilTick
 // Ordering inside one priority band is nearest-first, the documented deviation
 // from RimWorld's distance-blind rule.
-import { CANDIDATE_PATH_ATTEMPTS } from '../constants';
+import { BLOCKS_MOVEMENT, CANDIDATE_PATH_ATTEMPTS } from '../constants';
 import { isReachable } from '../derived';
 import type { SimContext } from '../derived';
 import { setDestination } from '../movement';
-import { manhattan, updateColonist, updateItem, updateJob } from '../state';
+import { manhattan, updateAnimal, updateColonist, updateItem, updateJob } from '../state';
 import { findStorageDestination } from '../storage';
 import type { Colonist, GameState, Item, Job, Vector2 } from '../types';
 import { deliveryKey, isReserved, releaseByJob, reserveAll } from './reservations';
@@ -29,15 +29,36 @@ export function jobWorkSite(
     }
     case 'chop':
     case 'farm':
-    case 'build': {
+    case 'deconstruct':
+    case 'repair': {
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
       if (!tile) return null;
       return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable };
+    }
+    case 'build': {
+      const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
+      if (!tile) return null;
+      // A blueprint tile is walkable until the moment the wall goes up, so
+      // without this the builder stands *inside* what they are building and the
+      // finished wall seals them in - and a colonist on an unwalkable tile has
+      // no region, which makes every job in the world read as unreachable.
+      const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      const willBlock = building ? BLOCKS_MOVEMENT[building.type] : false;
+      return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable || willBlock };
     }
     case 'haul': {
       const item = job.targetEntityId ? state.items[job.targetEntityId] : undefined;
       if (!item) return null;
       return { position: { ...item.position }, adjacent: false };
+    }
+    // Animals move, so the work site is wherever the creature is *now*. Hunting
+    // is ranged, which is why the hunter does not have to corner the prey
+    // (docs/design-animals.md 3).
+    case 'hunt':
+    case 'handle': {
+      const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;
+      if (!animal) return null;
+      return { position: { ...animal.position }, adjacent: true };
     }
     default:
       return null;
@@ -45,13 +66,17 @@ export function jobWorkSite(
 }
 
 /** Entities a job must hold before it can run. */
-function reservationTargets(state: GameState, job: Job, colonist: Colonist): string[] | null {
+function reservationTargets(state: GameState, job: Job): string[] | null {
   switch (job.type) {
     case 'chop':
     case 'mine':
       return job.targetTileId ? [job.targetTileId] : null;
     case 'farm':
     case 'build':
+    case 'deconstruct':
+    case 'repair':
+    case 'hunt':
+    case 'handle':
       return job.targetEntityId ? [job.targetEntityId] : null;
     case 'haul': {
       const item: Item | undefined = job.targetEntityId
@@ -62,11 +87,13 @@ function reservationTargets(state: GameState, job: Job, colonist: Colonist): str
         // delivery to a blueprint: reserve the item and this resource slot
         return [item.id, deliveryKey(job.destinationId, item.type)];
       }
+      // measured from the stack, not the colonist: the walk to the item happens
+      // either way, so the only leg this choice controls is item -> storage
       const destination = findStorageDestination(
         state,
         item.type,
         item.quantity,
-        colonist.position,
+        item.position,
       );
       if (!destination) return null;
       // section 6.3: both the source stack and the drop-off tile get reserved
@@ -78,7 +105,7 @@ function reservationTargets(state: GameState, job: Job, colonist: Colonist): str
 }
 
 function candidateBlocked(state: GameState, job: Job, colonist: Colonist): boolean {
-  const targets = reservationTargets(state, job, colonist);
+  const targets = reservationTargets(state, job);
   if (!targets) return true;
   return targets.some((entityId) => {
     const existing = state.reservations[entityId];
@@ -98,9 +125,21 @@ export function runAssignment(state: GameState, ctx: SimContext): void {
   }
 }
 
-function assignJobTo(state: GameState, ctx: SimContext, colonistId: string): void {
+/**
+ * Stage 2 of the lifecycle: every job this colonist could take, in the order
+ * they should be tried.
+ *
+ * Exported so that "is this colonist idle next to work they could be doing"
+ * can be asked with the engine's own definition of could rather than a second
+ * one written alongside it - a copy of this rule in a test would drift from it
+ * and stop catching the thing it was written for (see chaos.test.ts).
+ */
+export function candidatesFor(
+  state: GameState,
+  ctx: SimContext,
+  colonistId: string,
+): { job: Job; workPriority: number; distance: number }[] {
   const colonist = state.colonists[colonistId];
-
   const candidates: { job: Job; workPriority: number; distance: number }[] = [];
   for (const jobId in state.jobs) {
     const job = state.jobs[jobId];
@@ -116,13 +155,21 @@ function assignJobTo(state: GameState, ctx: SimContext, colonistId: string): voi
     if (!isReachable(ctx, colonist.position, site.position, site.adjacent)) continue;
     // (b) nothing already reserved by someone else
     if (candidateBlocked(state, job, colonist)) continue;
+    // and the job's own targets must still be claimable, or it is not work
+    // anybody can pick up - a haul with nowhere left to put the stack is
+    // pending for ever and belongs to nobody
+    if (!reservationTargets(state, job)) continue;
     candidates.push({
       job,
       workPriority,
       distance: manhattan(colonist.position, site.position),
     });
   }
+  return candidates;
+}
 
+function assignJobTo(state: GameState, ctx: SimContext, colonistId: string): void {
+  const candidates = candidatesFor(state, ctx, colonistId);
   if (candidates.length === 0) return;
 
   candidates.sort(
@@ -152,8 +199,7 @@ export function tryReserve(
   colonistId: string,
   onPathAttempt?: () => void,
 ): boolean {
-  const colonist = state.colonists[colonistId];
-  const targets = reservationTargets(state, job, colonist);
+  const targets = reservationTargets(state, job);
   if (!targets) return false;
   const site = jobWorkSite(state, job);
   if (!site) return false;
@@ -172,6 +218,9 @@ export function tryReserve(
   }
   if (job.type === 'haul' && job.targetEntityId) {
     updateItem(state, job.targetEntityId, { reservedByJobId: job.id });
+  }
+  if ((job.type === 'hunt' || job.type === 'handle') && job.targetEntityId) {
+    updateAnimal(state, job.targetEntityId, { reservedByJobId: job.id });
   }
 
   // stage 3 only reserves; the execute stage promotes `reserved` -> `active`

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Canvas } from './png.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SPRITES = path.join(ROOT, 'public', 'assets', 'sprites');
+const SPRITES = path.join(ROOT, 'src', 'assets');
 const SCALE = 3;
 
 function decodePNG(buf) {

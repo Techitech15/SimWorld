@@ -13,6 +13,19 @@ export function isWalkable(state: GameState, x: number, y: number): boolean {
   return state.tiles[tileIdOf(x, y)].walkable;
 }
 
+/**
+ * Animals cannot work a door handle. A ring of walls with a door in it is
+ * therefore a pen: colonists come and go, wolves and livestock do not. This is
+ * the only thing that separates animal movement from colonist movement, and it
+ * is what finally gives walls a job beyond decoration.
+ */
+export function isWalkableByAnimal(state: GameState, x: number, y: number): boolean {
+  if (!isWalkable(state, x, y)) return false;
+  const tile = state.tiles[tileIdOf(x, y)];
+  const building = tile.buildingId ? state.buildings[tile.buildingId] : undefined;
+  return !building || building.isBlueprint || building.type !== 'door';
+}
+
 /** Binary heap keyed by f-score; grid A* on 3,600 nodes needs nothing fancier. */
 class MinHeap {
   private nodes: number[] = [];

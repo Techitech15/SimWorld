@@ -5,8 +5,11 @@ import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from '../core/constants';
 import { tileIdOf } from '../core/state';
 import type { Building, Colonist, GameState, Item, Tile } from '../core/types';
-import { useGameStore } from '../store/gameStore';
+import { getNetworks, useGameStore } from '../store/gameStore';
+import { EMPTY_NETWORKS, isPowered } from '../core/mana';
+import type { ManaNetworks } from '../core/mana';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
+import { damageStep, damageTint } from './damage';
 import type { Camera } from './camera';
 import { loadTextures } from './textures';
 import type { GameTextures } from './textures';
@@ -15,6 +18,13 @@ const DIR_DOWN = 0;
 const DIR_LEFT = 1;
 const DIR_RIGHT = 2;
 const DIR_UP = 3;
+
+interface AnimalView {
+  sprite: Sprite;
+  displayX: number;
+  displayY: number;
+  facingRight: boolean;
+}
 
 interface ColonistView {
   sprite: Sprite;
@@ -30,6 +40,7 @@ export class GameRenderer {
   private terrainLayer = new Container();
   private buildingLayer = new Container();
   private itemLayer = new Container();
+  private animalLayer = new Container();
   private colonistLayer = new Container();
   private overlay = new Graphics();
   private selectionOverlay = new Graphics();
@@ -44,6 +55,7 @@ export class GameRenderer {
     { base: Sprite; blueprint: Sprite | null; key: string }
   >();
   private itemSprites = new Map<string, Sprite>();
+  private animalViews = new Map<string, AnimalView>();
   private colonistViews = new Map<string, ColonistView>();
 
   private lastState: GameState | null = null;
@@ -61,6 +73,12 @@ export class GameRenderer {
   async init(host: HTMLElement): Promise<void> {
     this.host = host;
     if (this.destroyed) return; // destroyed before we even got going
+
+    // An embedded host can still be laid out at zero height on the first frame;
+    // starting then would size the canvas to 0x0 and render nothing.
+    await waitForSize(host);
+    if (this.destroyed) return;
+
     await this.app.init({
       background: 0x11131a,
       resizeTo: host,
@@ -87,6 +105,7 @@ export class GameRenderer {
       this.buildingLayer,
       this.itemLayer,
       this.overlay,
+      this.animalLayer,
       this.colonistLayer,
       this.selectionOverlay,
     );
@@ -94,8 +113,24 @@ export class GameRenderer {
 
     this.buildTerrainSprites();
     this.attachInput();
+    this.observeHostSize(host);
     this.app.ticker.add(() => this.renderFrame());
     this.started = true;
+  }
+
+  /**
+   * `resizeTo` only reacts to window resizes, but an embedded host can change
+   * size on its own (a resizable panel, a split view).
+   */
+  private observeHostSize(host: HTMLElement): void {
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (this.destroyed || !this.started) return;
+      const { clientWidth, clientHeight } = host;
+      if (clientWidth > 0 && clientHeight > 0) this.app.renderer.resize(clientWidth, clientHeight);
+    });
+    observer.observe(host);
+    this.disposers.push(() => observer.disconnect());
   }
 
   /**
@@ -133,6 +168,8 @@ export class GameRenderer {
           : this.textures.tiles.forest2;
       case 'stone':
         return this.textures.tiles.stone;
+      case 'crystal':
+        return this.textures.tiles.crystal;
       default:
         return this.textures.tiles.grass;
     }
@@ -157,8 +194,12 @@ export class GameRenderer {
     switch (building.type) {
       case 'wall':
         return t.wall;
+      case 'stoneWall':
+        return t.stoneWall;
       case 'floor':
         return t.floor;
+      case 'stoneFloor':
+        return t.stoneFloor;
       case 'door': {
         const tile = state.tiles[building.tileId];
         const occupied = Object.values(state.colonists).some(
@@ -168,6 +209,16 @@ export class GameRenderer {
       }
       case 'bed':
         return t.bed;
+      case 'manaFurnace':
+        return t.manaFurnace;
+      case 'manaConduit':
+        // lit when the run it belongs to is actually carrying, so the player can
+        // see where the power stops without opening a panel
+        return isPowered(this.networks, building.id) ? t.manaConduitLive : t.manaConduit;
+      case 'manaLamp':
+        return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
+      case 'berryBush':
+        return building.growth >= 1 ? t.berryRipe : t.berryBare;
       case 'farmPlot':
         if (!building.sown) return t.farm0;
         return building.growth >= 1 ? t.farm2 : building.growth > 0.35 ? t.farm1 : t.farm0;
@@ -178,14 +229,25 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * The mana grids as of this frame. Read rather than stored: a lit conduit is
+   * a fact about the network, and the network is derived, so the renderer asks
+   * for it the same way the panels do.
+   */
+  private networks: ManaNetworks = EMPTY_NETWORKS;
+
   private syncBuildings(state: GameState): void {
+    this.networks = getNetworks(state);
     const seen = new Set<string>();
     for (const id in state.buildings) {
       const building = state.buildings[id];
       const tile = state.tiles[building.tileId];
       seen.add(id);
       const texture = this.buildingTexture(building, state);
-      const key = `${texture.uid}:${building.isBlueprint}`;
+      // damage is part of the key: without it the sprite keeps the tint it was
+      // built with and a wall being chewed through never changes on the map
+      const damage = damageStep(building);
+      const key = `${texture.uid}:${building.isBlueprint}:${damage}`;
       let view = this.buildingSprites.get(id);
       if (!view) {
         const base = new Sprite(texture);
@@ -201,7 +263,7 @@ export class GameRenderer {
         // a blueprint reads as a ghost of the finished building, tinted towards
         // the blueprint blue so it never looks like a dark hole in the map
         view.base.alpha = building.isBlueprint ? 0.55 : 1;
-        view.base.tint = building.isBlueprint ? 0x8fd0ff : 0xffffff;
+        view.base.tint = building.isBlueprint ? 0x8fd0ff : damageTint(damage);
         if (building.isBlueprint && !view.blueprint) {
           const frame = new Sprite(this.textures.tiles.wallBlueprint);
           frame.x = tile.x * TILE_SIZE;
@@ -225,7 +287,10 @@ export class GameRenderer {
   // --- items ---------------------------------------------------------------
   private itemTexture(item: Item): Texture {
     const t = this.textures.tiles;
-    return item.type === 'wood' ? t.wood : item.type === 'stone' ? t.stoneItem : t.food;
+    if (item.type === 'wood') return t.wood;
+    if (item.type === 'stone') return t.stoneItem;
+    if (item.type === 'manaCrystal') return t.manaCrystal;
+    return t.food;
   }
 
   private syncItems(state: GameState): void {
@@ -248,6 +313,50 @@ export class GameRenderer {
       if (seen.has(id)) continue;
       sprite.destroy();
       this.itemSprites.delete(id);
+    }
+  }
+
+  // --- animals -------------------------------------------------------------
+  private syncAnimals(state: GameState, deltaMs: number): void {
+    const seen = new Set<string>();
+    for (const id in state.animals) {
+      const animal = state.animals[id];
+      seen.add(id);
+      let view = this.animalViews.get(id);
+      if (!view) {
+        const sprite = new Sprite(this.textures.animals[animal.species][0]);
+        sprite.anchor.set(0.5);
+        this.animalLayer.addChild(sprite);
+        view = {
+          sprite,
+          displayX: animal.position.x,
+          displayY: animal.position.y,
+          facingRight: true,
+        };
+        this.animalViews.set(id, view);
+      }
+
+      const dx = animal.position.x - view.displayX;
+      const dy = animal.position.y - view.displayY;
+      const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
+      const speed = 0.007 * deltaMs;
+      view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
+      view.displayY += Math.abs(dy) < speed ? dy : Math.sign(dy) * speed;
+      if (Math.abs(dx) > 0.02) view.facingRight = dx > 0;
+
+      const frame = moving ? Math.floor(performance.now() / 220) % 2 : 0;
+      view.sprite.texture = this.textures.animals[animal.species][frame];
+      view.sprite.x = view.displayX * TILE_SIZE + TILE_SIZE / 2;
+      view.sprite.y = view.displayY * TILE_SIZE + TILE_SIZE / 2;
+      // the art faces right; mirroring is cheaper than a second set of frames
+      view.sprite.scale.x = view.facingRight ? 1 : -1;
+      // tamed animals get a warm tint so a herd reads apart from wildlife
+      view.sprite.tint = animal.tame ? 0xffe0b0 : 0xffffff;
+    }
+    for (const [id, view] of this.animalViews) {
+      if (seen.has(id)) continue;
+      view.sprite.destroy();
+      this.animalViews.delete(id);
     }
   }
 
@@ -347,23 +456,82 @@ export class GameRenderer {
       const tile = state.tiles[tileId];
       if (tile.designation) key += `${tileId}:${tile.designation};`;
     }
+    for (const zoneId in state.zones) {
+      const zone = state.zones[zoneId];
+      if (zone.type === 'pasture') key += `p:${zone.tileIds.length};`;
+    }
     if (key === this.overlayKey) return;
     this.overlayKey = key;
 
     this.overlay.clear();
+    // pasture ground goes under the designation marks
+    for (const zoneId in state.zones) {
+      const zone = state.zones[zoneId];
+      if (zone.type !== 'pasture') continue;
+      for (const tileId of zone.tileIds) {
+        const tile = state.tiles[tileId];
+        if (!tile) continue;
+        this.overlay
+          .rect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+          .fill({ color: 0x6bbf59, alpha: 0.16 });
+      }
+    }
     for (const tileId in state.tiles) {
       const tile = state.tiles[tileId];
       if (!tile.designation) continue;
-      const colour = tile.designation === 'chop' ? 0xffcf5c : 0x8ecae6;
+      const colour =
+        tile.designation === 'chop'
+          ? 0xffcf5c
+          : tile.designation === 'mine'
+            ? 0x8ecae6
+            : 0xff8f6b; // deconstruct
       this.overlay
         .rect(tile.x * TILE_SIZE + 1, tile.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2)
         .stroke({ width: 2, color: colour, alpha: 0.95 });
     }
   }
 
+  /** Rings around designated animals; redrawn every frame because they move. */
+  private drawAnimalMarkers(state: GameState): void {
+    for (const id in state.animals) {
+      const animal = state.animals[id];
+      const view = this.animalViews.get(id);
+      if (!view) continue;
+
+      // Anything on the attack gets a filled warning dot, whether it is a wolf
+      // hunting or a boar that has turned on its hunter. A player who cannot
+      // see which animal is dangerous cannot react to it.
+      if (animal.activity.kind === 'stalking' || animal.activity.kind === 'attacking') {
+        this.selectionOverlay
+          .circle(view.sprite.x, view.sprite.y - TILE_SIZE * 0.55, 3)
+          .fill({ color: 0xd6452f, alpha: 0.95 });
+      }
+
+      if (!animal.designation) continue;
+      const colour =
+        animal.designation === 'hunt'
+          ? 0xd6452f
+          : animal.designation === 'tame'
+            ? 0x6bbf59
+            : 0xf2a03d;
+      this.selectionOverlay
+        .circle(view.sprite.x, view.sprite.y, TILE_SIZE * 0.5)
+        .stroke({ width: 2, color: colour, alpha: 0.9 });
+    }
+  }
+
   private syncSelectionOverlay(state: GameState): void {
-    const { selectedColonistId, tool } = useGameStore.getState();
+    const { selectedColonistId, selectedAnimalId, selectedTileId, tool } = useGameStore.getState();
     this.selectionOverlay.clear();
+    this.drawAnimalMarkers(state);
+
+    // the tile the inspection panel is describing
+    const inspected = selectedTileId ? state.tiles[selectedTileId] : undefined;
+    if (inspected) {
+      this.selectionOverlay
+        .rect(inspected.x * TILE_SIZE, inspected.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        .stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
+    }
 
     if (selectedColonistId && state.colonists[selectedColonistId]) {
       const view = this.colonistViews.get(selectedColonistId);
@@ -371,6 +539,19 @@ export class GameRenderer {
         this.selectionOverlay
           .circle(view.sprite.x, view.sprite.y + 4, TILE_SIZE * 0.55)
           .stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+      }
+    }
+
+    // A selected animal gets the same ring a selected colonist does. Without it
+    // the animal panel sends the camera to a creature and marks nothing on the
+    // map - and since selecting an animal clears the tile selection, there was
+    // no mark at all, which is worse than the stale tile it replaced.
+    if (selectedAnimalId && state.animals[selectedAnimalId]) {
+      const view = this.animalViews.get(selectedAnimalId);
+      if (view) {
+        this.selectionOverlay
+          .circle(view.sprite.x, view.sprite.y + 4, TILE_SIZE * 0.55)
+          .stroke({ width: 2, color: 0xffe08a, alpha: 0.95 });
       }
     }
 
@@ -398,7 +579,9 @@ export class GameRenderer {
       this.syncItems(state);
       this.syncDesignationOverlay(state);
     }
+    this.syncAnimals(state, deltaMs);
     this.syncColonists(state, deltaMs);
+    this.consumeFocusRequest();
     this.syncSelectionOverlay(state);
     this.applyKeyboardPan(deltaMs);
 
@@ -406,6 +589,22 @@ export class GameRenderer {
     this.world.scale.set(this.camera.zoom);
     this.world.x = -this.camera.x * this.camera.zoom;
     this.world.y = -this.camera.y * this.camera.zoom;
+    this.reportViewport();
+  }
+
+  /**
+   * Tell the store which tiles are on screen, so the minimap can outline them.
+   * Rounded to whole tiles: at pixel precision a slow pan would be a state
+   * change every frame, and the store drops a report that did not change.
+   */
+  private reportViewport(): void {
+    const scale = TILE_SIZE * this.camera.zoom;
+    useGameStore.getState().setViewport({
+      x: Math.round(this.camera.x / TILE_SIZE),
+      y: Math.round(this.camera.y / TILE_SIZE),
+      w: Math.round(this.app.renderer.width / scale),
+      h: Math.round(this.app.renderer.height / scale),
+    });
   }
 
   private applyKeyboardPan(deltaMs: number): void {
@@ -502,10 +701,14 @@ export class GameRenderer {
     });
   }
 
-  /** Select tool: click a colonist to select, click elsewhere to order a move. */
+  /**
+   * Select tool: click a colonist to select, click elsewhere to order a move.
+   * Either way the clicked tile becomes what the inspection panel describes.
+   */
   private handleSelectClick(tile: { x: number; y: number }): void {
     const store = useGameStore.getState();
     const state = store.state;
+    store.selectTile(tileIdOf(tile.x, tile.y));
     const clicked = Object.values(state.colonists).find(
       (c) => c.position.x === tile.x && c.position.y === tile.y,
     );
@@ -520,11 +723,39 @@ export class GameRenderer {
     store.selectColonist(null);
   }
 
+  /** A click on an alert asks for the camera; the next frame is where it lands. */
+  private consumeFocusRequest(): void {
+    const { focusTarget, focusOnTile } = useGameStore.getState();
+    if (!focusTarget) return;
+    this.focusOn(focusTarget.x, focusTarget.y);
+    focusOnTile(null);
+  }
+
   focusOn(x: number, y: number): void {
     if (!this.host) return;
     this.camera.x = x * TILE_SIZE - this.app.renderer.width / (2 * this.camera.zoom);
     this.camera.y = y * TILE_SIZE - this.app.renderer.height / (2 * this.camera.zoom);
   }
+}
+
+/** Resolve once the element has a non-zero box, or after a short grace period. */
+function waitForSize(host: HTMLElement, timeoutMs = 2000): Promise<void> {
+  if (host.clientWidth > 0 && host.clientHeight > 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      observer?.disconnect();
+      resolve();
+    };
+    const timer = setTimeout(done, timeoutMs);
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            if (host.clientWidth > 0 && host.clientHeight > 0) done();
+          });
+    observer?.observe(host);
+  });
 }
 
 function tilesInRect(a: { x: number; y: number }, b: { x: number; y: number }): string[] {

@@ -10,14 +10,20 @@ import {
   HUNGER_RESTORED_PER_MEAL,
   HUNGER_THRESHOLD,
   SLEEP_PER_TICK,
+  SLEEP_RECOVERY_ON_GROUND_PER_TICK,
   SLEEP_RECOVERY_PER_TICK,
   SLEEP_THRESHOLD,
   SLEEP_WAKE_AT,
+  STARVATION_DAMAGE_PER_TICK,
+  STARVATION_WARNING_INTERVAL_TICKS,
 } from './constants';
 import type { SimContext } from './derived';
+import { refreshNetworks } from './mana';
+import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
 import { advanceTowards } from './movement';
 import { addLog, removeItem, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
+import { traitMultiplier } from './traits';
 import type { Colonist, GameState } from './types';
 import {
   NEED_EAT_JOB_ID,
@@ -26,31 +32,64 @@ import {
   releaseByJob,
   reserveAll,
 } from './jobs/reservations';
-import { depositCarried, failJob } from './jobs/execute';
+import { depositCarried, killColonist } from './death';
+import { failJob } from './jobs/execute';
 
 export function runNeeds(state: GameState, ctx: SimContext): void {
   for (const colonistId in state.colonists) {
     decayNeeds(state, colonistId);
+    if (!state.colonists[colonistId]) continue; // starved to death this tick
     startNeedBehaviour(state, ctx, colonistId);
+    runMoodBreak(state, ctx, colonistId);
     runNeedBehaviour(state, ctx, colonistId);
   }
 }
 
 function decayNeeds(state: GameState, colonistId: string): void {
   const colonist = state.colonists[colonistId];
-  const sleeping = colonist.activity.kind === 'sleeping';
-  const hunger = Math.min(100, colonist.needs.hunger + HUNGER_PER_TICK);
+  const activity = colonist.activity;
+  const sleeping = activity.kind === 'sleeping';
+  // a bed is the difference between a night's rest and a doze on the floor
+  const inBed = activity.kind === 'sleeping' && activity.bedId !== null;
+  const recovery =
+    (inBed ? SLEEP_RECOVERY_PER_TICK : SLEEP_RECOVERY_ON_GROUND_PER_TICK) *
+    traitMultiplier(colonist, 'rest');
+  const hunger = Math.min(
+    100,
+    colonist.needs.hunger + HUNGER_PER_TICK * traitMultiplier(colonist, 'hunger'),
+  );
   const sleep = sleeping
-    ? Math.max(0, colonist.needs.sleep - SLEEP_RECOVERY_PER_TICK)
-    : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK);
+    ? Math.max(0, colonist.needs.sleep - recovery)
+    : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK * traitMultiplier(colonist, 'sleep'));
   updateColonist(state, colonistId, { needs: { hunger, sleep } });
+
+  // A full hunger bar used to be the end of it, which made food optional. Now
+  // it is where the damage starts - the same shape as a starving animal.
+  if (hunger < 100) return;
+  const health = colonist.health - STARVATION_DAMAGE_PER_TICK;
+  if (health <= 0) {
+    killColonist(state, colonistId, 'starved to death');
+    return;
+  }
+  updateColonist(state, colonistId, { health });
+  if (state.tick % STARVATION_WARNING_INTERVAL_TICKS === 0) {
+    addLog(state, `${colonist.name} is starving`);
+  }
 }
 
 /** Interrupt work when a need crosses its threshold. */
 function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: string): void {
   const colonist = state.colonists[colonistId];
-  // a player move order is interruptible; eating and sleeping are not
-  if (colonist.activity.kind === 'eating' || colonist.activity.kind === 'sleeping') return;
+  // a player move order is interruptible; eating and sleeping are not, and
+  // neither is running from a predator - lying down to sleep with a wolf on your
+  // heels is how a colony loses people (docs/design-animals.md 5)
+  if (
+    colonist.activity.kind === 'eating' ||
+    colonist.activity.kind === 'sleeping' ||
+    colonist.activity.kind === 'fleeing'
+  ) {
+    return;
+  }
 
   const wantsFood = colonist.needs.hunger >= HUNGER_THRESHOLD;
   const wantsSleep = colonist.needs.sleep >= SLEEP_THRESHOLD;
@@ -122,6 +161,45 @@ function releaseCurrentJob(state: GameState, ctx: SimContext, colonistId: string
       cooldownUntilTick: null,
     };
   }
+}
+
+/**
+ * A colonist who has run out of patience puts their tools down.
+ *
+ * This sits with the needs rather than the job system for the same reason
+ * eating does: it is not work the player can prioritise, and it has to be able
+ * to pre-empt a job. Hunger and sleep still win over it - a starving colonist
+ * goes to the larder rather than sulking to death - because those branches run
+ * first and this one only touches an idle colonist.
+ */
+function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): void {
+  const colonist = state.colonists[colonistId];
+  if (colonist.activity.kind === 'brooding') {
+    // The break outlasts whatever set it off. Ending it the moment mood ticks
+    // back over the line would make one meal cancel the whole thing, and the
+    // player would never see that anything had happened.
+    if (state.tick >= colonist.activity.untilTick) {
+      updateColonist(state, colonistId, { activity: { kind: 'none' } });
+      addLog(state, `${colonist.name} goes back to work`);
+    }
+    return;
+  }
+  if (colonist.activity.kind !== 'none' && colonist.activity.kind !== 'moving') return;
+  const networks = refreshNetworks(ctx, state);
+  if (moodOf(state, colonist, networks) >= MOOD_BREAK) return;
+
+  releaseCurrentJob(state, ctx, colonistId);
+  updateColonist(state, colonistId, {
+    activity: { kind: 'brooding', untilTick: state.tick + MOOD_BREAK_TICKS },
+  });
+  const worst = thoughtsOf(state, colonist, networks)[0];
+  addLog(
+    state,
+    worst
+      ? `${colonist.name} has had enough: ${worst.label.toLowerCase()}`
+      : `${colonist.name} has had enough`,
+    'incident',
+  );
 }
 
 function runNeedBehaviour(state: GameState, ctx: SimContext, colonistId: string): void {
