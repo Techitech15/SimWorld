@@ -14,6 +14,7 @@
 | [design-notes.md](design-notes.md) | 実装したものの理由と実測値 |
 | [design-phase2.5-animals.md](design-phase2.5-animals.md) | 生物レイヤーの設計案（提案時のまま） |
 | [design-phase5-trade.md](design-phase5-trade.md) | 交易とファンタジー層の設計案（未着手。行商・幻想生物・幻想植生） |
+| [design-phase6-space.md](design-phase6-space.md) | マップ拡張と画面の再配置の設計案（未着手） |
 | **このファイル** | 未実装のものの検討。実装されたら上の2つへ移して消す |
 
 数値は測ったものには測った条件（シード数・日数）を添える。測っていない見積もりは**見積もりと明記する**。
