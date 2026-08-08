@@ -8,6 +8,7 @@ import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals'
 import { runArrivals } from './arrivals';
 import { runIncidents } from './events';
 import { runMana } from './mana';
+import { runRelationships } from './relationships';
 import { regrowForest } from './regrowth';
 import {
   BERRY_REGROW_PER_TICK,
@@ -44,6 +45,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   // generator and the candidate filter look at it this same tick
   runNeeds(next, ctx);
   runMoveOrders(next, ctx);
+  // bonds grow from time spent near each other, so this reads positions after
+  // everyone has moved for the tick rather than before
+  runRelationships(next);
   // the ecology runs before job assignment so a colonist never gets handed work
   // in the same tick a predator sent them running
   runAnimals(next, ctx);

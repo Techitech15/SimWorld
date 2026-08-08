@@ -162,7 +162,9 @@ export type TraitName =
   | 'tough'
   | 'frail'
   | 'cheerful'
-  | 'gloomy';
+  | 'gloomy'
+  | 'sociable'
+  | 'private';
 
 export type BuildingType =
   | 'wall'
@@ -417,6 +419,17 @@ export interface GameState {
   scenario: ScenarioName;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
+  /**
+   * [ext] Bonds between colonists, one entry per pair (11章 フェーズ3).
+   * The key is the two ids sorted and joined, so a pair has one number rather
+   * than two that can disagree. See src/core/relationships.ts.
+   */
+  relationships: Record<string, number>;
+  /**
+   * [ext] The last few colonists to die, so the people who knew them can grieve
+   * for a while. Bounded: this is a memory, not a graveyard.
+   */
+  deaths: { colonistId: ColonistId; name: string; tick: number }[];
   /** rolling event log surfaced in the UI (failed jobs, deaths of crops, ...) */
   log: LogEntry[];
 }

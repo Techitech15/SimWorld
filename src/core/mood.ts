@@ -16,6 +16,7 @@
 // never opens a panel.
 import { FOOD_PER_MEAL } from './constants';
 import { LAMP_RADIUS, isPowered } from './mana';
+import { friendNearby, griefOf, knowsAnyone } from './relationships';
 import type { ManaNetworks } from './mana';
 import { seasonOf } from './season';
 import { traitMultiplier } from './traits';
@@ -167,6 +168,25 @@ export function thoughtsOf(
 
   if (facts.inLight) {
     thoughts.push({ label: 'Mana light to work by', amount: 5 });
+  }
+
+  // company, and its absence. A colony of strangers is a worse place to live
+  // than one where somebody is glad you are there.
+  if (friendNearby(state, colonist)) {
+    thoughts.push({ label: 'A friend close by', amount: 5 });
+  } else if (facts.mouths > 1 && !knowsAnyone(state, colonist.id)) {
+    thoughts.push({ label: 'Nobody here they are close to', amount: -4 });
+  }
+
+  // The heaviest grief only. Losing three people is worse than losing one, but
+  // stacking every loss would put a colonist under the break line for a week
+  // over something they cannot act on.
+  const grief = griefOf(state, colonist.id)[0];
+  if (grief) {
+    thoughts.push({
+      label: `Grieving for ${grief.name}`,
+      amount: -Math.max(1, Math.round(18 * grief.weight)),
+    });
   }
 
   if (seasonOf(state.tick) === 'winter') {

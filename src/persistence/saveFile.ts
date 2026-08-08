@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -220,6 +220,22 @@ export const migrations: Record<number, Migration> = {
       }
     }
     return { ...state, buildings };
+  },
+
+  /**
+   * 12 -> 13: colonists know each other (11章 フェーズ3). An old save has no
+   * bonds and no memory of who has died, and both start empty rather than being
+   * invented: a colony reloaded from before this existed has genuinely not been
+   * observed spending time together, and handing it friendships it never earned
+   * would be the save telling the player a story that did not happen.
+   */
+  12: (old) => {
+    const state = old as Partial<GameState>;
+    return {
+      ...state,
+      relationships: state.relationships ?? {},
+      deaths: state.deaths ?? [],
+    };
   },
 };
 

@@ -68,6 +68,8 @@ export function createEmptyState(): GameState {
     worldSeed: 0,
     scenario: 'standard',
     nextIds: {},
+    relationships: {},
+    deaths: [],
     log: [],
   };
 }

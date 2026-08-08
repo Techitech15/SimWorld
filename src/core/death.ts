@@ -10,6 +10,7 @@
 // the job layer need it, and routing it through either one would make the two
 // import each other.
 import { STACK_MAX } from './constants';
+import { recordDeath } from './relationships';
 import { addLog, removeColonist, updateColonist, updateJob } from './state';
 import { releaseByColonist, releaseJobTarget } from './jobs/reservations';
 import { addItem } from './worldgen';
@@ -52,6 +53,7 @@ export function killColonist(state: GameState, colonistId: ColonistId, reason: s
   // stack and a bed under their own sentinel job ids
   releaseByColonist(state, colonistId);
 
+  recordDeath(state, colonist);
   removeColonist(state, colonistId);
   addLog(state, `${colonist.name} ${reason}`);
   if (Object.keys(state.colonists).length === 0) {
