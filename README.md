@@ -7,10 +7,14 @@ RimWorld 風の 2D ブラウザ入植地シミュレーション。TypeScript + 
 | --- | --- |
 | [docs/design.md](docs/design.md) | **設計方針（全12章）**。いま何がどう動くか。実装に追随して更新する |
 | [docs/design-notes.md](docs/design-notes.md) | **追加検討ノート**。なぜそうしたか・何を測ったか・案から何を変えたか |
-| [docs/design-animals.md](docs/design-animals.md) | 生物レイヤーの設計案（提案時のまま） |
+| [docs/design-phase2.5-animals.md](docs/design-phase2.5-animals.md) | **フェーズ2.5** 生物レイヤーの設計案（提案時のまま） |
+| [docs/design-phase5-trade.md](docs/design-phase5-trade.md) | **フェーズ5** 交易とファンタジー層の設計案（未着手） |
 | [docs/design-next.md](docs/design-next.md) | **次の検討**。まだ実装していないものと、その優先順位 |
-| [docs/design-trade.md](docs/design-trade.md) | 交易とファンタジー層の設計案（未着手） |
 | この README | 動かし方・操作・実装との対応・テスト一覧 |
+
+フェーズ単位で足す層の設計案は `design-phase<番号>-<名前>.md`。フェーズに属さない3つ
+（`design.md` / `design-notes.md` / `design-next.md`）にはこの命名を適用しない。
+ロードマップ上の各フェーズの現況は [docs/design.md](docs/design.md) の 11 章。
 
 仕様（design.md）と理由（design-notes.md）を分けているのは、寿命が違うから。仕様は実装が変われば
 書き換わるが、「なぜ牧場は食料しか受け入れないか」は実装が変わっても消えてはいけない記録になる。

@@ -224,7 +224,7 @@ export const ARRIVAL_INTERVAL_TICKS = TICKS_PER_DAY * 3;
 export const ARRIVAL_FOOD_PER_COLONIST = 160;
 export const ARRIVAL_MAX_COLONISTS = 8;
 
-// --- animal layer (docs/design-animals.md 6) --------------------------------
+// --- animal layer (docs/design-phase2.5-animals.md 6) --------------------------------
 
 export const ANIMAL_SPECIES: AnimalSpecies[] = [
   'deer',

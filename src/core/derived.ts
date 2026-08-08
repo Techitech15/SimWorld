@@ -19,7 +19,7 @@ export interface SimContext {
   /**
    * A* calls the herd may still make this tick. Reset at the start of every
    * animal phase so a large herd can never crowd out colonist pathfinding
-   * (docs/design-animals.md 7).
+   * (docs/design-phase2.5-animals.md 7).
    */
   animalPathBudget: number;
   /**

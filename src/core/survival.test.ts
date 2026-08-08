@@ -59,7 +59,7 @@ describe('needs', () => {
       if (busy === 0) idleTicks++;
     });
 
-    // stage B of docs/design-animals.md: wolves start turning up on day 2, and
+    // stage B of docs/design-phase2.5-animals.md: wolves start turning up on day 2, and
     // an unattended colony still has to be alive four days later. The count can
     // only go up now that wanderers join, so what matters is that none of the
     // three we started with is gone.

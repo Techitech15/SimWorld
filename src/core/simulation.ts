@@ -69,7 +69,7 @@ export function tickMany(state: GameState, ctx: SimContext, count: number): Game
 
 /**
  * A colonist under attack runs, and keeps running until the timer expires or
- * the predator is gone. They never fight back (docs/design-animals.md 5).
+ * the predator is gone. They never fight back (docs/design-phase2.5-animals.md 5).
  */
 function runFleeing(state: GameState): void {
   for (const colonistId in state.colonists) {

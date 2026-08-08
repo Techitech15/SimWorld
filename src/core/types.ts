@@ -15,7 +15,7 @@
 //   Colonist.workPriorities - per-colonist priorities, implied by
 //                             setJobPriority(colonistId, jobType, priority)
 //
-// The animal layer (docs/design-animals.md) adds `Animal`, `Tile.forage`,
+// The animal layer (docs/design-phase2.5-animals.md) adds `Animal`, `Tile.forage`,
 // `Colonist.health` and the pasture zone. It follows the same rules: plain
 // data, ID references, nothing that JSON cannot represent.
 
@@ -97,7 +97,7 @@ export type ColonistActivity =
   | { kind: 'moving'; targetTileId: TileId } // player-issued move order
   | { kind: 'eating'; itemId: ItemId | null; ticksRemaining: number }
   | { kind: 'sleeping'; bedId: BuildingId | null }
-  /** [ext] running from a predator. Colonists never fight back (design-animals.md 5) */
+  /** [ext] running from a predator. Colonists never fight back (design-phase2.5-animals.md 5) */
   | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number }
   /**
    * [ext] Too miserable to work (src/core/mood.ts). Stored rather than derived
@@ -125,7 +125,7 @@ export interface Colonist {
   currentJobId: JobId | null;
   /**
    * [ext] 0..100. Deliberately a single number: no body parts, no illness and
-   * no medical jobs (docs/design-animals.md 1). Predators are the only source
+   * no medical jobs (docs/design-phase2.5-animals.md 1). Predators are the only source
    * of damage; rest is the only source of healing; 0 means death.
    */
   health: number;
@@ -295,7 +295,7 @@ export interface Zone {
   accepts: ResourceType[];
 }
 
-// --- animal layer (docs/design-animals.md) ----------------------------------
+// --- animal layer (docs/design-phase2.5-animals.md) ----------------------------------
 
 export type AnimalSpecies = 'deer' | 'boar' | 'rabbit' | 'chicken' | 'goat' | 'wolf';
 
@@ -382,7 +382,7 @@ export interface GameState {
   items: Record<ItemId, Item>;
   jobs: Record<JobId, Job>;
   zones: Record<ZoneId, Zone>;
-  /** [ext] wild and tamed creatures (docs/design-animals.md) */
+  /** [ext] wild and tamed creatures (docs/design-phase2.5-animals.md) */
   animals: Record<AnimalId, Animal>;
   reservations: Record<string, Reservation>;
   /**
