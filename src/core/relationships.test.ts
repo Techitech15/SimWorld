@@ -50,7 +50,7 @@ function pin(state: GameState, a: string, b: string, apart: number): void {
     state.colonists[a] = {
       ...state.colonists[a],
       position: { ...at },
-      needs: { hunger: 10, sleep: 10 },
+      needs: { hunger: 10, sleep: 10 , recreation: 0 },
       activity: { kind: 'none' },
     };
   }
@@ -58,7 +58,7 @@ function pin(state: GameState, a: string, b: string, apart: number): void {
     state.colonists[b] = {
       ...state.colonists[b],
       position: { x: at.x + apart, y: at.y },
-      needs: { hunger: 10, sleep: 10 },
+      needs: { hunger: 10, sleep: 10 , recreation: 0 },
       activity: { kind: 'none' },
     };
   }

@@ -1123,6 +1123,36 @@ function manaExtractorTile(running) {
   return c;
 }
 
+
+/** The hearth: a ring of stones with a fire in it, and a log to sit on. */
+function hearthTile() {
+  const c = new Canvas(TILE, TILE);
+  // ring of stones
+  const ring = [
+    [16, 6], [22, 8], [25, 14], [24, 21], [16, 25], [8, 21], [7, 14], [10, 8],
+  ];
+  for (const [x, y] of ring) {
+    c.disc(x, y, 3, P.stone[1]);
+    c.disc(x - 1, y - 1, 2, P.stone[3]);
+  }
+  // logs
+  c.line(11, 19, 21, 12, P.trunk[0]);
+  c.line(11, 12, 21, 19, P.trunk[1]);
+  // flame: three tapering tongues
+  const flame = (cx, base, h, colour) => {
+    for (let i = 0; i < h; i++) {
+      const w = Math.max(1, Math.round((h - i) / 2));
+      c.hline(cx - w, base - i, w * 2, colour);
+    }
+  };
+  flame(16, 19, 11, '#d6452f');
+  flame(16, 18, 8, '#ef8a2c');
+  flame(15, 16, 5, '#e8c34a');
+  c.set(16, 9, '#fff0b8');
+  c.outline(P.outline);
+  return c;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1155,6 +1185,7 @@ written.push(save('buildings/mana_lamp.png', manaLampTile(false)));
 written.push(save('buildings/mana_lamp_lit.png', manaLampTile(true)));
 written.push(save('buildings/mana_extractor.png', manaExtractorTile(false)));
 written.push(save('buildings/mana_extractor_run.png', manaExtractorTile(true)));
+written.push(save('buildings/hearth.png', hearthTile()));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));

@@ -20,6 +20,12 @@ function activityLabel(colonist: Colonist, state: GameState): string {
       return 'fleeing!';
     case 'brooding':
       return 'refusing to work';
+    case 'wandering':
+      return 'wandering off';
+    case 'binge':
+      return 'raiding the larder';
+    case 'relaxing':
+      return colonist.activity.hearthId ? 'at the hearth' : 'taking a moment';
     default:
       break;
   }

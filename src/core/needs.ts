@@ -5,6 +5,12 @@
 // player-prioritisable work, and it must be able to pre-empt a job.
 import {
   EAT_TICKS,
+  RECREATION_ALONE_MULTIPLIER,
+  RECREATION_PER_TICK,
+  RECREATION_RESTORED_PER_TICK,
+  RECREATION_THRESHOLD,
+  RELAX_TICKS,
+  TICKS_PER_STEP,
   FOOD_PER_MEAL,
   HUNGER_PER_TICK,
   HUNGER_RESTORED_PER_MEAL,
@@ -19,9 +25,11 @@ import {
 } from './constants';
 import type { SimContext } from './derived';
 import { refreshNetworks } from './mana';
+import { friendNearby } from './relationships';
 import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
 import { advanceTowards } from './movement';
-import { addLog, removeItem, updateColonist, updateItem } from './state';
+import { mulberry32 } from './rng';
+import { addLog, removeItem, tileIdOf, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
 import { traitMultiplier } from './traits';
 import type { Colonist, GameState } from './types';
@@ -61,7 +69,16 @@ function decayNeeds(state: GameState, colonistId: string): void {
   const sleep = sleeping
     ? Math.max(0, colonist.needs.sleep - recovery)
     : Math.min(100, colonist.needs.sleep + SLEEP_PER_TICK * traitMultiplier(colonist, 'sleep'));
-  updateColonist(state, colonistId, { needs: { hunger, sleep } });
+  // Time off is the one need that does not build while they are asleep. Sleep
+  // is not rest from the day, it is sleep; conflating them would let a colony
+  // with beds ignore the hearth entirely.
+  const relaxing = activity.kind === 'relaxing';
+  const recreation = relaxing
+    ? Math.max(0, (colonist.needs.recreation ?? 0) - recreationGain(state, colonist))
+    : sleeping
+      ? (colonist.needs.recreation ?? 0)
+      : Math.min(100, (colonist.needs.recreation ?? 0) + RECREATION_PER_TICK);
+  updateColonist(state, colonistId, { needs: { hunger, sleep, recreation } });
 
   // A full hunger bar used to be the end of it, which made food optional. Now
   // it is where the damage starts - the same shape as a starving animal.
@@ -75,6 +92,41 @@ function decayNeeds(state: GameState, colonistId: string): void {
   if (state.tick % STARVATION_WARNING_INTERVAL_TICKS === 0) {
     addLog(state, `${colonist.name} is starving`);
   }
+}
+
+/**
+ * What one tick of time off is worth.
+ *
+ * A hearth is the whole point of the building; sitting on the bare ground with
+ * nothing to look at gives less than half as much. Company is worth as much
+ * again - the need is met by other people, which is why it waited for the
+ * colonists to know each other.
+ */
+function recreationGain(state: GameState, colonist: Colonist): number {
+  const activity = colonist.activity;
+  const atHearth = activity.kind === 'relaxing' && activity.hearthId !== null;
+  let gain = RECREATION_RESTORED_PER_TICK;
+  if (!atHearth) gain *= RECREATION_ALONE_MULTIPLIER;
+  if (friendNearby(state, colonist)) gain *= 1.5;
+  return gain;
+}
+
+/** The nearest hearth nobody has to queue for. Hearths are shared, so no reservation. */
+function findHearth(state: GameState, colonist: Colonist): string | null {
+  let best: string | null = null;
+  let bestDistance = Infinity;
+  for (const buildingId in state.buildings) {
+    const building = state.buildings[buildingId];
+    if (building.type !== 'hearth' || building.isBlueprint) continue;
+    const tile = state.tiles[building.tileId];
+    const distance =
+      Math.abs(tile.x - colonist.position.x) + Math.abs(tile.y - colonist.position.y);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = buildingId;
+    }
+  }
+  return best;
 }
 
 /** Interrupt work when a need crosses its threshold. */
@@ -93,6 +145,21 @@ function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: strin
 
   const wantsFood = colonist.needs.hunger >= HUNGER_THRESHOLD;
   const wantsSleep = colonist.needs.sleep >= SLEEP_THRESHOLD;
+  const wantsRest = (colonist.needs.recreation ?? 0) >= RECREATION_THRESHOLD;
+
+  // Time off yields to both of the older needs: nobody sits at the fire while
+  // starving, and this is the need a colony can afford to postpone.
+  if (!wantsFood && !wantsSleep && wantsRest) {
+    releaseCurrentJob(state, ctx, colonistId);
+    updateColonist(state, colonistId, {
+      activity: {
+        kind: 'relaxing',
+        hearthId: findHearth(state, colonist),
+        untilTick: state.tick + RELAX_TICKS,
+      },
+    });
+    return;
+  }
   if (!wantsFood && !wantsSleep) return;
   // hunger first: starving while asleep is the failure mode we care about
   const kind = wantsFood && colonist.needs.hunger >= colonist.needs.sleep ? 'eat' : 'sleep';
@@ -172,16 +239,43 @@ function releaseCurrentJob(state: GameState, ctx: SimContext, colonistId: string
  * goes to the larder rather than sulking to death - because those branches run
  * first and this one only touches an idle colonist.
  */
+function isBreak(kind: string): boolean {
+  return kind === 'brooding' || kind === 'wandering' || kind === 'binge';
+}
+
+/**
+ * Which way a break shows.
+ *
+ * Chosen by what actually went wrong, not by a die roll: the player should be
+ * able to look at what a colonist is doing and work backwards to the reason.
+ * Somebody who has been walked into the ground walks off; somebody who has been
+ * hungry raids the larder; everyone else stands and broods. A random pick would
+ * have made three animations out of one event.
+ */
+function breakKind(worst: string | undefined): 'brooding' | 'wandering' | 'binge' {
+  if (!worst) return 'brooding';
+  if (worst.startsWith('Hungry') || worst.startsWith('Starving')) return 'binge';
+  if (
+    worst.startsWith('Tired') ||
+    worst.startsWith('Dead on their feet') ||
+    worst.startsWith('Nobody here') ||
+    worst.startsWith('Grieving')
+  ) {
+    return 'wandering';
+  }
+  return 'brooding';
+}
+
+const BREAK_WORDS: Record<string, string> = {
+  brooding: 'has had enough',
+  wandering: 'walks off in a daze',
+  binge: 'is eating their way through the stores',
+};
+
 function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): void {
   const colonist = state.colonists[colonistId];
-  if (colonist.activity.kind === 'brooding') {
-    // The break outlasts whatever set it off. Ending it the moment mood ticks
-    // back over the line would make one meal cancel the whole thing, and the
-    // player would never see that anything had happened.
-    if (state.tick >= colonist.activity.untilTick) {
-      updateColonist(state, colonistId, { activity: { kind: 'none' } });
-      addLog(state, `${colonist.name} goes back to work`);
-    }
+  if (isBreak(colonist.activity.kind)) {
+    runBreak(state, colonistId);
     return;
   }
   if (colonist.activity.kind !== 'none' && colonist.activity.kind !== 'moving') return;
@@ -189,17 +283,75 @@ function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): vo
   if (moodOf(state, colonist, networks) >= MOOD_BREAK) return;
 
   releaseCurrentJob(state, ctx, colonistId);
-  updateColonist(state, colonistId, {
-    activity: { kind: 'brooding', untilTick: state.tick + MOOD_BREAK_TICKS },
-  });
   const worst = thoughtsOf(state, colonist, networks)[0];
+  const kind = breakKind(worst?.label);
+  const untilTick = state.tick + MOOD_BREAK_TICKS;
+  updateColonist(state, colonistId, {
+    activity:
+      kind === 'binge'
+        ? { kind: 'binge', untilTick, eaten: 0 }
+        : kind === 'wandering'
+          ? { kind: 'wandering', untilTick }
+          : { kind: 'brooding', untilTick },
+  });
   addLog(
     state,
     worst
-      ? `${colonist.name} has had enough: ${worst.label.toLowerCase()}`
-      : `${colonist.name} has had enough`,
+      ? `${colonist.name} ${BREAK_WORDS[kind]}: ${worst.label.toLowerCase()}`
+      : `${colonist.name} ${BREAK_WORDS[kind]}`,
     'incident',
   );
+}
+
+/**
+ * A break in progress. It outlasts whatever set it off - ending the moment mood
+ * ticks back over the line would let one meal cancel the whole thing, and the
+ * player would never see that anything had happened.
+ */
+function runBreak(state: GameState, colonistId: string): void {
+  const colonist = state.colonists[colonistId];
+  const activity = colonist.activity;
+  if (!isBreak(activity.kind)) return;
+  const untilTick = (activity as { untilTick: number }).untilTick;
+
+  if (state.tick >= untilTick) {
+    updateColonist(state, colonistId, { activity: { kind: 'none' } });
+    addLog(state, `${colonist.name} goes back to work`);
+    return;
+  }
+
+  if (activity.kind === 'wandering') {
+    // one step, anywhere walkable. No path, no destination - that is the point
+    const rnd = mulberry32(state.tick * 31 + colonistId.length * 7919);
+    const [dx, dy] = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ][Math.floor(rnd() * 4)];
+    const target = state.tiles[tileIdOf(colonist.position.x + dx, colonist.position.y + dy)];
+    if (target && target.walkable && state.tick % TICKS_PER_STEP === 0) {
+      updateColonist(state, colonistId, { position: { x: target.x, y: target.y } });
+    }
+    return;
+  }
+
+  if (activity.kind === 'binge') {
+    if (state.tick % EAT_TICKS !== 0) return;
+    const meal = findNearestItem(state, 'food', colonist.position, {
+      preferStorage: true,
+      minQuantity: 1,
+    });
+    if (!meal) return;
+    const eaten = Math.min(FOOD_PER_MEAL, meal.quantity);
+    if (meal.quantity - eaten <= 0) removeItem(state, meal.id);
+    else updateItem(state, meal.id, { quantity: meal.quantity - eaten });
+    const needs = state.colonists[colonistId].needs;
+    updateColonist(state, colonistId, {
+      needs: { ...needs, hunger: Math.max(0, needs.hunger - HUNGER_RESTORED_PER_MEAL) },
+      activity: { ...activity, eaten: activity.eaten + eaten },
+    });
+  }
 }
 
 function runNeedBehaviour(state: GameState, ctx: SimContext, colonistId: string): void {
@@ -208,6 +360,32 @@ function runNeedBehaviour(state: GameState, ctx: SimContext, colonistId: string)
     runEating(state, ctx, colonistId);
   } else if (colonist.activity.kind === 'sleeping') {
     runSleeping(state, ctx, colonistId);
+  } else if (colonist.activity.kind === 'relaxing') {
+    runRelaxing(state, ctx, colonistId);
+  }
+}
+
+function runRelaxing(state: GameState, ctx: SimContext, colonistId: string): void {
+  const colonist = state.colonists[colonistId];
+  const activity = colonist.activity;
+  if (activity.kind !== 'relaxing') return;
+
+  if (activity.hearthId) {
+    const hearth = state.buildings[activity.hearthId];
+    if (hearth) {
+      const tile = state.tiles[hearth.tileId];
+      const move = advanceTowards(state, ctx, colonistId, { x: tile.x, y: tile.y }, false);
+      // the fire went out from under them, or they cannot get to it: sitting
+      // down where they are is worse but it is not nothing
+      if (move === 'blocked') {
+        updateColonist(state, colonistId, { activity: { ...activity, hearthId: null } });
+      }
+      if (move !== 'arrived') return;
+    }
+  }
+
+  if (state.tick >= activity.untilTick || (colonist.needs.recreation ?? 0) <= 0) {
+    endActivity(state, colonistId);
   }
 }
 

@@ -11,6 +11,7 @@ const BUILDINGS: { type: BuildingType; label: string }[] = [
   { type: 'stoneFloor', label: 'Stone floor' },
   { type: 'door', label: 'Door' },
   { type: 'bed', label: 'Bed' },
+  { type: 'hearth', label: 'Hearth' },
   { type: 'farmPlot', label: 'Farm' },
   { type: 'manaFurnace', label: 'Mana furnace' },
   { type: 'manaConduit', label: 'Conduit' },

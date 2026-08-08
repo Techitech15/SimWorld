@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -236,6 +236,25 @@ export const migrations: Record<number, Migration> = {
       relationships: state.relationships ?? {},
       deaths: state.deaths ?? [],
     };
+  },
+
+  /**
+   * 13 -> 14: colonists need time off (11章 フェーズ3). An old save's people
+   * start content rather than half worn out: the need did not exist while they
+   * were working, so charging them for the time they already served would put a
+   * loaded colony straight into breaks on the first tick after loading.
+   */
+  13: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        needs: { ...colonist.needs, recreation: colonist.needs?.recreation ?? 0 },
+      };
+    }
+    return { ...state, colonists };
   },
 };
 

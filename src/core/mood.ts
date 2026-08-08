@@ -14,7 +14,7 @@
 // miserable long enough downs tools and broods (`ColonistActivity` gains a
 // variant), which is the only way a mood system can matter to a player who
 // never opens a panel.
-import { FOOD_PER_MEAL } from './constants';
+import { FOOD_PER_MEAL, RECREATION_THRESHOLD } from './constants';
 import { LAMP_RADIUS, isPowered } from './mana';
 import { friendNearby, griefOf, knowsAnyone } from './relationships';
 import type { ManaNetworks } from './mana';
@@ -148,6 +148,11 @@ export function thoughtsOf(
       amount: -Math.round((100 - colonist.health) * 0.25),
     });
   }
+
+  const recreation = colonist.needs.recreation ?? 0;
+  if (recreation >= 90) thoughts.push({ label: 'Sick of the sight of this place', amount: -12 });
+  else if (recreation >= RECREATION_THRESHOLD) thoughts.push({ label: 'Bored', amount: -6 });
+  else if (recreation <= 20) thoughts.push({ label: 'Had some time off', amount: 5 });
 
   if (colonist.activity.kind === 'fleeing') {
     thoughts.push({ label: 'Being hunted', amount: -20 });

@@ -89,6 +89,13 @@ export interface ColonistNeeds {
   hunger: number;
   /** 0 (rested) .. 100 (exhausted), linear decay */
   sleep: number;
+  /**
+   * [ext] 0 (content) .. 100 (sick of it), linear decay (11章 フェーズ3).
+   * The third need the design document left for this phase. It is the one that
+   * is met by other people rather than by a resource, which is why it waited
+   * for the colonists to know each other.
+   */
+  recreation: number;
 }
 
 /** [ext] Need-driven behaviour, which is deliberately outside the job system. */
@@ -105,7 +112,22 @@ export type ColonistActivity =
    * feeding someone one meal puts them straight back to work and the player
    * never sees that anything happened.
    */
-  | { kind: 'brooding'; untilTick: number };
+  /**
+   * [ext] Time off around the hearth. Not a job: nobody assigns it, and it
+   * cannot be prioritised away.
+   */
+  | { kind: 'relaxing'; hearthId: BuildingId | null; untilTick: number }
+  /**
+   * [ext] A mental break (11章 フェーズ3). One kind of thing, three ways of
+   * showing it, chosen by what actually went wrong:
+   *   brooding  - stands and refuses work
+   *   wandering - walks off and will not be talked to
+   *   binge     - eats their way through the larder
+   * All three stop work; what differs is what the colony has to watch.
+   */
+  | { kind: 'brooding'; untilTick: number }
+  | { kind: 'wandering'; untilTick: number }
+  | { kind: 'binge'; untilTick: number; eaten: number };
 
 export interface CarriedStack {
   type: ResourceType;
@@ -187,7 +209,9 @@ export type BuildingType =
   | 'manaFurnace'
   | 'manaConduit'
   | 'manaLamp'
-  | 'manaExtractor';
+  | 'manaExtractor'
+  /** [ext] where colonists take their time off (11章 フェーズ3) */
+  | 'hearth';
 
 export interface RequiredResource {
   type: ResourceType;

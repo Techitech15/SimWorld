@@ -33,6 +33,18 @@ export const SLEEP_RECOVERY_PER_TICK = 100 / 900; // rested again in ~7 hours
 export const SLEEP_RECOVERY_ON_GROUND_PER_TICK = SLEEP_RECOVERY_PER_TICK * 0.6;
 export const HUNGER_THRESHOLD = 55; // start looking for food
 export const SLEEP_THRESHOLD = 75; // start looking for a bed
+
+/**
+ * Recreation (11章 フェーズ3). Slower than hunger: a colonist who has not had
+ * an hour to themselves in two days is the point, not one who needs entertaining
+ * every afternoon.
+ */
+export const RECREATION_PER_TICK = 100 / 6000; // full bar in two days
+export const RECREATION_THRESHOLD = 70; // start looking for the hearth
+export const RECREATION_RESTORED_PER_TICK = 100 / 150; // a sitting is ~150 ticks
+export const RELAX_TICKS = 150;
+/** Without a hearth they take it where they stand, and get less from it. */
+export const RECREATION_ALONE_MULTIPLIER = 0.45;
 export const SLEEP_WAKE_AT = 3;
 export const EAT_TICKS = 30;
 export const FOOD_PER_MEAL = 10;
@@ -158,6 +170,11 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'stone', quantity: 30 },
     { type: 'wood', quantity: 15 },
   ],
+  // cheap on purpose: the colony should be able to afford company early
+  hearth: [
+    { type: 'wood', quantity: 15 },
+    { type: 'stone', quantity: 5 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -174,6 +191,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   manaConduit: 40,
   manaLamp: 50,
   manaExtractor: 180,
+  hearth: 90,
 };
 
 /** Structures that block movement once finished. */
@@ -197,6 +215,8 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   manaLamp: false,
   // a machine standing against the rock face, not something you walk over
   manaExtractor: true,
+  // you sit at it, so you have to be able to reach it
+  hearth: false,
 };
 
 export const COLONIST_COLORS = [

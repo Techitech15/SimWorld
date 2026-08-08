@@ -213,7 +213,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     addColonist(
       state,
       { x: cx - 1 + i, y: cy + 6 },
-      { hunger: 20 + i * 5, sleep: 10 + i * 5 },
+      { hunger: 20 + i * 5, sleep: 10 + i * 5 , recreation: 0 },
       seed * 31 + i * 7919,
     );
   }
@@ -307,7 +307,7 @@ function scatterBerryBushes(state: GameState, seed: number, camp: { x: number; y
 export function addColonist(
   state: GameState,
   position: { x: number; y: number },
-  needs: { hunger: number; sleep: number } = { hunger: 15, sleep: 15 },
+  needs: { hunger: number; sleep: number , recreation: 0 } = { hunger: 15, sleep: 15 , recreation: 0 },
   /** what the newcomer already knows; defaults to something the world decides */
   skillSeed: number = state.tick * 7919 + Object.keys(state.colonists).length,
 ): Colonist {
