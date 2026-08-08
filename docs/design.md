@@ -8,6 +8,7 @@
 | **このファイル** | 仕様。いま何がどう動くか |
 | [design-notes.md](design-notes.md) | 追加検討時の設計思想。なぜそうしたか、何を測ったか、案から何を変えたか |
 | [design-animals.md](design-animals.md) | 生物レイヤーの設計案（提案時のまま。現況は notes 側） |
+| [design-next.md](design-next.md) | 未実装のものの検討。実装したらこちらの 11 章と notes へ移す |
 | `README.md` | 動かし方・操作・テスト一覧 |
 
 原案（MVP 着手時点の版）は Git 履歴に残っている（`docs/design.md` を追加したコミット `534c005`）。
