@@ -56,6 +56,7 @@ export class GameRenderer {
   >();
   private itemSprites = new Map<string, Sprite>();
   private animalViews = new Map<string, AnimalView>();
+  private raiderViews = new Map<string, AnimalView>();
   private colonistViews = new Map<string, ColonistView>();
 
   private lastState: GameState | null = null;
@@ -219,6 +220,8 @@ export class GameRenderer {
         return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
       case 'hearth':
         return t.hearth;
+      case 'manaTurret':
+        return isPowered(this.networks, building.id) ? t.manaTurretLive : t.manaTurret;
       case 'manaExtractor':
         return isPowered(this.networks, building.id) ? t.manaExtractorRun : t.manaExtractor;
       case 'berryBush':
@@ -361,6 +364,48 @@ export class GameRenderer {
       if (seen.has(id)) continue;
       view.sprite.destroy();
       this.animalViews.delete(id);
+    }
+  }
+
+  /** Raiders: same treatment as animals, with their own two-frame sheet. */
+  private syncRaiders(state: GameState, deltaMs: number): void {
+    const seen = new Set<string>();
+    for (const id in state.raiders ?? {}) {
+      const raider = state.raiders[id];
+      seen.add(id);
+      let view = this.raiderViews.get(id);
+      if (!view) {
+        const sprite = new Sprite(this.textures.raiders[0]);
+        sprite.anchor.set(0.5);
+        this.animalLayer.addChild(sprite);
+        view = {
+          sprite,
+          displayX: raider.position.x,
+          displayY: raider.position.y,
+          facingRight: true,
+        };
+        this.raiderViews.set(id, view);
+      }
+
+      const dx = raider.position.x - view.displayX;
+      const dy = raider.position.y - view.displayY;
+      const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
+      const speed = 0.007 * deltaMs;
+      view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
+      view.displayY += Math.abs(dy) < speed ? dy : Math.sign(dy) * speed;
+      if (Math.abs(dx) > 0.02) view.facingRight = dx > 0;
+
+      const swinging = raider.activity.kind === 'attacking' || raider.activity.kind === 'breaking';
+      const frame = moving || swinging ? Math.floor(performance.now() / 180) % 2 : 0;
+      view.sprite.texture = this.textures.raiders[frame];
+      view.sprite.x = view.displayX * TILE_SIZE + TILE_SIZE / 2;
+      view.sprite.y = view.displayY * TILE_SIZE + TILE_SIZE / 2;
+      view.sprite.scale.x = view.facingRight ? 1 : -1;
+    }
+    for (const [id, view] of this.raiderViews) {
+      if (seen.has(id)) continue;
+      view.sprite.destroy();
+      this.raiderViews.delete(id);
     }
   }
 
@@ -584,6 +629,7 @@ export class GameRenderer {
       this.syncDesignationOverlay(state);
     }
     this.syncAnimals(state, deltaMs);
+    this.syncRaiders(state, deltaMs);
     this.syncColonists(state, deltaMs);
     this.consumeFocusRequest();
     this.syncSelectionOverlay(state);

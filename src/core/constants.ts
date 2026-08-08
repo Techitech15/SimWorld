@@ -45,6 +45,28 @@ export const RECREATION_RESTORED_PER_TICK = 100 / 150; // a sitting is ~150 tick
 export const RELAX_TICKS = 150;
 /** Without a hearth they take it where they stand, and get less from it. */
 export const RECREATION_ALONE_MULTIPLIER = 0.45;
+
+/**
+ * Raids (11章 フェーズ4). The numbers are a starting point, measured and
+ * adjusted below in docs/design-notes.md.
+ */
+export const RAID_FIRST_DAY = 8; // nothing before this: a colony needs walls first
+export const RAIDER_HEALTH = 60;
+export const RAIDER_DAMAGE = 6;
+export const RAIDER_ATTACK_INTERVAL_TICKS = 30;
+export const RAIDER_STRUCTURE_DAMAGE = 8;
+export const RAID_DURATION_TICKS = 1800; // they give up after about half a day
+/** ...and are gone this long after that, whether or not they found their way out. */
+export const RAID_LEAVE_GRACE_TICKS = 600;
+/** Base damage a colonist does per swing; hunting skill multiplies it. */
+export const COLONIST_MELEE_DAMAGE = 7;
+export const COLONIST_ATTACK_INTERVAL_TICKS = 30;
+/** How far from the colony a defender will go to meet a raider. */
+export const DEFEND_RANGE = 14;
+/** The turret. */
+export const TURRET_RANGE = 7;
+export const TURRET_DAMAGE = 9;
+export const TURRET_INTERVAL_TICKS = 40;
 export const SLEEP_WAKE_AT = 3;
 export const EAT_TICKS = 30;
 export const FOOD_PER_MEAL = 10;
@@ -175,6 +197,12 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'wood', quantity: 15 },
     { type: 'stone', quantity: 5 },
   ],
+  // the most expensive thing in the game, and it needs a lit grid on top
+  manaTurret: [
+    { type: 'stone', quantity: 35 },
+    { type: 'wood', quantity: 10 },
+    { type: 'manaCrystal', quantity: 4 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -192,6 +220,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   manaLamp: 50,
   manaExtractor: 180,
   hearth: 90,
+  manaTurret: 150,
 };
 
 /** Structures that block movement once finished. */
@@ -217,6 +246,7 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   manaExtractor: true,
   // you sit at it, so you have to be able to reach it
   hearth: false,
+  manaTurret: true,
 };
 
 export const COLONIST_COLORS = [

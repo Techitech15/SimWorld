@@ -40,9 +40,9 @@ export function createHarness(seed = 42): Harness {
  * thousands of times: it made one measurement here report twenty-five thousand
  * level-ups in a game where four hundred is the ceiling.
  *
- * This watches the last entry and records it when its identity changes, which
- * is exact for the one-entry-per-tick case and the reason it lives here rather
- * than being written out again at each call site.
+ * This records every entry written since the last one it saw, which is exact
+ * whether a tick writes one line or several, and the reason it lives here
+ * rather than being written out again at each call site.
  */
 export function recordLog(
   harness: Harness,
@@ -66,22 +66,33 @@ export function recordLogEntries(
   onTick?: (state: GameState) => void,
 ): LogEntry[] {
   const entries: LogEntry[] = [];
+  const keyOf = (entry: LogEntry) => `${entry.tick}:${entry.message}`;
   let lastKey = '';
   const seed = harness.state.log[harness.state.log.length - 1];
-  if (seed) lastKey = `${seed.tick}:${seed.message}`;
+  if (seed) lastKey = keyOf(seed);
   harness.run(ticks, (state) => {
     // the caller's hook runs first: a test that writes its own lines from
     // onTick would otherwise have the last tick's line recorded a tick late,
     // and the final one not at all
     onTick?.(state);
-    const last = state.log[state.log.length - 1];
-    if (last) {
-      const key = `${last.tick}:${last.message}`;
-      if (key !== lastKey) {
-        lastKey = key;
-        entries.push(last);
+    const log = state.log;
+    if (log.length === 0) return;
+    if (keyOf(log[log.length - 1]) === lastKey) return;
+
+    // Everything since the last line we saw, not just the newest one. Watching
+    // only the tail lost any tick that wrote twice - a raider dying and the
+    // raid ending land together, and the death simply vanished from the
+    // recording. Searching back for the last line we know about also copes
+    // with the buffer having dropped it: then every entry it holds is new.
+    let from = 0;
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (keyOf(log[i]) === lastKey) {
+        from = i + 1;
+        break;
       }
     }
+    for (let i = from; i < log.length; i++) entries.push(log[i]);
+    lastKey = keyOf(log[log.length - 1]);
   });
   return entries;
 }

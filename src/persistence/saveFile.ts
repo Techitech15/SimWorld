@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -255,6 +255,17 @@ export const migrations: Record<number, Migration> = {
       };
     }
     return { ...state, colonists };
+  },
+
+  /**
+   * 14 -> 15: raiders exist (11章 フェーズ4). Nobody is mid-raid in a save that
+   * predates raids, so the map starts empty - and an old colony gets the same
+   * grace period a new one does, because the incident is gated on the day
+   * rather than on when the feature arrived.
+   */
+  14: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, raiders: state.raiders ?? {} };
   },
 };
 

@@ -119,10 +119,12 @@ describe('bonds grow from time spent together', () => {
     expect(affinityOf(harness.state, a, b)).toBeGreaterThanOrEqual(FRIEND_AT);
     expect(friendsOf(harness.state, a)).toContain(b);
 
-    harness.run(
-      SOCIAL_INTERVAL_TICKS * Math.ceil(AFFINITY_MAX / AFFINITY_PER_INTERVAL),
-      (state) => pin(state, a, b, 1),
-    );
+    // The cap is checked from just below it rather than by running all the way
+    // there. Reaching a hundred at this rate takes eleven in-game days, which
+    // is long enough for a raid to arrive and kill one of the two - the test
+    // was measuring whether the colony survived, not whether the number stops.
+    harness.state.relationships = { [pairKey(a, b)]: AFFINITY_MAX - AFFINITY_PER_INTERVAL / 2 };
+    harness.run(SOCIAL_INTERVAL_TICKS * 4, (state) => pin(state, a, b, 1));
     expect(affinityOf(harness.state, a, b)).toBe(AFFINITY_MAX);
   });
 

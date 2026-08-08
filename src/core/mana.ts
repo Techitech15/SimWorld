@@ -36,6 +36,10 @@ export const MANA_DRAW: Partial<Record<BuildingType, number>> = {
   // most of a furnace. One furnace runs one extractor, or three lamps - that
   // choice is the phase-2 puzzle in its smallest form
   manaExtractor: 8,
+  // the turret is why the network was worth building (11章 フェーズ4). It draws
+  // less than the extractor so a colony can defend itself without shutting the
+  // quarry down - but two turrets and an extractor will not fit on one furnace.
+  manaTurret: 6,
 };
 
 /**

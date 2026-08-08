@@ -1153,6 +1153,54 @@ function hearthTile() {
   return c;
 }
 
+
+/** A raider: the colonist silhouette in dark colours with a blade. */
+function raiderSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    // body, deliberately the same build as a colonist so the threat reads as
+    // "people" rather than "monster"
+    c.rect(12, 12, 8, 11, '#3a3340');
+    c.rect(12, 12, 8, 3, '#4a4250');
+    c.rect(13, 23, 3, 6, '#241f28');
+    c.rect(17, 23, 3, 6, '#241f28');
+    c.disc(16, 9, 5, P.skinShade);
+    c.rect(11, 4, 10, 4, '#5a2030'); // red headband
+    c.set(14, 9, P.eye);
+    c.set(18, 9, P.eye);
+    // blade, swinging on the second frame
+    const bx = frame === 0 ? 22 : 24;
+    c.line(bx, 18, bx + 4, 8 + frame * 4, P.iconMetal);
+    c.line(bx + 1, 18, bx + 5, 9 + frame * 4, P.iconMetalDark);
+    c.rect(bx - 1, 17, 3, 3, P.trunk[0]);
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
+/** The turret: a mana-fed emplacement. Dark until the grid feeds it. */
+function manaTurretTile(live) {
+  const c = new Canvas(TILE, TILE);
+  c.disc(16, 22, 10, P.stone[1]);
+  c.disc(16, 21, 9, P.stone[2]);
+  c.hline(7, 13, 18, P.stone[3]);
+  // barrel
+  c.rect(14, 4, 5, 16, P.stone[0]);
+  c.vline(15, 4, 16, P.stone[2]);
+  c.disc(16, 5, 3, live ? P.mana[2] : P.stone[1]);
+  if (live) {
+    c.disc(16, 5, 2, P.mana[3]);
+    c.disc(16, 22, 4, P.mana[1]);
+    c.disc(16, 22, 2, P.mana[2]);
+  } else {
+    c.disc(16, 22, 3, P.mana[0]);
+  }
+  c.strokeRect(0, 0, TILE, TILE, P.outline);
+  return c;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1186,6 +1234,9 @@ written.push(save('buildings/mana_lamp_lit.png', manaLampTile(true)));
 written.push(save('buildings/mana_extractor.png', manaExtractorTile(false)));
 written.push(save('buildings/mana_extractor_run.png', manaExtractorTile(true)));
 written.push(save('buildings/hearth.png', hearthTile()));
+written.push(save('raiders/raider.png', raiderSheet()));
+written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
+written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));
