@@ -6,10 +6,11 @@
 // accident the moment a save is loaded.
 import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
 import { DEFAULT_SCENARIO } from '../core/scenario';
+import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -154,6 +155,39 @@ export const migrations: Record<number, Migration> = {
   8: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, worldSeed: state.worldSeed ?? 0 };
+  },
+
+  /**
+   * 9 -> 10: mana crystal (11章 フェーズ2). Two things an old save is missing.
+   *
+   * Its rock faces contain no veins, so a colony saved before this existed
+   * could never reach phase 2 at all - the migration seeds veins into rock the
+   * same way worldgen would have, deriving the choice from the world seed so a
+   * given world gets the same veins whether it was generated or migrated.
+   *
+   * Its storage zones list the resource types that existed when they were
+   * created, and a zone that does not accept mana crystal will never have any
+   * hauled into it. The new type is added to every existing zone: the player
+   * chose to exclude nothing, so nothing should arrive excluded.
+   */
+  9: (old) => {
+    const state = old as Partial<GameState>;
+    const tiles = { ...(state.tiles ?? {}) };
+    const rnd = mulberry32(Math.abs(Math.floor(state.worldSeed ?? 0)) + 4231);
+    for (const id in tiles) {
+      const tile = tiles[id];
+      if (tile.terrain !== 'stone') continue;
+      // rarer than worldgen's own rule, because this is retrofitting a map that
+      // has already been quarried: the veins that are left are the deep ones
+      if (rnd() < 0.04) tiles[id] = { ...tile, terrain: 'crystal' };
+    }
+    const zones = { ...(state.zones ?? {}) };
+    for (const id in zones) {
+      const zone = zones[id];
+      if (zone.type !== 'storage' || zone.accepts?.includes('manaCrystal')) continue;
+      zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'manaCrystal'] };
+    }
+    return { ...state, tiles, zones };
   },
 };
 

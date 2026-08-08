@@ -32,7 +32,7 @@ describe('minimap', () => {
     }
   });
 
-  it('tells the three terrains apart', () => {
+  it('gives every terrain its own colour', () => {
     const harness = createHarness(5107);
     const data = paint(harness.state);
     // bare ground only: anything standing on a tile is drawn over it, which is
@@ -55,8 +55,14 @@ describe('minimap', () => {
       if (already) expect(key).toBe(already);
       else seen.set(tile.terrain, key);
     }
-    expect(seen.size).toBe(3);
-    expect(new Set(seen.values()).size).toBe(3); // and they are three different colours
+    // Every terrain the map actually contains gets a colour, and no two share
+    // one. Counting them rather than naming a number is what stops a fourth
+    // terrain from arriving invisible: mana crystal was drawn correctly and
+    // this assertion still failed, because it was testing the count.
+    const present = new Set(Object.values(harness.state.tiles).map((tile) => tile.terrain));
+    expect(seen.size).toBe(present.size);
+    expect(seen.size).toBeGreaterThanOrEqual(3);
+    expect(new Set(seen.values()).size).toBe(seen.size); // all different colours
   });
 
   it('shows a colonist over whatever they are standing on', () => {

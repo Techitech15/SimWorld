@@ -20,6 +20,8 @@ const TERRAIN: Record<string, Rgb> = {
   grass: [74, 124, 63],
   forest: [40, 84, 45],
   stone: [125, 125, 134],
+  // the one violet on the map: a vein has to be findable from the minimap
+  crystal: [138, 95, 214],
 };
 
 const BUILDING: Record<string, Rgb> = {

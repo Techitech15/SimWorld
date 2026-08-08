@@ -16,6 +16,7 @@ import {
   updateBuilding,
   updateColonist,
   updateTile,
+  isRock,
 } from './state';
 import { JOB_TYPES } from './types';
 import type {
@@ -118,7 +119,7 @@ export function setDesignation(
     const tile = next.tiles[tileId];
     if (!tile) continue;
     if (designation === 'chop' && tile.terrain !== 'forest') continue;
-    if (designation === 'mine' && tile.terrain !== 'stone') continue;
+    if (designation === 'mine' && !isRock(tile.terrain)) continue;
     if (designation === 'deconstruct' && !isDeconstructible(next, tile.buildingId)) continue;
     if (tile.designation === designation) continue;
     updateTile(next, tileId, { designation });
@@ -168,7 +169,7 @@ export function placeBuildingBlueprint(
   for (const tileId of tileIds) {
     const tile = next.tiles[tileId];
     if (!tile || tile.buildingId) continue;
-    if (tile.terrain === 'stone') continue; // mine it out first
+    if (isRock(tile.terrain)) continue; // mine it out first
     changed = true;
     const id = nextId(next, 'b');
     own(next, 'buildings');

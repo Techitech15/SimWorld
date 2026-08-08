@@ -57,6 +57,8 @@ const P = {
   iconBg: '#00000000',
   iconMetal: '#c8ccd6',
   iconMetalDark: '#8c93a3',
+  mana: ['#3b2a63', '#5b3fa0', '#8a5fd6', '#c9a6ff'],
+  manaGlow: '#a97cff',
   iconWood: '#a9764a',
   iconWoodDark: '#7d5432',
 };
@@ -979,12 +981,71 @@ function iconMood() {
   return c;
 }
 
+
+/**
+ * A rock face with mana crystal in it. Read against stone.png it has to say
+ * "same rock, something in it": the grey base is the stone tile's palette and
+ * only the crystal itself carries the violet.
+ */
+function crystalTile() {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(0x0c1a);
+  c.fill(P.stone[2]);
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      const r = rnd();
+      if (r < 0.18) c.set(x, y, P.stone[1]);
+      else if (r < 0.24) c.set(x, y, P.stone[3]);
+    }
+  }
+  for (const [cx, cy, r] of [
+    [8, 10, 6],
+    [24, 22, 5],
+  ]) {
+    c.disc(cx, cy, r, P.stone[1]);
+    c.disc(cx - 1, cy - 1, r - 2, P.stone[3]);
+  }
+  // the vein: two shards and a seam running between them
+  const shard = (cx, cy, h) => {
+    c.line(cx, cy - h, cx - 3, cy, P.mana[1]);
+    c.line(cx, cy - h, cx + 3, cy, P.mana[1]);
+    c.line(cx - 3, cy, cx, cy + 3, P.mana[0]);
+    c.line(cx + 3, cy, cx, cy + 3, P.mana[0]);
+    for (let i = 0; i < h + 3; i++) c.hline(cx - 2, cy - h + i + 1, 4, P.mana[2]);
+    c.vline(cx - 1, cy - h + 2, h, P.mana[3]);
+  };
+  shard(15, 18, 8);
+  shard(22, 13, 5);
+  c.line(15, 20, 22, 15, P.mana[0]);
+  tileEdge(c, '#3c3c43');
+  return c;
+}
+
+/** The mined stack, and the UI icon for the resource list. */
+function crystalIcon() {
+  const c = new Canvas(TILE, TILE);
+  const shard = (cx, cy, h, w) => {
+    for (let i = 0; i < h; i++) {
+      const t = i / h;
+      const half = Math.max(1, Math.round(w * (1 - Math.abs(t - 0.35) * 1.4)));
+      c.hline(cx - half, cy - h + i, half * 2, P.mana[1]);
+    }
+    c.vline(cx - 1, cy - h + 2, h - 3, P.mana[2]);
+    c.vline(cx - 2, cy - h + 4, h - 7, P.mana[3]);
+  };
+  shard(13, 26, 17, 5);
+  shard(22, 27, 11, 4);
+  c.outline(P.outline);
+  return c;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
 written.push(save('terrain/forest_1.png', forestTile(1)));
 written.push(save('terrain/forest_2.png', forestTile(2)));
 written.push(save('terrain/stone.png', stoneTile()));
+written.push(save('terrain/crystal.png', crystalTile()));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));
@@ -1002,6 +1063,7 @@ written.push(save('buildings/storage_marker.png', storageMarker()));
 written.push(save('resources/wood.png', woodIcon()));
 written.push(save('resources/stone.png', stoneIcon()));
 written.push(save('resources/food.png', foodIcon()));
+written.push(save('resources/mana_crystal.png', crystalIcon()));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));

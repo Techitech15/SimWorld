@@ -16,7 +16,7 @@ import { DEFAULT_SCENARIO, SCENARIOS, scaledCount, scenarioOf } from './scenario
 import type { ScenarioName } from './scenario';
 import { rollStartingSkills } from './skills';
 import { rollTraits } from './traits';
-import { createEmptyState, nextId, own, tileIdOf, updateTile } from './state';
+import { createEmptyState, nextId, own, tileIdOf, updateTile, isRock } from './state';
 import { JOB_TYPES } from './types';
 import type {
   Animal,
@@ -46,7 +46,7 @@ function makeTile(x: number, y: number, terrain: Tile['terrain']): Tile {
     x,
     y,
     terrain,
-    walkable: terrain !== 'stone',
+    walkable: !isRock(terrain),
     buildingId: null,
     itemIds: [],
     designation: null,
@@ -133,6 +133,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   const scenario = SCENARIOS[state.scenario];
   const forestNoise = valueNoise2D(seed);
   const stoneNoise = valueNoise2D(seed + 977);
+  const crystalNoise = valueNoise2D(seed + 4231);
 
   const cx = Math.floor(MAP_WIDTH / 2);
   const cy = Math.floor(MAP_HEIGHT / 2);
@@ -147,6 +148,12 @@ export function generateWorld(options: WorldOptions = {}): GameState {
       if (distToCamp > 6) {
         if (s > 0.72) terrain = 'stone';
         else if (f > 0.58) terrain = 'forest';
+      }
+      // Mana crystal sits in the heart of a rock face, never at its edge: a
+      // vein the player can reach on the first day would make the phase-2
+      // puzzle free, and quarrying towards one is the point (11章).
+      if (terrain === 'stone' && s > 0.86 && crystalNoise(x, y, 13) > 0.62) {
+        terrain = 'crystal';
       }
       const tile = makeTile(x, y, terrain);
       state.tiles[tile.id] = tile;

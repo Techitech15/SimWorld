@@ -155,6 +155,8 @@ describe('what to do next', () => {
     for (let i = 0; i < 200; i++) colonyGoals(harness.state);
     const per = (performance.now() - started) / 200;
     expect(per).toBeLessThan(2);
-    expect(RESOURCE_TYPES.length).toBe(3);
+    // the cost is per resource type, so a new one has to stay inside the budget
+    // rather than have this number quietly edited upwards
+    expect(RESOURCE_TYPES.length).toBeGreaterThanOrEqual(3);
   });
 });

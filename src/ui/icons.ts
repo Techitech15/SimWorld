@@ -18,4 +18,5 @@ export const icons = {
   wood: sprites.wood,
   stone: sprites.stoneItem,
   food: sprites.food,
+  manaCrystal: sprites.manaCrystal,
 } as const;

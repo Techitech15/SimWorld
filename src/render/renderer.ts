@@ -166,6 +166,8 @@ export class GameRenderer {
           : this.textures.tiles.forest2;
       case 'stone':
         return this.textures.tiles.stone;
+      case 'crystal':
+        return this.textures.tiles.crystal;
       default:
         return this.textures.tiles.grass;
     }
@@ -267,7 +269,10 @@ export class GameRenderer {
   // --- items ---------------------------------------------------------------
   private itemTexture(item: Item): Texture {
     const t = this.textures.tiles;
-    return item.type === 'wood' ? t.wood : item.type === 'stone' ? t.stoneItem : t.food;
+    if (item.type === 'wood') return t.wood;
+    if (item.type === 'stone') return t.stoneItem;
+    if (item.type === 'manaCrystal') return t.manaCrystal;
+    return t.food;
   }
 
   private syncItems(state: GameState): void {

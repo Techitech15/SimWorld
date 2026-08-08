@@ -37,7 +37,14 @@ export interface Vector2 {
   y: number;
 }
 
-export type TerrainType = 'grass' | 'forest' | 'stone';
+/**
+ * [ext] `crystal` is a rock face shot through with mana crystal (11章 フェーズ2).
+ * It is a terrain rather than a building because mining it is the same act as
+ * mining stone - the design document asked whether the existing `mine` job
+ * could be extended rather than a new job added, and this is what makes the
+ * answer yes.
+ */
+export type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal';
 
 /**
  * [ext] Player designation marking a tile as work to be done. `deconstruct`
@@ -64,7 +71,7 @@ export interface Tile {
   forage: number;
 }
 
-export type ResourceType = 'wood' | 'stone' | 'food';
+export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal';
 
 export interface Item {
   id: ItemId;

@@ -1,5 +1,5 @@
 import { countStoredResource } from '../core/storage';
-import { RESOURCE_TYPES } from '../core/constants';
+import { RESOURCE_LABELS, RESOURCE_TYPES } from '../core/constants';
 import type { ResourceType } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { useResourceTotal } from './hooks';
@@ -9,6 +9,7 @@ const RESOURCE_ICON: Record<ResourceType, string> = {
   wood: icons.wood,
   stone: icons.stone,
   food: icons.food,
+  manaCrystal: icons.manaCrystal,
 };
 
 function ResourceRow({ type }: { type: ResourceType }): React.JSX.Element {
@@ -16,8 +17,8 @@ function ResourceRow({ type }: { type: ResourceType }): React.JSX.Element {
   const stored = useGameStore((s) => countStoredResource(s.state, type));
   return (
     <li className="resource">
-      <img src={RESOURCE_ICON[type]} alt={type} width={24} height={24} />
-      <span className="resource__name">{type}</span>
+      <img src={RESOURCE_ICON[type]} alt={RESOURCE_LABELS[type]} width={24} height={24} />
+      <span className="resource__name">{RESOURCE_LABELS[type]}</span>
       <strong>{stored}</strong>
       <span className="muted small">/ {total} total</span>
     </li>

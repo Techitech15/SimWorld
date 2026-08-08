@@ -359,4 +359,48 @@ describe('IndexedDB slot', () => {
   it('reports a missing slot instead of returning junk', async () => {
     await expect(loadGame('does-not-exist')).rejects.toBeInstanceOf(SaveLoadError);
   });
+
+  it('gives an old save a reason to care about mana', () => {
+    // A colony saved before phase 2 existed has rock faces with nothing in them
+    // and storage zones that never heard of the resource. Both would leave the
+    // player looking at a mana furnace they can never fuel.
+    const harness = createHarness(71);
+    const v9 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v9.tiles) {
+      if (v9.tiles[id].terrain === 'crystal') v9.tiles[id] = { ...v9.tiles[id], terrain: 'stone' };
+    }
+    for (const id in v9.zones) {
+      v9.zones[id] = {
+        ...v9.zones[id],
+        accepts: v9.zones[id].accepts.filter((type) => type !== 'manaCrystal'),
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 9,
+      savedAtTick: v9.tick,
+      savedAtRealTime: '2026-08-08T00:00:00.000Z',
+      state: v9,
+    }).state;
+
+    const veins = Object.values(migrated.tiles).filter((t) => t.terrain === 'crystal');
+    expect(veins.length).toBeGreaterThan(0);
+    for (const vein of veins) expect(vein.walkable).toBe(false);
+    for (const id in migrated.zones) {
+      if (migrated.zones[id].type !== 'storage') continue;
+      expect(migrated.zones[id].accepts).toContain('manaCrystal');
+    }
+
+    // and the same world migrates to the same veins, not a fresh roll each load
+    const again = migrateSave({
+      schemaVersion: 9,
+      savedAtTick: v9.tick,
+      savedAtRealTime: '2026-08-08T00:00:00.000Z',
+      state: JSON.parse(JSON.stringify(v9)) as GameState,
+    }).state;
+    expect(Object.values(again.tiles).filter((t) => t.terrain === 'crystal').length).toBe(
+      veins.length,
+    );
+  });
+
 });

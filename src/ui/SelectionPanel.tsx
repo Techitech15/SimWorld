@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
-import { BUILDING_COSTS, RESOURCE_TYPES, SPECIES } from '../core/constants';
+import { BUILDING_COSTS, RESOURCE_LABELS, RESOURCE_TYPES, SPECIES } from '../core/constants';
 import { herdSize, isAdult, isPredator, pastureCapacity } from '../core/animals';
 import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, seasonOf } from '../core/season';
 import type { BuildingType, GameState, TerrainType } from '../core/types';
@@ -9,6 +9,7 @@ const TERRAIN_LABEL: Record<TerrainType, string> = {
   grass: 'Grass',
   forest: 'Forest',
   stone: 'Rock face',
+  crystal: 'Mana crystal vein',
 };
 
 const BUILDING_LABEL: Record<BuildingType, string> = {
@@ -172,9 +173,13 @@ function StorageFilters(): React.JSX.Element | null {
             key={type}
             className={`filters__chip ${on ? 'filters__chip--on' : ''}`}
             onClick={() => setZoneAccepts(zoneId, type, !on)}
-            title={on ? `stop hauling ${type} here` : `haul ${type} here`}
+            title={
+              on
+                ? `stop hauling ${RESOURCE_LABELS[type]} here`
+                : `haul ${RESOURCE_LABELS[type]} here`
+            }
           >
-            {type}
+            {RESOURCE_LABELS[type]}
           </button>
         );
       })}

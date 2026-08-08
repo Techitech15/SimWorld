@@ -16,6 +16,7 @@ import {
   MAX_RETRIES,
   SPECIES,
   STONE_PER_ROCK,
+  CRYSTAL_PER_VEIN,
   TAME_FAIL_FLEE_TICKS,
   WOOD_PER_TREE,
   WORK_TICKS,
@@ -129,12 +130,20 @@ function applyJobEffect(
     }
     case 'mine': {
       const tile = state.tiles[job.targetTileId!];
+      // what came out depends on the face, not on the job: quarrying towards a
+      // vein is the same work as quarrying stone (11章 フェーズ2)
+      const vein = tile.terrain === 'crystal';
       updateTile(state, tile.id, {
         terrain: 'grass',
         designation: null,
         walkable: true,
       });
-      addItem(state, 'stone', STONE_PER_ROCK, tile.x, tile.y);
+      if (vein) {
+        addItem(state, 'manaCrystal', CRYSTAL_PER_VEIN, tile.x, tile.y);
+        addLog(state, `A mana crystal vein was cut open at ${tile.x}, ${tile.y}`);
+      } else {
+        addItem(state, 'stone', STONE_PER_ROCK, tile.x, tile.y);
+      }
       // walkability changed: regions are stale, cached paths through it are not
       invalidateTile(ctx, state, tile.id);
       break;

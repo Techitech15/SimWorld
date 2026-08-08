@@ -89,6 +89,12 @@ export const DECONSTRUCT_REFUND = 0.5;
 export const STACK_MAX = 75;
 export const WOOD_PER_TREE = 25;
 export const STONE_PER_ROCK = 20;
+/**
+ * A crystal vein gives fewer units than a rock face gives stone, and takes the
+ * same work: mana is meant to be the scarce input the whole phase-2 puzzle is
+ * arranged around (11章).
+ */
+export const CRYSTAL_PER_VEIN = 6;
 export const FOOD_PER_HARVEST = 16;
 /**
  * Wild berries. A bush ripens on its own with no sowing and yields less than a
@@ -112,7 +118,15 @@ export const FOREST_REGROW_INTERVAL_TICKS = TICKS_PER_DAY;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
-export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food'];
+export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal'];
+
+/** What each resource is called in the UI, so no panel prints a camelCase key. */
+export const RESOURCE_LABELS: Record<ResourceType, string> = {
+  wood: 'wood',
+  stone: 'stone',
+  food: 'food',
+  manaCrystal: 'mana crystal',
+};
 
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {

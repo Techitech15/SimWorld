@@ -19,6 +19,7 @@ import type {
   Job,
   JobId,
   LogEntry,
+  TerrainType,
   Tile,
   TileId,
   Vector2,
@@ -204,4 +205,14 @@ export function removeItem(state: GameState, itemId: ItemId): void {
   }
   const { [itemId]: _removed, ...rest } = state.items;
   state.items = rest;
+}
+
+/**
+ * Rock faces: solid, unwalkable, and what the `mine` job removes. Mana crystal
+ * is one of them (11章 フェーズ2) - having a single predicate is what stopped
+ * the new terrain from being taught to the generator but not to the tool, or to
+ * the tool but not to the validity check.
+ */
+export function isRock(terrain: TerrainType): boolean {
+  return terrain === 'stone' || terrain === 'crystal';
 }

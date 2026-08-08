@@ -4,7 +4,7 @@
 // Duplicate suppression uses a reverse index keyed by "what this job is about",
 // so a designated tree never grows a second chop job while the first is alive.
 import { DEFAULT_JOB_PRIORITY } from '../constants';
-import { nextId, tileIdOf } from '../state';
+import { nextId, tileIdOf, isRock } from '../state';
 import { acceptsHere, findNearestItem } from '../storage';
 import type { GameState, Job, JobId, JobType, TileId } from '../types';
 
@@ -105,7 +105,7 @@ export function runJobGenerator(state: GameState): void {
       continue;
     }
     if (tile.designation === 'chop' && tile.terrain !== 'forest') continue;
-    if (tile.designation === 'mine' && tile.terrain !== 'stone') continue;
+    if (tile.designation === 'mine' && !isRock(tile.terrain)) continue;
     const type: JobType = tile.designation === 'chop' ? 'chop' : 'mine';
     const key = `${type}:${tileId}`;
     if (has(key)) continue;
@@ -252,7 +252,7 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     }
     case 'mine': {
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
-      return !!tile && tile.terrain === 'stone' && tile.designation === 'mine';
+      return !!tile && isRock(tile.terrain) && tile.designation === 'mine';
     }
     case 'farm': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
