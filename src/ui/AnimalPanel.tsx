@@ -6,7 +6,7 @@ import { useGameStore } from '../store/gameStore';
 
 /**
  * The herd at a glance: what is out there, what is yours, and whether the
- * pasture is at capacity (docs/design-animals.md 4).
+ * pasture is at capacity (docs/design-phase2.5-animals.md 4).
  *
  * Both selectors return flat records of numbers on purpose. `useShallow`
  * compares the returned value one property deep, so a selector that builds

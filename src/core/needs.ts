@@ -82,7 +82,7 @@ function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: strin
   const colonist = state.colonists[colonistId];
   // a player move order is interruptible; eating and sleeping are not, and
   // neither is running from a predator - lying down to sleep with a wolf on your
-  // heels is how a colony loses people (docs/design-animals.md 5)
+  // heels is how a colony loses people (docs/design-phase2.5-animals.md 5)
   if (
     colonist.activity.kind === 'eating' ||
     colonist.activity.kind === 'sleeping' ||

@@ -53,7 +53,7 @@ export function jobWorkSite(
     }
     // Animals move, so the work site is wherever the creature is *now*. Hunting
     // is ranged, which is why the hunter does not have to corner the prey
-    // (docs/design-animals.md 3).
+    // (docs/design-phase2.5-animals.md 3).
     case 'hunt':
     case 'handle': {
       const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;

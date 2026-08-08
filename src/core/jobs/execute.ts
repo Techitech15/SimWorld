@@ -272,7 +272,7 @@ function evictFromTile(state: GameState, ctx: SimContext, tileId: string): void 
 }
 
 /**
- * Hunting and animal handling (docs/design-animals.md 3).
+ * Hunting and animal handling (docs/design-phase2.5-animals.md 3).
  *
  * Both work the same way - close in on a creature that is moving, then put in
  * the work ticks - so they share one function. Hunting is ranged (HUNT_RANGE),

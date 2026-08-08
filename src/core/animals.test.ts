@@ -1,4 +1,4 @@
-// Acceptance conditions for the animal layer (docs/design-animals.md 9), one
+// Acceptance conditions for the animal layer (docs/design-phase2.5-animals.md 9), one
 // describe block per implementation stage A-D. Everything here runs headless,
 // like the rest of src/core/*.test.ts.
 import { describe, expect, it, vi } from 'vitest';
