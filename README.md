@@ -1,7 +1,17 @@
 # SimWorld
 
-RimWorld 風の 2D ブラウザ入植地シミュレーション。設計方針ドキュメントの 1〜12 章（MVP）を実装したうえで、
-生物レイヤー（[docs/design-animals.md](docs/design-animals.md)）と四季・人口増加を載せている。
+RimWorld 風の 2D ブラウザ入植地シミュレーション。[設計方針ドキュメント](docs/design.md)の 1〜12 章（MVP）を
+実装したうえで、生物レイヤー（[docs/design-animals.md](docs/design-animals.md)）・四季・人口増加・気分、
+そして 11 章フェーズ2の魔力インフラを載せている。
+
+| ドキュメント | 何が書いてあるか |
+| --- | --- |
+| [docs/design.md](docs/design.md) | **当初の設計方針（全12章）**。原文のまま置いてあり、実装に合わせて書き換えない |
+| [docs/design-animals.md](docs/design-animals.md) | 生物レイヤーの設計案（本編ロードマップに無い追加分） |
+| この README | 実装の現状と、設計書から**意図的に外れた点**とその理由 |
+
+設計書は書き換えない方針にしている。コードに合わせて静かに直された仕様書は、もう仕様書ではないため。
+ズレが出たら README 側（「設計ドキュメントからの差分」とフェーズ表）に理由付きで記録する。
 
 ```bash
 npm install
@@ -50,6 +60,8 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 派生キャッシュ（PathIndex・到達可能領域ラベル）は `src/core/derived.ts` の `SimContext` にあり、GameState の外・セーブ対象外（8章）。
 
 ## 章ごとの実装対応
+
+章番号は [docs/design.md](docs/design.md) のもの。
 
 | 章                | 実装                                                                                                                        |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
