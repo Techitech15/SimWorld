@@ -6,7 +6,7 @@ import { DEFAULT_SCENARIO, SCENARIOS, SCENARIO_NAMES } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
 import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
-import { useGameStore } from '../store/gameStore';
+import { getNetworks, useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 
 const SPEEDS: { value: GameState['speed']; label: string; hint: string }[] = [
@@ -29,7 +29,7 @@ export function TopBar(): React.JSX.Element {
   const jobs = useJobCounts();
   const population = useGameStore((s) => Object.keys(s.state.colonists).length);
   // a number, not an object: the selector has to stay shallow-comparable
-  const mood = useGameStore((s) => colonyMood(s.state));
+  const mood = useGameStore((s) => colonyMood(s.state, getNetworks(s.state)));
 
   const day = Math.floor(tick / TICKS_PER_DAY) + 1;
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);

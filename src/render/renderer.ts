@@ -5,7 +5,9 @@ import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from '../core/constants';
 import { tileIdOf } from '../core/state';
 import type { Building, Colonist, GameState, Item, Tile } from '../core/types';
-import { useGameStore } from '../store/gameStore';
+import { getNetworks, useGameStore } from '../store/gameStore';
+import { EMPTY_NETWORKS, isPowered } from '../core/mana';
+import type { ManaNetworks } from '../core/mana';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
 import { damageStep, damageTint } from './damage';
 import type { Camera } from './camera';
@@ -207,6 +209,14 @@ export class GameRenderer {
       }
       case 'bed':
         return t.bed;
+      case 'manaFurnace':
+        return t.manaFurnace;
+      case 'manaConduit':
+        // lit when the run it belongs to is actually carrying, so the player can
+        // see where the power stops without opening a panel
+        return isPowered(this.networks, building.id) ? t.manaConduitLive : t.manaConduit;
+      case 'manaLamp':
+        return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
       case 'berryBush':
         return building.growth >= 1 ? t.berryRipe : t.berryBare;
       case 'farmPlot':
@@ -219,7 +229,15 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * The mana grids as of this frame. Read rather than stored: a lit conduit is
+   * a fact about the network, and the network is derived, so the renderer asks
+   * for it the same way the panels do.
+   */
+  private networks: ManaNetworks = EMPTY_NETWORKS;
+
   private syncBuildings(state: GameState): void {
+    this.networks = getNetworks(state);
     const seen = new Set<string>();
     for (const id in state.buildings) {
       const building = state.buildings[id];

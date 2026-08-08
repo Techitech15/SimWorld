@@ -44,6 +44,7 @@ function comfortable(state: GameState): Colonist {
     buildProgress: 1,
     growth: 0,
     sown: false,
+    manaFuel: 0,
   };
   state.items['i_food_test'] = {
     id: 'i_food_test',

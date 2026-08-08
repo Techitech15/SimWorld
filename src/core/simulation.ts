@@ -7,6 +7,7 @@
 import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
 import { runArrivals } from './arrivals';
 import { runIncidents } from './events';
+import { runMana } from './mana';
 import { regrowForest } from './regrowth';
 import {
   BERRY_REGROW_PER_TICK,
@@ -48,6 +49,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   runAnimals(next, ctx);
   runFleeing(next);
   healColonists(next);
+  // the mana layer runs before work is handed out, so a furnace that burned out
+  // this tick is already asking for fuel when the generator looks
+  runMana(next, ctx);
   runJobGenerator(next);
   runAssignment(next, ctx);
   runExecution(next, ctx);

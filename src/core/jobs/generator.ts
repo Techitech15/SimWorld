@@ -4,6 +4,7 @@
 // Duplicate suppression uses a reverse index keyed by "what this job is about",
 // so a designated tree never grows a second chop job while the first is alive.
 import { DEFAULT_JOB_PRIORITY } from '../constants';
+import { wantsFuel } from '../mana';
 import { nextId, tileIdOf, isRock } from '../state';
 import { acceptsHere, findNearestItem } from '../storage';
 import type { GameState, Job, JobId, JobType, TileId } from '../types';
@@ -178,6 +179,33 @@ export function runJobGenerator(state: GameState): void {
     }
   }
 
+  // --- furnaces asking for fuel ---------------------------------------------
+  // The same haul job a blueprint uses, pointed at a finished building. Mana
+  // is a resource the colony carries, so keeping a furnace lit is hauling work
+  // that competes with everything else on the same priority column - which is
+  // the point of phase 2: the constraint is not the materials, it is whether
+  // you can keep it supplied.
+  for (const buildingId in state.buildings) {
+    const building = state.buildings[buildingId];
+    if (!wantsFuel(building)) continue;
+    // the same key `jobKey` derives for a delivery, or the generator would make
+    // a fresh fuel job every tick and the furnace would collect a queue
+    const key = `deliver:${buildingId}:manaCrystal`;
+    if (has(key)) continue;
+    const tile = state.tiles[building.tileId];
+    const source = findNearestItem(state, 'manaCrystal', { x: tile.x, y: tile.y }, {
+      preferStorage: true,
+    });
+    if (!source) continue;
+    createJob(state, 'haul', {
+      targetTileId: tileIdOf(source.position.x, source.position.y),
+      targetEntityId: source.id,
+      destinationId: buildingId,
+      payloadType: 'manaCrystal',
+    });
+    claim(key);
+  }
+
   // --- damaged structures -> repair -----------------------------------------
   // Nothing damaged a building until predators started chewing on doors, which
   // is what makes this worth generating: a fence keeps wolves out only while
@@ -285,10 +313,15 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
       const item = job.targetEntityId ? state.items[job.targetEntityId] : undefined;
       if (!item) return false;
       if (job.destinationId) {
-        const blueprint = state.buildings[job.destinationId];
-        if (blueprint) {
-          if (!blueprint.isBlueprint) return false;
-          return blueprint.requiredResources.some((r) => r.type === item.type && r.quantity > 0);
+        const destination = state.buildings[job.destinationId];
+        if (destination) {
+          // a furnace is the one finished building that still takes deliveries,
+          // so "is it still a blueprint" is no longer the whole question
+          if (destination.type === 'manaFurnace' && !destination.isBlueprint) {
+            return item.type === 'manaCrystal' && wantsFuel(destination);
+          }
+          if (!destination.isBlueprint) return false;
+          return destination.requiredResources.some((r) => r.type === item.type && r.quantity > 0);
         }
         // otherwise the destination is a storage tile chosen at reservation time
         return state.tiles[job.destinationId] !== undefined;

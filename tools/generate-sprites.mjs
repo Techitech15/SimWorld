@@ -1039,6 +1039,65 @@ function crystalIcon() {
   return c;
 }
 
+
+/** The furnace: a stone housing with a crystal burning behind a grate. */
+function manaFurnaceTile() {
+  const c = new Canvas(TILE, TILE);
+  c.fill(P.stone[1]);
+  c.rect(2, 4, 28, 26, P.stone[2]);
+  c.hline(2, 4, 28, P.stone[3]);
+  // the mouth
+  c.rect(9, 12, 14, 14, '#1a1420');
+  c.disc(16, 20, 5, P.mana[1]);
+  c.disc(16, 20, 3, P.mana[2]);
+  c.disc(15, 19, 1, P.mana[3]);
+  // grate bars
+  for (let x = 10; x < 23; x += 4) c.vline(x, 12, 14, P.stone[0]);
+  // chimney
+  c.rect(11, 1, 10, 4, P.stone[0]);
+  c.hline(11, 1, 10, P.stone[2]);
+  c.strokeRect(0, 0, TILE, TILE, P.outline);
+  return c;
+}
+
+/** The conduit: a channel in the floor, lit when it is carrying. */
+function manaConduitTile(live) {
+  const c = new Canvas(TILE, TILE);
+  c.fill(P.stone[1]);
+  c.rect(1, 1, 30, 30, P.stone[2]);
+  c.rect(12, 0, 8, TILE, P.stone[0]);
+  c.rect(0, 12, TILE, 8, P.stone[0]);
+  const core = live ? P.mana[2] : P.mana[0];
+  c.rect(14, 0, 4, TILE, core);
+  c.rect(0, 14, TILE, 4, core);
+  if (live) {
+    c.vline(15, 0, TILE, P.mana[3]);
+    c.hline(0, 15, TILE, P.mana[3]);
+  }
+  tileEdge(c, '#3c3c43');
+  return c;
+}
+
+/** The lamp: a crystal on a post, dark until the grid feeds it. */
+function manaLampTile(lit) {
+  const c = new Canvas(TILE, TILE);
+  // post
+  c.rect(14, 16, 4, 13, P.stone[0]);
+  c.rect(11, 28, 10, 3, P.stone[2]);
+  // head
+  c.disc(16, 12, 6, P.stone[0]);
+  c.disc(16, 12, 5, lit ? P.mana[2] : P.mana[0]);
+  c.disc(16, 12, 3, lit ? P.mana[3] : P.mana[1]);
+  if (lit) {
+    // a soft halo, drawn as a ring rather than a blur the palette cannot do
+    c.disc(16, 12, 9, '#a97cff33');
+    c.disc(16, 12, 7, '#a97cff55');
+    c.disc(16, 12, 5, P.mana[3]);
+  }
+  c.outline(P.outline);
+  return c;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1064,6 +1123,11 @@ written.push(save('resources/wood.png', woodIcon()));
 written.push(save('resources/stone.png', stoneIcon()));
 written.push(save('resources/food.png', foodIcon()));
 written.push(save('resources/mana_crystal.png', crystalIcon()));
+written.push(save('buildings/mana_furnace.png', manaFurnaceTile()));
+written.push(save('buildings/mana_conduit.png', manaConduitTile(false)));
+written.push(save('buildings/mana_conduit_live.png', manaConduitTile(true)));
+written.push(save('buildings/mana_lamp.png', manaLampTile(false)));
+written.push(save('buildings/mana_lamp_lit.png', manaLampTile(true)));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));

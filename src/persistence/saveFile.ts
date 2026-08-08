@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -188,6 +188,21 @@ export const migrations: Record<number, Migration> = {
       zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'manaCrystal'] };
     }
     return { ...state, tiles, zones };
+  },
+
+  /**
+   * 10 -> 11: every building carries a fuel level. No save from before this can
+   * contain a furnace, so the value is always zero; it is filled in anyway so
+   * that "every saved building has every field" stays true and the round-trip
+   * test keeps comparing whole objects rather than the ones it happens to know.
+   */
+  10: (old) => {
+    const state = old as Partial<GameState>;
+    const buildings = { ...(state.buildings ?? {}) };
+    for (const id in buildings) {
+      if (buildings[id].manaFuel === undefined) buildings[id] = { ...buildings[id], manaFuel: 0 };
+    }
+    return { ...state, buildings };
   },
 };
 

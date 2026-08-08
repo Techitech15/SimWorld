@@ -6,6 +6,8 @@
 import { create } from 'zustand';
 import * as actions from '../core/actions';
 import { createSimContext, rebuildPathIndex, rebuildRegions } from '../core/derived';
+import { refreshNetworks } from '../core/mana';
+import type { ManaNetworks } from '../core/mana';
 import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
 import { generateWorld } from '../core/worldgen';
@@ -34,6 +36,15 @@ let simContext: SimContext;
 
 export function getSimContext(): SimContext {
   return simContext;
+}
+
+/**
+ * The mana grids as of now. The UI needs them for the same reason the tick
+ * does, and they are derived, so they are read through the context rather than
+ * put in the store where React would try to diff them.
+ */
+export function getNetworks(state: GameState): ManaNetworks {
+  return refreshNetworks(simContext, state);
 }
 
 export type Tool =

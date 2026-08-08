@@ -18,6 +18,7 @@ function wall(hpCurrent: number, isBlueprint = false): Building {
     buildProgress: 1,
     growth: 0,
     sown: false,
+    manaFuel: 0,
   };
 }
 

@@ -83,6 +83,7 @@ export function addBuilding(
     buildProgress: 0,
     growth: 0,
     sown: false,
+    manaFuel: 0,
   };
   own(state, 'buildings');
   state.buildings[id] = building;

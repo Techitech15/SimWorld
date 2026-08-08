@@ -173,7 +173,18 @@ export type BuildingType =
   | 'bed'
   | 'farmPlot'
   | 'berryBush'
-  | 'storageZoneMarker';
+  | 'storageZoneMarker'
+  /**
+   * [ext] The mana layer (11章 フェーズ2). A furnace burns crystal to supply a
+   * network, a conduit joins buildings into one, and a lamp is the first thing
+   * that spends what the furnace makes. What each type supplies or draws lives
+   * in a table beside the build costs (src/core/mana.ts), not on the building:
+   * it is a property of the kind of thing, not of this one, and a number that
+   * is saved is a number that can disagree with the rules that made it.
+   */
+  | 'manaFurnace'
+  | 'manaConduit'
+  | 'manaLamp';
 
 export interface RequiredResource {
   type: ResourceType;
@@ -196,6 +207,12 @@ export interface Building {
   growth: number;
   /** [ext] farm plots only */
   sown: boolean;
+  /**
+   * [ext] Ticks of burn left in a mana furnace. Unlike output and draw this is
+   * genuinely per-building state - it is what the fuel haul job fills up and
+   * what running the network spends - so it is stored and saved.
+   */
+  manaFuel: number;
 }
 
 export type JobType =

@@ -5,6 +5,8 @@
 // RegionIndex labels connected walkable components so the candidate filter can
 // reject unreachable jobs in O(1) instead of running A* per candidate.
 import { MAP_HEIGHT, MAP_WIDTH } from './constants';
+import { EMPTY_NETWORKS } from './mana';
+import type { ManaNetworks } from './mana';
 import { tileIdOf } from './state';
 import type { ColonistId, GameState, TileId } from './types';
 
@@ -26,6 +28,22 @@ export interface SimContext {
    * instead of sweeping all 3,600 tiles every tick.
    */
   forageDepleted: Set<TileId>;
+  /**
+   * The mana grids (src/core/mana.ts). Derived exactly like the region labels
+   * and for the same reason: it is a connected-component labelling that only
+   * changes when a building appears or disappears, it must never be saved, and
+   * a stored copy could disagree with the buildings it claims to connect.
+   */
+  networks: ManaNetworks;
+  networksDirty: boolean;
+  /**
+   * The state the networks were worked out from. A dirty flag alone is only as
+   * good as the last person to remember to set one, and forgetting is silent -
+   * a lamp that is on the map but not on any grid. Since every tick produces a
+   * fresh state object, comparing against it makes a missed invalidation cost
+   * one tick instead of lasting until something else happens to set the flag.
+   */
+  networksFrom: GameState | null;
 }
 
 export function createSimContext(state: GameState): SimContext {
@@ -33,6 +51,9 @@ export function createSimContext(state: GameState): SimContext {
     pathIndex: {},
     regions: new Int32Array(MAP_WIDTH * MAP_HEIGHT).fill(-1),
     regionsDirty: true,
+    networks: EMPTY_NETWORKS,
+    networksDirty: true,
+    networksFrom: null,
     animalPathBudget: 0,
     forageDepleted: new Set(),
   };

@@ -140,6 +140,18 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   farmPlot: [],
   berryBush: [], // wild: nobody builds one
   storageZoneMarker: [],
+  // The mana layer (11章 フェーズ2). A furnace is the expensive one on purpose:
+  // it is the decision the player commits to, and conduit runs are what they
+  // then have to plan around it.
+  manaFurnace: [
+    { type: 'stone', quantity: 25 },
+    { type: 'wood', quantity: 10 },
+  ],
+  manaConduit: [{ type: 'stone', quantity: 2 }],
+  manaLamp: [
+    { type: 'stone', quantity: 4 },
+    { type: 'wood', quantity: 4 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -152,6 +164,9 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   farmPlot: 30,
   berryBush: 20,
   storageZoneMarker: 10,
+  manaFurnace: 200,
+  manaConduit: 40,
+  manaLamp: 50,
 };
 
 /** Structures that block movement once finished. */
@@ -167,6 +182,12 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   farmPlot: false,
   berryBush: false,
   storageZoneMarker: false,
+  // A furnace is a solid installation you walk around; a conduit is laid into
+  // the floor and a lamp stands out of the way, so both stay walkable - a power
+  // run must never become a wall the colony has to path around.
+  manaFurnace: true,
+  manaConduit: false,
+  manaLamp: false,
 };
 
 export const COLONIST_COLORS = [

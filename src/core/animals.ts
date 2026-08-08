@@ -55,6 +55,7 @@ import {
 } from './constants';
 import { killColonist } from './death';
 import { invalidateTile } from './derived';
+import { invalidateNetworks, isManaBuilding } from './mana';
 import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
 import { scaledCount, scenarioOf } from './scenario';
@@ -579,6 +580,8 @@ function gnawStructure(
   const { [buildingId]: _removed, ...rest } = state.buildings;
   state.buildings = rest;
   updateTile(state, tile.id, { buildingId: null, designation: null });
+  // a chewed-through conduit cuts the run it was part of
+  if (isManaBuilding(building.type)) invalidateNetworks(ctx);
   if (BLOCKS_MOVEMENT[building.type]) {
     updateTile(state, tile.id, { walkable: true });
     invalidateTile(ctx, state, tile.id);

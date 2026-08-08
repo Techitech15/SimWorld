@@ -18,6 +18,7 @@ import {
   STARVATION_WARNING_INTERVAL_TICKS,
 } from './constants';
 import type { SimContext } from './derived';
+import { refreshNetworks } from './mana';
 import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
 import { advanceTowards } from './movement';
 import { addLog, removeItem, updateColonist, updateItem } from './state';
@@ -184,13 +185,14 @@ function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): vo
     return;
   }
   if (colonist.activity.kind !== 'none' && colonist.activity.kind !== 'moving') return;
-  if (moodOf(state, colonist) >= MOOD_BREAK) return;
+  const networks = refreshNetworks(ctx, state);
+  if (moodOf(state, colonist, networks) >= MOOD_BREAK) return;
 
   releaseCurrentJob(state, ctx, colonistId);
   updateColonist(state, colonistId, {
     activity: { kind: 'brooding', untilTick: state.tick + MOOD_BREAK_TICKS },
   });
-  const worst = thoughtsOf(state, colonist)[0];
+  const worst = thoughtsOf(state, colonist, networks)[0];
   addLog(
     state,
     worst

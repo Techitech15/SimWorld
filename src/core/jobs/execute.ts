@@ -24,6 +24,14 @@ import {
 import { clearColonistPath, invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
 import { advanceTowards, chase } from '../movement';
+import {
+  FURNACE_FUEL_BATCH,
+  invalidateNetworks,
+  isManaBuilding,
+  refreshNetworks,
+  refuel,
+  wantsFuel,
+} from '../mana';
 import { moodOf } from '../mood';
 import { mulberry32 } from '../rng';
 import { grantWorkExperience, workRate } from '../skills';
@@ -94,7 +102,7 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
   }
   if (move !== 'arrived') return;
 
-  const progress = job.workProgress + putInWork(state, colonistId, job.workType);
+  const progress = job.workProgress + putInWork(state, ctx, colonistId, job.workType);
   if (progress < WORK_TICKS[job.type]) {
     updateJob(state, jobId, { workProgress: progress });
     return;
@@ -107,9 +115,14 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
  * Only called once the colonist is in place, so walking to the site teaches
  * nobody anything and a novice's tick is worth exactly the old flat 1.
  */
-function putInWork(state: GameState, colonistId: string, workType: JobType): number {
+function putInWork(
+  state: GameState,
+  ctx: SimContext,
+  colonistId: string,
+  workType: JobType,
+): number {
   const colonist = state.colonists[colonistId];
-  const rate = workRate(colonist, workType, moodOf(state, colonist));
+  const rate = workRate(colonist, workType, moodOf(state, colonist, refreshNetworks(ctx, state)));
   grantWorkExperience(state, colonistId, workType);
   return rate;
 }
@@ -171,6 +184,7 @@ function applyJobEffect(
         buildProgress: 1,
         hpCurrent: building.hpMax,
       });
+      if (isManaBuilding(building.type)) invalidateNetworks(ctx);
       if (BLOCKS_MOVEMENT[building.type]) {
         updateTile(state, building.tileId, { walkable: false });
         invalidateTile(ctx, state, building.tileId);
@@ -209,6 +223,7 @@ function applyJobEffect(
       const { [building.id]: _removed, ...rest } = state.buildings;
       state.buildings = rest;
       updateTile(state, tile.id, { buildingId: null, designation: null });
+      if (isManaBuilding(building.type)) invalidateNetworks(ctx);
       if (BLOCKS_MOVEMENT[building.type]) {
         updateTile(state, tile.id, { walkable: true });
         invalidateTile(ctx, state, tile.id);
@@ -284,7 +299,7 @@ function executeAnimalJob(
   }
   if (move !== 'arrived') return;
 
-  const progress = job.workProgress + putInWork(state, colonistId, job.workType);
+  const progress = job.workProgress + putInWork(state, ctx, colonistId, job.workType);
   if (progress < WORK_TICKS[job.type]) {
     updateJob(state, jobId, { workProgress: progress });
     return;
@@ -366,7 +381,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     }
     if (move !== 'arrived') return;
 
-    const progress = job.workProgress + putInWork(state, colonistId, job.workType);
+    const progress = job.workProgress + putInWork(state, ctx, colonistId, job.workType);
     if (progress < WORK_TICKS.haul) {
       updateJob(state, jobId, { workProgress: progress });
       return;
@@ -376,7 +391,11 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     // storage takes the whole stack.
     const destination = job.destinationId ? state.buildings[job.destinationId] : undefined;
     const needed = destination
-      ? (destination.requiredResources.find((r) => r.type === item.type)?.quantity ?? 0)
+      ? // a furnace is a finished building that still takes deliveries, so what
+        // it wants comes from the fuel rule rather than from a materials list
+        wantsFuel(destination)
+        ? FURNACE_FUEL_BATCH
+        : (destination.requiredResources.find((r) => r.type === item.type)?.quantity ?? 0)
       : item.quantity;
     const taken = Math.max(0, Math.min(item.quantity, needed));
     if (taken === 0) {
@@ -416,6 +435,28 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
       return;
     }
     if (move !== 'arrived') return;
+
+    // fuel into a furnace, materials into a blueprint
+    if (destinationBuilding.type === 'manaFurnace' && !destinationBuilding.isBlueprint) {
+      if (carrying.type === 'manaCrystal') {
+        const leftover = refuel(state, destinationBuilding.id, carrying.quantity);
+        if (leftover < carrying.quantity) {
+          addLog(state, `the mana furnace at ${destinationBuilding.tileId} was stoked`);
+          invalidateNetworks(ctx); // a cold furnace just became a supply
+        }
+        updateColonist(state, colonistId, { carrying: null });
+        if (leftover > 0) {
+          // more than it could hold: back on the ground, where the haul chain
+          // will pick it up again rather than it vanishing into a full furnace
+          const at = state.colonists[colonistId].position;
+          addItem(state, 'manaCrystal', leftover, at.x, at.y);
+        }
+      } else {
+        dropCarried(state, colonistId);
+      }
+      completeJob(state, jobId, colonistId);
+      return;
+    }
 
     const need = destinationBuilding.requiredResources.find(
       (r) => r.type === carrying.type && r.quantity > 0,

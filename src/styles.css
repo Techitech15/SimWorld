@@ -242,6 +242,33 @@ button.active {
   gap: 6px;
 }
 
+/* supply against demand: the phase-2 decision, readable without a click */
+.mana {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.mana__label {
+  color: #a97cff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.mana__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.mana--short .mana__value {
+  color: var(--crit);
+}
+
 /* the one thought dragging this colonist down, under their mood bar */
 .colonist__thought {
   font-size: 11px;

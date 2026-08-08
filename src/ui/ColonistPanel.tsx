@@ -3,7 +3,7 @@ import { MOOD_LOW, moodLabel, moodOf, thoughtsOf } from '../core/mood';
 import { SKILL_LABELS, SKILL_NAMES, levelOf } from '../core/skills';
 import { TRAITS } from '../core/traits';
 import type { Colonist, GameState } from '../core/types';
-import { useGameStore } from '../store/gameStore';
+import { getNetworks, useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
 import { icons } from './icons';
 
@@ -62,8 +62,9 @@ function NeedBar({
  * most, which is the thing they can actually go and fix.
  */
 function MoodBar({ colonist, state }: { colonist: Colonist; state: GameState }): React.JSX.Element {
-  const mood = moodOf(state, colonist);
-  const thoughts = thoughtsOf(state, colonist);
+  const networks = getNetworks(state);
+  const mood = moodOf(state, colonist, networks);
+  const thoughts = thoughtsOf(state, colonist, networks);
   const title = [
     `Mood ${mood} — ${moodLabel(mood)}`,
     ...thoughts.map((t) => `${t.amount > 0 ? '+' : ''}${t.amount} ${t.label}`),

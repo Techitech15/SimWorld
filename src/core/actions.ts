@@ -184,6 +184,7 @@ export function placeBuildingBlueprint(
       buildProgress: 0,
       growth: 0,
       sown: false,
+      manaFuel: 0,
     };
     updateTile(next, tileId, { buildingId: id, designation: null });
   }
@@ -332,6 +333,7 @@ function placeZone(state: GameState, type: Zone['type'], tileIds: TileId[]): Gam
         buildProgress: 1,
         growth: 0,
         sown: false,
+        manaFuel: 0,
       };
       updateTile(next, tileId, { buildingId: id });
     } else if (tile.terrain !== 'grass') {

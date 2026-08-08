@@ -15,6 +15,8 @@
 // variant), which is the only way a mood system can matter to a player who
 // never opens a panel.
 import { FOOD_PER_MEAL } from './constants';
+import { LAMP_RADIUS, isPowered } from './mana';
+import type { ManaNetworks } from './mana';
 import { seasonOf } from './season';
 import { traitMultiplier } from './traits';
 import type { Colonist, GameState } from './types';
@@ -73,18 +75,30 @@ interface ColonyFacts {
   mouths: number;
   foodDays: number;
   onFloor: boolean;
+  /** standing inside the light of a lamp that is actually lit */
+  inLight: boolean;
 }
 
-function factsFor(state: GameState, colonist: Colonist): ColonyFacts {
+function factsFor(state: GameState, colonist: Colonist, networks?: ManaNetworks): ColonyFacts {
   const here = `${colonist.position.x},${colonist.position.y}`;
   let beds = 0;
   let onFloor = false;
+  let inLight = false;
   for (const id in state.buildings) {
     const building = state.buildings[id];
     if (building.isBlueprint) continue;
     if (building.type === 'bed') beds++;
     else if (building.type === 'floor' || building.type === 'stoneFloor') {
       if (building.tileId === here) onFloor = true;
+    } else if (building.type === 'manaLamp' && networks && isPowered(networks, id)) {
+      const tile = state.tiles[building.tileId];
+      if (
+        tile &&
+        Math.abs(tile.x - colonist.position.x) + Math.abs(tile.y - colonist.position.y) <=
+          LAMP_RADIUS
+      ) {
+        inLight = true;
+      }
     }
   }
 
@@ -100,6 +114,7 @@ function factsFor(state: GameState, colonist: Colonist): ColonyFacts {
     // two meals a day is what the hunger rate works out at
     foodDays: food / (mouths * FOOD_PER_MEAL * 2),
     onFloor,
+    inLight,
   };
 }
 
@@ -108,9 +123,13 @@ function factsFor(state: GameState, colonist: Colonist): ColonyFacts {
  * unchanged, so a player who disagrees with their mood can see exactly which
  * line to argue with - and, more usefully, which one to fix.
  */
-export function thoughtsOf(state: GameState, colonist: Colonist): Thought[] {
+export function thoughtsOf(
+  state: GameState,
+  colonist: Colonist,
+  networks?: ManaNetworks,
+): Thought[] {
   const thoughts: Thought[] = [];
-  const facts = factsFor(state, colonist);
+  const facts = factsFor(state, colonist, networks);
   const { hunger, sleep } = colonist.needs;
 
   if (hunger >= 90) thoughts.push({ label: 'Starving', amount: -30 });
@@ -146,6 +165,10 @@ export function thoughtsOf(state: GameState, colonist: Colonist): Thought[] {
     thoughts.push({ label: 'A proper floor underfoot', amount: 4 });
   }
 
+  if (facts.inLight) {
+    thoughts.push({ label: 'Mana light to work by', amount: 5 });
+  }
+
   if (seasonOf(state.tick) === 'winter') {
     thoughts.push({ label: 'Winter drags on', amount: -6 });
   }
@@ -161,10 +184,10 @@ export function thoughtsOf(state: GameState, colonist: Colonist): Thought[] {
  * unhappiest person in the colony. A cheerful one gets more out of what is good
  * and less out of what is not, which is what the word means.
  */
-export function moodOf(state: GameState, colonist: Colonist): number {
+export function moodOf(state: GameState, colonist: Colonist, networks?: ManaNetworks): number {
   const multiplier = traitMultiplier(colonist, 'mood');
   let total = MOOD_BASE;
-  for (const thought of thoughtsOf(state, colonist)) {
+  for (const thought of thoughtsOf(state, colonist, networks)) {
     total += thought.amount > 0 ? thought.amount * multiplier : thought.amount / multiplier;
   }
   return Math.max(0, Math.min(100, Math.round(total)));
@@ -183,10 +206,10 @@ export function moodWorkFactor(mood: number): number {
 }
 
 /** The colony's average mood, which is what the player actually steers. */
-export function colonyMood(state: GameState): number {
+export function colonyMood(state: GameState, networks?: ManaNetworks): number {
   const colonists = Object.values(state.colonists);
   if (colonists.length === 0) return MOOD_BASE;
   let total = 0;
-  for (const colonist of colonists) total += moodOf(state, colonist);
+  for (const colonist of colonists) total += moodOf(state, colonist, networks);
   return Math.round(total / colonists.length);
 }
