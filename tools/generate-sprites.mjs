@@ -1098,6 +1098,31 @@ function manaLampTile(lit) {
   return c;
 }
 
+
+/** The extractor: a drill head on a mana-fed frame, biting into the rock. */
+function manaExtractorTile(running) {
+  const c = new Canvas(TILE, TILE);
+  c.fill(P.stone[1]);
+  c.rect(2, 6, 28, 24, P.stone[2]);
+  c.hline(2, 6, 28, P.stone[3]);
+  c.hline(2, 29, 28, P.stone[0]);
+  // the mana feed running up the side
+  c.rect(4, 8, 3, 20, running ? P.mana[2] : P.mana[0]);
+  if (running) c.vline(5, 8, 20, P.mana[3]);
+  // drill: a stubby cone pointing right, with a bit at the tip
+  c.rect(10, 14, 12, 8, P.stone[0]);
+  c.hline(10, 14, 12, P.stone[3]);
+  for (let i = 0; i < 6; i++) c.hline(22 + i, 15 + i, 6 - i, P.iconMetal);
+  for (let i = 0; i < 6; i++) c.hline(22 + i, 20 - i, 6 - i, P.iconMetalDark);
+  c.disc(16, 18, 3, running ? P.mana[2] : P.stone[2]);
+  if (running) c.disc(16, 18, 2, P.mana[3]);
+  // spoil at the foot
+  c.disc(7, 27, 2, P.ore[1]);
+  c.disc(11, 28, 2, P.ore[0]);
+  c.strokeRect(0, 0, TILE, TILE, P.outline);
+  return c;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1128,6 +1153,8 @@ written.push(save('buildings/mana_conduit.png', manaConduitTile(false)));
 written.push(save('buildings/mana_conduit_live.png', manaConduitTile(true)));
 written.push(save('buildings/mana_lamp.png', manaLampTile(false)));
 written.push(save('buildings/mana_lamp_lit.png', manaLampTile(true)));
+written.push(save('buildings/mana_extractor.png', manaExtractorTile(false)));
+written.push(save('buildings/mana_extractor_run.png', manaExtractorTile(true)));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));

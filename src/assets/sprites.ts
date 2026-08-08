@@ -47,6 +47,8 @@ export const sprites = {
   manaConduitLive: spriteUrl('buildings/mana_conduit_live.png'),
   manaLamp: spriteUrl('buildings/mana_lamp.png'),
   manaLampLit: spriteUrl('buildings/mana_lamp_lit.png'),
+  manaExtractor: spriteUrl('buildings/mana_extractor.png'),
+  manaExtractorRun: spriteUrl('buildings/mana_extractor_run.png'),
   colonistWalk: spriteUrl('colonist/walk.png'),
   colonistWork: spriteUrl('colonist/work.png'),
   jobChop: spriteUrl('ui/job_chop.png'),

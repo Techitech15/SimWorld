@@ -152,6 +152,12 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'stone', quantity: 4 },
     { type: 'wood', quantity: 4 },
   ],
+  // the expensive one: it replaces labour, so it costs more than the labour
+  // saves for a good while
+  manaExtractor: [
+    { type: 'stone', quantity: 30 },
+    { type: 'wood', quantity: 15 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -167,6 +173,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   manaFurnace: 200,
   manaConduit: 40,
   manaLamp: 50,
+  manaExtractor: 180,
 };
 
 /** Structures that block movement once finished. */
@@ -188,6 +195,8 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   manaFurnace: true,
   manaConduit: false,
   manaLamp: false,
+  // a machine standing against the rock face, not something you walk over
+  manaExtractor: true,
 };
 
 export const COLONIST_COLORS = [

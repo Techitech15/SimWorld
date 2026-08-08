@@ -15,6 +15,7 @@ const BUILDINGS: { type: BuildingType; label: string }[] = [
   { type: 'manaFurnace', label: 'Mana furnace' },
   { type: 'manaConduit', label: 'Conduit' },
   { type: 'manaLamp', label: 'Mana lamp' },
+  { type: 'manaExtractor', label: 'Extractor' },
 ];
 
 function costLabel(type: BuildingType): string {

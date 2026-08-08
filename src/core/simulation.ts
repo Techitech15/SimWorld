@@ -16,7 +16,7 @@ import {
   FLEE_TRIGGER_DISTANCE,
   TICKS_PER_STEP,
 } from './constants';
-import { rebuildRegions } from './derived';
+import { invalidateTile, rebuildRegions } from './derived';
 import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, isSeasonBoundary, seasonOf } from './season';
 import type { SimContext } from './derived';
 import { runAssignment } from './jobs/assign';
@@ -51,7 +51,7 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   healColonists(next);
   // the mana layer runs before work is handed out, so a furnace that burned out
   // this tick is already asking for fuel when the generator looks
-  runMana(next, ctx);
+  for (const tileId of runMana(next, ctx)) invalidateTile(ctx, next, tileId);
   runJobGenerator(next);
   runAssignment(next, ctx);
   runExecution(next, ctx);

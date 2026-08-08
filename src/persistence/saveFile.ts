@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -201,6 +201,23 @@ export const migrations: Record<number, Migration> = {
     const buildings = { ...(state.buildings ?? {}) };
     for (const id in buildings) {
       if (buildings[id].manaFuel === undefined) buildings[id] = { ...buildings[id], manaFuel: 0 };
+    }
+    return { ...state, buildings };
+  },
+
+  /**
+   * 11 -> 12: extractors keep their progress into the rock face. Same shape as
+   * the fuel field one version ago, and for the same reason - no save from
+   * before this can hold an extractor, but "every saved building has every
+   * field" is worth more than the version number it costs.
+   */
+  11: (old) => {
+    const state = old as Partial<GameState>;
+    const buildings = { ...(state.buildings ?? {}) };
+    for (const id in buildings) {
+      if (buildings[id].manaProgress === undefined) {
+        buildings[id] = { ...buildings[id], manaProgress: 0 };
+      }
     }
     return { ...state, buildings };
   },

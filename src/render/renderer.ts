@@ -217,6 +217,8 @@ export class GameRenderer {
         return isPowered(this.networks, building.id) ? t.manaConduitLive : t.manaConduit;
       case 'manaLamp':
         return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
+      case 'manaExtractor':
+        return isPowered(this.networks, building.id) ? t.manaExtractorRun : t.manaExtractor;
       case 'berryBush':
         return building.growth >= 1 ? t.berryRipe : t.berryBare;
       case 'farmPlot':

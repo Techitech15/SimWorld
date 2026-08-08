@@ -184,7 +184,8 @@ export type BuildingType =
    */
   | 'manaFurnace'
   | 'manaConduit'
-  | 'manaLamp';
+  | 'manaLamp'
+  | 'manaExtractor';
 
 export interface RequiredResource {
   type: ResourceType;
@@ -213,6 +214,14 @@ export interface Building {
    * what running the network spends - so it is stored and saved.
    */
   manaFuel: number;
+  /**
+   * [ext] How far an extractor has got into the rock face it is cutting. Stored
+   * rather than derived from the tick because progress has to stop when the
+   * power does: an extractor that kept its place in the schedule while unpowered
+   * would make an outage free, and the outage is the thing the player is
+   * supposed to feel.
+   */
+  manaProgress: number;
 }
 
 export type JobType =

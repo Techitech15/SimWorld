@@ -22,6 +22,7 @@ const BUILDING_LABEL: Record<BuildingType, string> = {
   manaFurnace: 'Mana furnace',
   manaConduit: 'Mana conduit',
   manaLamp: 'Mana lamp',
+  manaExtractor: 'Mana extractor',
   farmPlot: 'Farm plot',
   berryBush: 'Berry bush',
   storageZoneMarker: 'Storage marker',
