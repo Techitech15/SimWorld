@@ -323,8 +323,9 @@ interface GameState {
 
 ## 8. セーブ互換・性能方針・アセット
 
-**セーブ**: `schemaVersion` を 11 → 12 に上げ、`migrations[11]` を実装する。
-補うのは `traders: {}` のみ。新しい `BuildingType` と `AnimalSpecies` は
+**セーブ**: `schemaVersion` を**実装した時点の値に1を足し**、対応する移行を1段足す
+（本書の執筆時点では 11 → 12 だが、フェーズ6も同じことを言うので、先に実装されたほうが 12 を取る。
+現在値は `src/persistence/saveFile.ts` を見ること）。補うのは `traders: {}` のみ。新しい `BuildingType` と `AnimalSpecies` は
 既存セーブに1つも存在しない状態で正しく読めるので、移行処理は要らない。
 `SpeciesProfile.produceType` は**セーブに入らない**（種の性質であって個体の性質ではないため、
 design-notes.md が `MANA_OUTPUT` / `MANA_DRAW` について書いた判断と同じ）。
