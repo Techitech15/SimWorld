@@ -156,7 +156,7 @@ describe('stage A: hunting', () => {
       // hold hunger at zero so nobody eats: then the food ledger moves for
       // exactly one reason, the deer
       for (const id in state.colonists) {
-        state.colonists[id] = { ...state.colonists[id], needs: { hunger: 0, sleep: 0 } };
+        state.colonists[id] = { ...state.colonists[id], needs: { hunger: 0, sleep: 0 , recreation: 0 } };
       }
       meatOnTheGround = Math.max(meatOnTheGround, foodOutsideStorage(state));
       // the reservation is what stops a second colonist joining the same hunt
@@ -452,7 +452,7 @@ describe('animal pathfinding budget', () => {
     idleColony(harness.state); // no job assignment, so every A* call is an animal's
     for (const id in harness.state.colonists) {
       const colonist = harness.state.colonists[id];
-      harness.state.colonists[id] = { ...colonist, needs: { hunger: 0, sleep: 0 } };
+      harness.state.colonists[id] = { ...colonist, needs: { hunger: 0, sleep: 0 , recreation: 0 } };
     }
 
     const centre = centreOf(harness.state);

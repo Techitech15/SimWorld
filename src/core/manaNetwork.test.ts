@@ -30,6 +30,7 @@ function put(state: GameState, type: BuildingType, x: number, y: number): string
     growth: 0,
     sown: false,
     manaFuel: 0,
+    manaProgress: 0,
   };
   state.tiles[tileId] = { ...state.tiles[tileId], buildingId: id };
   return id;

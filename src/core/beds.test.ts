@@ -23,7 +23,7 @@ function sleepFor(harness: ReturnType<typeof createHarness>, ticks: number): num
   for (const id in harness.state.colonists) {
     harness.state.colonists[id] = {
       ...harness.state.colonists[id],
-      needs: { hunger: 0, sleep: 100 },
+      needs: { hunger: 0, sleep: 100 , recreation: 0 },
     };
   }
   harness.run(ticks, (state) => {

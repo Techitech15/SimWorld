@@ -14,10 +14,12 @@
 // colony still has to react to it, which is the part that matters.
 import {
   FOOD_PER_HARVEST,
+  RAID_FIRST_DAY,
   SPECIES,
   TICKS_PER_DAY,
   WOOD_PER_TREE,
 } from './constants';
+import { isUnderAttack, raidSize, spawnRaid } from './raid';
 import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
@@ -37,6 +39,7 @@ export type IncidentName =
   | 'wolfPack'
   | 'migratingHerd'
   | 'lostSupplies'
+  | 'raid'
   | 'berryGlut';
 
 export interface Incident {
@@ -157,6 +160,29 @@ export const INCIDENTS: Incident[] = [
       const quantity = wood ? WOOD_PER_TREE : FOOD_PER_HARVEST * 2;
       addItem(state, wood ? 'wood' : 'food', quantity, spot.x, spot.y);
       return `Someone abandoned ${quantity} ${wood ? 'wood' : 'food'} on the road nearby`;
+    },
+  },
+
+  /**
+   * The one incident that comes for the colony rather than happening to it
+   * (11章 フェーズ4). Held back until day 8: a colony with no walls, no hunter
+   * and three people is not a story, it is a wipe.
+   */
+  {
+    name: 'raid',
+    // Weighted well above the other incidents. Measured at parity with them,
+    // two of three worlds went a whole year without a single raid - and a
+    // defence layer nobody ever needs is a set of buildings nobody builds. The
+    // gate on day 8 is what keeps that from being punishing.
+    weight: { spring: 3, summer: 3.5, autumn: 4, winter: 3.5 },
+    apply: (state, rnd) => {
+      if (state.tick < RAID_FIRST_DAY * TICKS_PER_DAY) return null;
+      if (isUnderAttack(state)) return null;
+      const spawned = spawnRaid(state, raidSize(state, rnd), rnd);
+      if (spawned.length === 0) return null;
+      return spawned.length === 1
+        ? 'A raider is coming out of the trees'
+        : `${spawned.length} raiders are coming out of the trees`;
     },
   },
 ];

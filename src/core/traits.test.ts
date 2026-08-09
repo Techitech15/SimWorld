@@ -89,7 +89,7 @@ describe('traits', () => {
         harness.state.colonists[id] = {
           ...harness.state.colonists[id],
           health: 40,
-          needs: { hunger: 0, sleep: 100 }, // straight to bed, which is where healing happens
+          needs: { hunger: 0, sleep: 100 , recreation: 0 }, // straight to bed, which is where healing happens
         };
       }
       harness.run(TICKS_PER_DAY, (state) => {

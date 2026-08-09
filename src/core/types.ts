@@ -31,6 +31,7 @@ export type ItemId = string;
 export type JobId = string;
 export type ZoneId = string;
 export type AnimalId = string;
+export type RaiderId = string;
 
 export interface Vector2 {
   x: number;
@@ -89,6 +90,13 @@ export interface ColonistNeeds {
   hunger: number;
   /** 0 (rested) .. 100 (exhausted), linear decay */
   sleep: number;
+  /**
+   * [ext] 0 (content) .. 100 (sick of it), linear decay (11章 フェーズ3).
+   * The third need the design document left for this phase. It is the one that
+   * is met by other people rather than by a resource, which is why it waited
+   * for the colonists to know each other.
+   */
+  recreation: number;
 }
 
 /** [ext] Need-driven behaviour, which is deliberately outside the job system. */
@@ -97,15 +105,43 @@ export type ColonistActivity =
   | { kind: 'moving'; targetTileId: TileId } // player-issued move order
   | { kind: 'eating'; itemId: ItemId | null; ticksRemaining: number }
   | { kind: 'sleeping'; bedId: BuildingId | null }
-  /** [ext] running from a predator. Colonists never fight back (design-phase2.5-animals.md 5) */
-  | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number }
+  /**
+   * [ext] Running from something. The id is an animal or a raider - a colonist
+   * fleeing a person is running from exactly the same thing as far as this is
+   * concerned, and the field was called fromAnimalId until raiders made that
+   * name a lie (design-phase2.5-animals.md 5).
+   */
+  | { kind: 'fleeing'; fromId: AnimalId | RaiderId; untilTick: number }
   /**
    * [ext] Too miserable to work (src/core/mood.ts). Stored rather than derived
    * because a break has to outlast the moment that caused it - otherwise
    * feeding someone one meal puts them straight back to work and the player
    * never sees that anything happened.
    */
-  | { kind: 'brooding'; untilTick: number };
+  /**
+   * [ext] Time off around the hearth. Not a job: nobody assigns it, and it
+   * cannot be prioritised away.
+   */
+  | { kind: 'relaxing'; hearthId: BuildingId | null; untilTick: number }
+  /**
+   * [ext] A mental break (11章 フェーズ3). One kind of thing, three ways of
+   * showing it, chosen by what actually went wrong:
+   *   brooding  - stands and refuses work
+   *   wandering - walks off and will not be talked to
+   *   binge     - eats their way through the larder
+   * All three stop work; what differs is what the colony has to watch.
+   */
+  | { kind: 'brooding'; untilTick: number }
+  | { kind: 'wandering'; untilTick: number }
+  | { kind: 'binge'; untilTick: number; eaten: number }
+  /**
+   * [ext] Standing and fighting (11章 フェーズ4). Colonists fled from anything
+   * that attacked them until raiders arrived; a raider does not lose interest
+   * and cannot be outrun, so somebody has to meet them. Who does is decided by
+   * the hunting column of the work table - the militia is the people already
+   * told to handle dangerous animals, not a separate draft screen.
+   */
+  | { kind: 'fighting'; raiderId: RaiderId };
 
 export interface CarriedStack {
   type: ResourceType;
@@ -162,7 +198,9 @@ export type TraitName =
   | 'tough'
   | 'frail'
   | 'cheerful'
-  | 'gloomy';
+  | 'gloomy'
+  | 'sociable'
+  | 'private';
 
 export type BuildingType =
   | 'wall'
@@ -184,7 +222,12 @@ export type BuildingType =
    */
   | 'manaFurnace'
   | 'manaConduit'
-  | 'manaLamp';
+  | 'manaLamp'
+  | 'manaExtractor'
+  /** [ext] where colonists take their time off (11章 フェーズ3) */
+  | 'hearth'
+  /** [ext] mana-fed defence (11章 フェーズ4, depends on the phase 2 network) */
+  | 'manaTurret';
 
 export interface RequiredResource {
   type: ResourceType;
@@ -213,6 +256,33 @@ export interface Building {
    * what running the network spends - so it is stored and saved.
    */
   manaFuel: number;
+  /**
+   * [ext] How far an extractor has got into the rock face it is cutting. Stored
+   * rather than derived from the tick because progress has to stop when the
+   * power does: an extractor that kept its place in the schedule while unpowered
+   * would make an outage free, and the outage is the thing the player is
+   * supposed to feel.
+   */
+  manaProgress: number;
+}
+
+/** [ext] What a raider is doing. Deliberately shorter than an animal's list. */
+export type RaiderActivity =
+  | { kind: 'advancing' }
+  | { kind: 'attacking'; targetId: ColonistId }
+  | { kind: 'breaking'; buildingId: BuildingId }
+  | { kind: 'leaving' };
+
+export interface Raider {
+  id: RaiderId;
+  name: string;
+  position: Vector2;
+  path: Vector2[] | null;
+  pathExpiresAtTick: number | null;
+  health: number;
+  activity: RaiderActivity;
+  /** the tick they give up and go home, win or lose */
+  leavesAtTick: number;
 }
 
 export type JobType =
@@ -309,7 +379,13 @@ export type AnimalDesignation = 'hunt' | 'tame' | 'slaughter';
 export type AnimalActivity =
   | { kind: 'idle' }
   | { kind: 'grazing'; ticksRemaining: number }
-  | { kind: 'fleeing'; fromAnimalId: AnimalId; untilTick: number }
+  /**
+   * [ext] Running from something. The id is an animal or a raider - a colonist
+   * fleeing a person is running from exactly the same thing as far as this is
+   * concerned, and the field was called fromAnimalId until raiders made that
+   * name a lie.
+   */
+  | { kind: 'fleeing'; fromId: AnimalId | RaiderId; untilTick: number }
   | { kind: 'stalking'; targetKind: 'animal' | 'colonist'; targetId: string }
   /**
    * `building` is what a predator falls back to when the prey is behind a door
@@ -384,6 +460,11 @@ export interface GameState {
   zones: Record<ZoneId, Zone>;
   /** [ext] wild and tamed creatures (docs/design-phase2.5-animals.md) */
   animals: Record<AnimalId, Animal>;
+  /**
+   * [ext] Raiders currently on the map (11章 フェーズ4). Empty almost always:
+   * a raid is an event with a beginning and an end, not a population.
+   */
+  raiders: Record<RaiderId, Raider>;
   reservations: Record<string, Reservation>;
   /**
    * [ext] How much woodland this map supports: the number of forest tiles it
@@ -408,6 +489,17 @@ export interface GameState {
   scenario: ScenarioName;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
+  /**
+   * [ext] Bonds between colonists, one entry per pair (11章 フェーズ3).
+   * The key is the two ids sorted and joined, so a pair has one number rather
+   * than two that can disagree. See src/core/relationships.ts.
+   */
+  relationships: Record<string, number>;
+  /**
+   * [ext] The last few colonists to die, so the people who knew them can grieve
+   * for a while. Bounded: this is a memory, not a graveyard.
+   */
+  deaths: { colonistId: ColonistId; name: string; tick: number }[];
   /** rolling event log surfaced in the UI (failed jobs, deaths of crops, ...) */
   log: LogEntry[];
 }

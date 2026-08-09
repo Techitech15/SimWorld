@@ -1,5 +1,6 @@
 import { HUNGER_THRESHOLD, SLEEP_THRESHOLD } from '../core/constants';
 import { MOOD_LOW, moodLabel, moodOf, thoughtsOf } from '../core/mood';
+import { AFFINITY_MAX, FRIEND_AT, closestTo } from '../core/relationships';
 import { SKILL_LABELS, SKILL_NAMES, levelOf } from '../core/skills';
 import { TRAITS } from '../core/traits';
 import type { Colonist, GameState } from '../core/types';
@@ -19,6 +20,14 @@ function activityLabel(colonist: Colonist, state: GameState): string {
       return 'fleeing!';
     case 'brooding':
       return 'refusing to work';
+    case 'fighting':
+      return 'fighting!';
+    case 'wandering':
+      return 'wandering off';
+    case 'binge':
+      return 'raiding the larder';
+    case 'relaxing':
+      return colonist.activity.hearthId ? 'at the hearth' : 'taking a moment';
     default:
       break;
   }
@@ -79,6 +88,23 @@ function MoodBar({ colonist, state }: { colonist: Colonist; state: GameState }):
         </div>
       )}
     </>
+  );
+}
+
+/** Who they are closest to. Silent until there is somebody to name. */
+function Bond({ colonist, state }: { colonist: Colonist; state: GameState }): React.JSX.Element | null {
+  const closest = closestTo(state, colonist.id);
+  if (!closest) return null;
+  const them = state.colonists[closest.id];
+  if (!them) return null;
+  const friend = closest.affinity >= FRIEND_AT;
+  return (
+    <div
+      className="colonist__bond"
+      title={`affinity ${Math.round(closest.affinity)} of ${AFFINITY_MAX}`}
+    >
+      {friend ? 'friend of' : 'knows'} {them.name}
+    </div>
   );
 }
 
@@ -155,6 +181,7 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
         threshold={SLEEP_THRESHOLD}
       />
       <MoodBar colonist={colonist} state={state} />
+      <Bond colonist={colonist} state={state} />
       <SkillTags colonist={colonist} />
       {colonist.traits?.length > 0 && (
         <div className="skills">

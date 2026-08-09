@@ -63,11 +63,14 @@ export function createEmptyState(): GameState {
     jobs: {},
     zones: {},
     animals: {},
+    raiders: {},
     reservations: {},
     forestCapacity: 0,
     worldSeed: 0,
     scenario: 'standard',
     nextIds: {},
+    relationships: {},
+    deaths: [],
     log: [],
   };
 }

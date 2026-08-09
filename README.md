@@ -77,10 +77,11 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | 5. ニーズ         | `src/core/needs.ts`（空腹・睡眠のみ、直線減衰＋しきい値で自動遷移）                                                         |
 | 6. ジョブシステム | `src/core/jobs/`（generator → assign（候補フィルタ＋予約）→ execute → release）                                             |
 | 7. 経路探索       | `src/core/pathfinding.ts`（4方向グリッドA\*）、`src/core/movement.ts`（経路キャッシュ）、`src/core/derived.ts`（PathIndex・領域ラベル） |
-| 8. セーブ／ロード | `src/persistence/saveFile.ts`（`schemaVersion` 11・移行チェーン）, `indexeddb.ts`                                            |
-| 9. 機能リスト     | 60×60マップ・地形4種・入植者3人から・仕事9種・建築12種・資源4種・速度4段                                                     |
-| 11. フェーズ2     | `src/core/mana.ts`（結晶・魔導炉・導管・魔力灯、ネットワークは導出）                                                        |
-| 12. ドット絵      | `tools/generate-sprites.mjs` が 49 枚を決定論的に生成（`src/assets`）                                                       |
+| 8. セーブ／ロード | `src/persistence/saveFile.ts`（`schemaVersion` 15・移行チェーン）, `indexeddb.ts`                                            |
+| 9. 機能リスト     | 60×60マップ・地形4種・入植者3人から・仕事9種・建築15種・資源4種・速度4段                                                     |
+| 11. フェーズ4     | `src/core/raid.ts`（襲撃・民兵・タレット） |
+| 11. フェーズ2     | `src/core/mana.ts`（結晶・魔導炉・導管・魔力灯・自動採掘機、ネットワークは導出）                                                        |
+| 12. ドット絵      | `tools/generate-sprites.mjs` が 55 枚を決定論的に生成（`src/assets`）                                                       |
 
 追加要素の一覧は [docs/design.md](docs/design.md) の9章、その設計思想は
 [docs/design-notes.md](docs/design-notes.md)。
@@ -132,8 +133,12 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/storageFilters.test.ts` | 貯蔵ゾーンが受け入れる資源を絞れること／囲いに薪が積まれないこと／往復の無限ループが起きないこと |
 | `src/ui/Minimap.test.ts`       | ミニマップに穴が無く、地形・捕食者・家畜・指定が描き分けられること                           |
 | `src/core/traits.test.ts`      | 特性が実際に差を生むこと（大食い／早熟／頑健／勤勉）と、矛盾する特性が同時に付かないこと     |
+| `src/core/raid.test.ts` | 8日目まで襲撃が来ないこと／民兵だけが戦い他は逃げること／壁が壊されること／タレットがグリッドの点いている間だけ撃つこと／襲撃者が必ず居なくなること |
+| `src/core/recreation.test.ts` | 娯楽が働く間だけ溜まり眠っても抜けないこと／炉端が地べたより効くこと／ブレイク3種が引き金の思考で決まること |
+| `src/core/relationships.test.ts` | 近くで過ごすと絆が育ち離れると薄れること／眠っている間は育たないこと／仲間と喪が気分に効くこと／喪が3日で消えること |
 | `src/core/mood.test.ts`        | 気分が内訳と一致すること／40〜70 で作業速度が変わらないこと／限界に達した入植者が仕事を放り出し、一口の食事では復帰しないこと |
 | `src/core/mana.test.ts`        | 鉱脈が全世界に湧き岩の中に隠れていること／掘り進めないと到達不能なこと／結晶が出て既存の運搬で倉に入ること |
+| `src/core/manaExtractor.test.ts` | 入植者なしで岩が石になること／半径外は掘らないこと／停電で進捗が止まり取り返さないこと／掘り尽くしを1度だけ告げること |
 | `src/core/manaNetwork.test.ts` | 触れている建物が1グリッドになること／供給不足でグリッド全体が落ちること／需要が無い間は燃料を食わないこと／結晶→炉→灯までが無操作で繋がること |
 | `src/core/repair.test.ts`      | 捕食者が柵を齧ること／獲物が居なければ齧らないこと／修理ジョブが建設列で走ること             |
 | `src/core/longrun.test.ts`     | 無操作1年（20日）で植民地が生き残り、tick 予算・セーブ往復・ジョブ滞留が破綻しないこと       |

@@ -178,10 +178,26 @@ describe('save file versioning', () => {
       // no invented history: an existing colony starts the ladder at the bottom
       expect(migrated.state.colonists[id].skills).toEqual(emptySkills());
     }
-    const ctx = createSimContext(migrated.state);
-    const after = tickMany(migrated.state, ctx, 400);
+    // And from there they learn like anyone else - given something to learn on.
+    // This used to run the migrated colony for four hundred ticks and check
+    // that somebody had gained *any* experience, which passed on whatever scrap
+    // of work the colony happened to have left at tick 150: measured, that was
+    // five points of experience in the whole run, and a change elsewhere that
+    // shifted the world by a hair took it to zero. A test for "the ladder
+    // works" has to put a rung in front of them.
+    const withWork = setDesignation(
+      migrated.state,
+      nearestTilesWithTerrain(
+        migrated.state,
+        'forest',
+        Object.values(migrated.state.colonists)[0].position,
+        4,
+      ),
+      'chop',
+    );
+    const ctx = createSimContext(withWork);
+    const after = tickMany(withWork, ctx, 400);
     expect(after.tick).toBe(harness.state.tick + 400);
-    // and from there they learn like anyone else
     const learned = Object.values(after.colonists).some((c) =>
       SKILL_NAMES.some((name) => c.skills[name] > 0),
     );

@@ -38,7 +38,7 @@ describe('alerts', () => {
     for (const id in harness.state.colonists) {
       harness.state.colonists[id] = {
         ...harness.state.colonists[id],
-        needs: { hunger: 100, sleep: 0 },
+        needs: { hunger: 100, sleep: 0 , recreation: 0 },
       };
     }
     expect(messages(harness.state)).toContain('3 colonists are starving');

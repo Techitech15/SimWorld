@@ -8,6 +8,8 @@ import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals'
 import { runArrivals } from './arrivals';
 import { runIncidents } from './events';
 import { runMana } from './mana';
+import { runDefenders, runRaiders, runTurrets } from './raid';
+import { runRelationships } from './relationships';
 import { regrowForest } from './regrowth';
 import {
   BERRY_REGROW_PER_TICK,
@@ -16,7 +18,7 @@ import {
   FLEE_TRIGGER_DISTANCE,
   TICKS_PER_STEP,
 } from './constants';
-import { rebuildRegions } from './derived';
+import { invalidateTile, rebuildRegions } from './derived';
 import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, isSeasonBoundary, seasonOf } from './season';
 import type { SimContext } from './derived';
 import { runAssignment } from './jobs/assign';
@@ -44,14 +46,23 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   // generator and the candidate filter look at it this same tick
   runNeeds(next, ctx);
   runMoveOrders(next, ctx);
+  // bonds grow from time spent near each other, so this reads positions after
+  // everyone has moved for the tick rather than before
+  runRelationships(next);
   // the ecology runs before job assignment so a colonist never gets handed work
   // in the same tick a predator sent them running
   runAnimals(next, ctx);
+  // Raiders move before the defenders answer, so a colonist swings at where the
+  // raider is rather than where it was. Both run before job assignment: nobody
+  // gets handed a hauling job in the tick a raider reached the storehouse.
+  runRaiders(next, ctx);
+  runDefenders(next, ctx);
+  runTurrets(next, ctx);
   runFleeing(next);
   healColonists(next);
   // the mana layer runs before work is handed out, so a furnace that burned out
   // this tick is already asking for fuel when the generator looks
-  runMana(next, ctx);
+  for (const tileId of runMana(next, ctx)) invalidateTile(ctx, next, tileId);
   runJobGenerator(next);
   runAssignment(next, ctx);
   runExecution(next, ctx);
@@ -75,7 +86,8 @@ function runFleeing(state: GameState): void {
   for (const colonistId in state.colonists) {
     const colonist = state.colonists[colonistId];
     if (colonist.activity.kind !== 'fleeing') continue;
-    const threat = state.animals[colonist.activity.fromAnimalId];
+    const threat =
+      state.animals[colonist.activity.fromId] ?? state.raiders?.[colonist.activity.fromId];
     if (!threat) {
       updateColonist(state, colonistId, { activity: { kind: 'none' } });
       continue;
@@ -83,7 +95,13 @@ function runFleeing(state: GameState): void {
     // The timer only starts running down once the predator is no longer on top
     // of them. Otherwise the colonist calmly goes back to work after 120 ticks,
     // takes another bite, and the wolf eventually wins by attrition.
-    if (nearestPredator(state, colonist.position, FLEE_TRIGGER_DISTANCE)) {
+    // a raider on top of them keeps the timer pinned exactly as a wolf does
+    const pressed =
+      nearestPredator(state, colonist.position, FLEE_TRIGGER_DISTANCE) ||
+      Math.abs(threat.position.x - colonist.position.x) +
+        Math.abs(threat.position.y - colonist.position.y) <=
+        FLEE_TRIGGER_DISTANCE;
+    if (pressed) {
       updateColonist(state, colonistId, {
         activity: { ...colonist.activity, untilTick: state.tick + FLEE_DURATION_TICKS },
       });

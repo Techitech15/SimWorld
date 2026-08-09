@@ -33,6 +33,8 @@ export interface TraitEffects {
    * do both), below 1 both bite harder.
    */
   mood?: number;
+  /** how quickly they warm to the people they work beside */
+  social?: number;
 }
 
 export type TraitEffect = keyof TraitEffects;
@@ -118,6 +120,18 @@ export const TRAITS: Record<TraitName, Trait> = {
     description: 'Feels every hardship twice. Give this one a bed early.',
     family: 'temperament',
     effects: { mood: 0.8 },
+  },
+  sociable: {
+    label: 'Sociable',
+    description: 'Makes friends of the people they work beside, and quickly.',
+    family: 'company',
+    effects: { social: 1.8 },
+  },
+  private: {
+    label: 'Private',
+    description: 'Keeps to themselves. Takes a long winter to warm to anyone.',
+    family: 'company',
+    effects: { social: 0.4 },
   },
 };
 

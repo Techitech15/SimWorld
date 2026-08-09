@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 15;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -203,6 +203,69 @@ export const migrations: Record<number, Migration> = {
       if (buildings[id].manaFuel === undefined) buildings[id] = { ...buildings[id], manaFuel: 0 };
     }
     return { ...state, buildings };
+  },
+
+  /**
+   * 11 -> 12: extractors keep their progress into the rock face. Same shape as
+   * the fuel field one version ago, and for the same reason - no save from
+   * before this can hold an extractor, but "every saved building has every
+   * field" is worth more than the version number it costs.
+   */
+  11: (old) => {
+    const state = old as Partial<GameState>;
+    const buildings = { ...(state.buildings ?? {}) };
+    for (const id in buildings) {
+      if (buildings[id].manaProgress === undefined) {
+        buildings[id] = { ...buildings[id], manaProgress: 0 };
+      }
+    }
+    return { ...state, buildings };
+  },
+
+  /**
+   * 12 -> 13: colonists know each other (11章 フェーズ3). An old save has no
+   * bonds and no memory of who has died, and both start empty rather than being
+   * invented: a colony reloaded from before this existed has genuinely not been
+   * observed spending time together, and handing it friendships it never earned
+   * would be the save telling the player a story that did not happen.
+   */
+  12: (old) => {
+    const state = old as Partial<GameState>;
+    return {
+      ...state,
+      relationships: state.relationships ?? {},
+      deaths: state.deaths ?? [],
+    };
+  },
+
+  /**
+   * 13 -> 14: colonists need time off (11章 フェーズ3). An old save's people
+   * start content rather than half worn out: the need did not exist while they
+   * were working, so charging them for the time they already served would put a
+   * loaded colony straight into breaks on the first tick after loading.
+   */
+  13: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        needs: { ...colonist.needs, recreation: colonist.needs?.recreation ?? 0 },
+      };
+    }
+    return { ...state, colonists };
+  },
+
+  /**
+   * 14 -> 15: raiders exist (11章 フェーズ4). Nobody is mid-raid in a save that
+   * predates raids, so the map starts empty - and an old colony gets the same
+   * grace period a new one does, because the incident is gated on the day
+   * rather than on when the feature arrived.
+   */
+  14: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, raiders: state.raiders ?? {} };
   },
 };
 

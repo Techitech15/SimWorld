@@ -154,3 +154,47 @@ export function advanceTowards(
   indexColonistPath(ctx, state, colonistId);
   return atDestination(state, colonistId, target, adjacent) ? 'arrived' : 'moving';
 }
+
+/**
+ * A raider's step towards the colony.
+ *
+ * The same greedy step a colonist chase uses, without the reachability check:
+ * a raider walled out is *supposed* to end up standing against the wall, so it
+ * can start taking the wall apart. Refusing to move because there is no route
+ * would leave them milling about at the map edge.
+ */
+export function chaseRaider(
+  state: GameState,
+  _ctx: SimContext,
+  raiderId: string,
+  target: Vector2,
+): void {
+  if (state.tick % TICKS_PER_STEP !== 0) return;
+  const raider = state.raiders[raiderId];
+  if (!raider) return;
+
+  const dx = Math.sign(target.x - raider.position.x);
+  const dy = Math.sign(target.y - raider.position.y);
+  const options =
+    Math.abs(target.x - raider.position.x) >= Math.abs(target.y - raider.position.y)
+      ? [
+          { x: dx, y: 0 },
+          { x: 0, y: dy },
+        ]
+      : [
+          { x: 0, y: dy },
+          { x: dx, y: 0 },
+        ];
+
+  for (const option of options) {
+    if (option.x === 0 && option.y === 0) continue;
+    const nx = raider.position.x + option.x;
+    const ny = raider.position.y + option.y;
+    if (!state.tiles[tileIdOf(nx, ny)]?.walkable) continue;
+    state.raiders = {
+      ...state.raiders,
+      [raiderId]: { ...raider, position: { x: nx, y: ny } },
+    };
+    return;
+  }
+}

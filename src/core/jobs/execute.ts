@@ -329,7 +329,7 @@ function executeAnimalJob(
       designation: null,
       activity: {
         kind: 'fleeing',
-        fromAnimalId: animal.id, // spooked, but with nothing chasing it
+        fromId: animal.id, // spooked, but with nothing chasing it
         untilTick: state.tick + TAME_FAIL_FLEE_TICKS,
       },
     });

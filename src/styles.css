@@ -269,6 +269,14 @@ button.active {
   color: var(--crit);
 }
 
+/* who this one is closest to; silent while everybody is still a stranger */
+.colonist__bond {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 24px;
+  cursor: help;
+}
+
 /* the one thought dragging this colonist down, under their mood bar */
 .colonist__thought {
   font-size: 11px;

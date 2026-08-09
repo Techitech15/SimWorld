@@ -153,7 +153,7 @@ function runBehaviour(state: GameState, ctx: SimContext, id: AnimalId): void {
     if (state.tick >= animal.activity.untilTick) {
       updateAnimal(state, id, { activity: { kind: 'idle' } });
     } else {
-      fleeFrom(state, id, animal.activity.fromAnimalId);
+      fleeFrom(state, id, animal.activity.fromId);
       return;
     }
   }
@@ -177,7 +177,7 @@ function runBehaviour(state: GameState, ctx: SimContext, id: AnimalId): void {
     updateAnimal(state, id, {
       activity: {
         kind: 'fleeing',
-        fromAnimalId: threat.id,
+        fromId: threat.id,
         untilTick: state.tick + FLEE_DURATION_TICKS,
       },
     });
@@ -523,7 +523,7 @@ function runAttack(state: GameState, ctx: SimContext, id: AnimalId): void {
     const health = prey.health - PREDATOR_BITE_DAMAGE;
     updateAnimal(state, targetId, {
       health,
-      activity: { kind: 'fleeing', fromAnimalId: id, untilTick: state.tick + FLEE_DURATION_TICKS },
+      activity: { kind: 'fleeing', fromId: id, untilTick: state.tick + FLEE_DURATION_TICKS },
     });
     if (health <= 0) {
       killAnimal(state, targetId, `killed by a ${SPECIES[animal.species].label.toLowerCase()}`, false);
@@ -911,13 +911,13 @@ export function damageColonist(
   state: GameState,
   colonistId: string,
   amount: number,
-  fromAnimalId: AnimalId,
+  fromId: AnimalId,
 ): void {
   const colonist = state.colonists[colonistId];
   if (!colonist) return;
   const health = colonist.health - amount;
   if (health <= 0) {
-    const killer = state.animals[fromAnimalId];
+    const killer = state.animals[fromId];
     killColonist(
       state,
       colonistId,
@@ -927,7 +927,7 @@ export function damageColonist(
   }
   updateColonist(state, colonistId, {
     health,
-    activity: { kind: 'fleeing', fromAnimalId, untilTick: state.tick + FLEE_DURATION_TICKS },
+    activity: { kind: 'fleeing', fromId, untilTick: state.tick + FLEE_DURATION_TICKS },
     currentJobId: null,
   });
 }

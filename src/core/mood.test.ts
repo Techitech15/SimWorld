@@ -31,7 +31,7 @@ function comfortable(state: GameState): Colonist {
   for (const id in state.colonists) {
     if (id !== colonist.id) delete state.colonists[id];
   }
-  state.colonists[colonist.id] = { ...colonist, needs: { hunger: 10, sleep: 10 }, health: 100 };
+  state.colonists[colonist.id] = { ...colonist, needs: { hunger: 10, sleep: 10 , recreation: 0 }, health: 100 };
   // a bed each, and a fortnight of meals
   state.buildings[`b_bed_test`] = {
     id: 'b_bed_test',
@@ -45,6 +45,7 @@ function comfortable(state: GameState): Colonist {
     growth: 0,
     sown: false,
     manaFuel: 0,
+    manaProgress: 0,
   };
   state.items['i_food_test'] = {
     id: 'i_food_test',
@@ -76,7 +77,7 @@ describe('mood', () => {
     harness.state.buildings = {};
     harness.state.colonists[colonist.id] = {
       ...colonist,
-      needs: { hunger: 92, sleep: 92 },
+      needs: { hunger: 92, sleep: 92 , recreation: 0 },
       health: 55,
     };
     expect(moodOf(harness.state, harness.state.colonists[colonist.id])).toBeLessThan(MOOD_BREAK);
@@ -85,7 +86,7 @@ describe('mood', () => {
   it('names the worst thing first, so the panel can lead with it', () => {
     const harness = createHarness(2107);
     const colonist = comfortable(harness.state);
-    harness.state.colonists[colonist.id] = { ...colonist, needs: { hunger: 95, sleep: 10 } };
+    harness.state.colonists[colonist.id] = { ...colonist, needs: { hunger: 95, sleep: 10 , recreation: 0 } };
     const thoughts = thoughtsOf(harness.state, harness.state.colonists[colonist.id]);
     expect(thoughts[0].label).toBe('Starving');
     for (let i = 1; i < thoughts.length; i++) {
@@ -137,7 +138,7 @@ describe('a colonist who has had enough', () => {
     // and sleeping through a crisis is the pre-existing behaviour.
     harness.state.items = {};
     harness.state.buildings = {};
-    const miserable = { needs: { hunger: 65, sleep: 20 }, health: 40 };
+    const miserable = { needs: { hunger: 65, sleep: 20 , recreation: 0 }, health: 40 };
     harness.state.colonists[colonist.id] = { ...colonist, ...miserable };
 
     const log = recordLog(harness, 5, () => {
@@ -151,7 +152,7 @@ describe('a colonist who has had enough', () => {
     // feeding them one meal does not cancel the break
     harness.state.colonists[colonist.id] = {
       ...harness.state.colonists[colonist.id],
-      needs: { hunger: 5, sleep: 5 },
+      needs: { hunger: 5, sleep: 5 , recreation: 0 },
       health: 100,
     };
     harness.run(5);
@@ -182,7 +183,7 @@ describe('a colonist who has had enough', () => {
     const colonist = comfortable(harness.state);
     harness.state.colonists[colonist.id] = {
       ...colonist,
-      needs: { hunger: 99, sleep: 10 },
+      needs: { hunger: 99, sleep: 10 , recreation: 0 },
       activity: { kind: 'brooding', untilTick: harness.state.tick + MOOD_BREAK_TICKS * 4 },
     };
     harness.run(400);
@@ -198,7 +199,7 @@ describe('temperament', () => {
     const colonist = comfortable(harness.state);
     harness.state.items = {};
     harness.state.buildings = {};
-    const hard = { needs: { hunger: 80, sleep: 80 }, health: 60 };
+    const hard = { needs: { hunger: 80, sleep: 80 , recreation: 0 }, health: 60 };
     const plain = moodOf(harness.state, { ...colonist, ...hard, traits: [] });
     const cheerful = moodOf(harness.state, { ...colonist, ...hard, traits: ['cheerful'] });
     const gloomy = moodOf(harness.state, { ...colonist, ...hard, traits: ['gloomy'] });

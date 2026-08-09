@@ -20,6 +20,8 @@ export interface GameTextures {
   colonistWork: Texture[];
   /** two-frame walk cycle per species, drawn facing right and mirrored in code */
   animals: Record<AnimalSpecies, Texture[]>;
+  /** two-frame raider, same convention as the animals */
+  raiders: Texture[];
 }
 
 async function decodeImage(url: string): Promise<HTMLImageElement> {
@@ -89,5 +91,7 @@ export async function loadTextures(): Promise<GameTextures> {
     animals[species] = [slice(sheet, 0, 0), slice(sheet, TILE_SIZE, 0)];
   }
 
-  return { tiles, colonistWalk, colonistWork, animals };
+  const raiders = [slice(tiles.raider, 0, 0), slice(tiles.raider, TILE_SIZE, 0)];
+
+  return { tiles, colonistWalk, colonistWork, animals, raiders };
 }
