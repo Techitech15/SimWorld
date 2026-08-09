@@ -64,6 +64,7 @@ export function createEmptyState(): GameState {
     zones: {},
     animals: {},
     raiders: {},
+    traders: {},
     reservations: {},
     forestCapacity: 0,
     worldSeed: 0,

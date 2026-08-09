@@ -32,6 +32,7 @@ export type JobId = string;
 export type ZoneId = string;
 export type AnimalId = string;
 export type RaiderId = string;
+export type TraderId = string;
 
 export interface Vector2 {
   x: number;
@@ -227,7 +228,9 @@ export type BuildingType =
   /** [ext] where colonists take their time off (11章 フェーズ3) */
   | 'hearth'
   /** [ext] mana-fed defence (11章 フェーズ4, depends on the phase 2 network) */
-  | 'manaTurret';
+  | 'manaTurret'
+  /** [ext] where a trader stands (11章 フェーズ5, design-phase5-trade.md 4.2) */
+  | 'tradingPost';
 
 export interface RequiredResource {
   type: ResourceType;
@@ -283,6 +286,41 @@ export interface Raider {
   activity: RaiderActivity;
   /** the tick they give up and go home, win or lose */
   leavesAtTick: number;
+}
+
+/** [ext] Trade (11章 フェーズ5). See docs/design-phase5-trade.md. */
+export type TraderKind = 'pedlar' | 'crystalFactor';
+
+/**
+ * One line of a trader's stall. `rate` is a multiplier on the resource's base
+ * value, so a trader is a spread around the same table rather than a price list
+ * of its own.
+ */
+export interface TradeOffer {
+  resource: ResourceType;
+  quantity: number;
+  rate: number;
+}
+
+export interface Trader {
+  id: TraderId;
+  kind: TraderKind;
+  name: string;
+  /** beside the trading post. They never move (design-phase5-trade.md 4.2) */
+  position: Vector2;
+  departsAtTick: number;
+  /** what they will hand over */
+  offers: TradeOffer[];
+  /** what they will take */
+  wants: TradeOffer[];
+  /**
+   * The deal the player has asked for, or null while nobody has decided.
+   *
+   * It lives on the trader rather than on `GameState` because it is per-visit
+   * state - when they leave it goes with them - and because the design note
+   * allows exactly one new record on GameState.
+   */
+  deal: { give: ResourceType; take: ResourceType } | null;
 }
 
 export type JobType =
@@ -465,6 +503,11 @@ export interface GameState {
    * a raid is an event with a beginning and an end, not a population.
    */
   raiders: Record<RaiderId, Raider>;
+  /**
+   * [ext] Traders standing at the post (11章 フェーズ5). Like raiders this is
+   * empty almost always: a visit is an event with an end, not a population.
+   */
+  traders: Record<TraderId, Trader>;
   reservations: Record<string, Reservation>;
   /**
    * [ext] How much woodland this map supports: the number of forest tiles it

@@ -9,6 +9,7 @@ import { EventLog } from './EventLog';
 import { GameCanvas } from './GameCanvas';
 import { GoalPanel } from './GoalPanel';
 import { Minimap } from './Minimap';
+import { TradePanel } from './TradePanel';
 import { ResourcePanel } from './ResourcePanel';
 import { SelectionPanel } from './SelectionPanel';
 import { Toolbar } from './Toolbar';
@@ -40,6 +41,7 @@ export function App(): React.JSX.Element {
           <ColonistPanel />
           <WorkPriorityTable />
           <ResourcePanel />
+        <TradePanel />
           <AnimalPanel />
           <EventLog />
         </aside>

@@ -53,6 +53,8 @@ export const sprites = {
   manaTurret: spriteUrl('buildings/mana_turret.png'),
   manaTurretLive: spriteUrl('buildings/mana_turret_live.png'),
   raider: spriteUrl('raiders/raider.png'),
+  tradingPost: spriteUrl('buildings/trading_post.png'),
+  trader: spriteUrl('raiders/trader.png'),
   colonistWalk: spriteUrl('colonist/walk.png'),
   colonistWork: spriteUrl('colonist/work.png'),
   jobChop: spriteUrl('ui/job_chop.png'),

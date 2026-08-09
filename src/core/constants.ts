@@ -67,6 +67,25 @@ export const DEFEND_RANGE = 14;
 export const TURRET_RANGE = 7;
 export const TURRET_DAMAGE = 9;
 export const TURRET_INTERVAL_TICKS = 40;
+
+/**
+ * Trade (11章 フェーズ5, design-phase5-trade.md 6). Base values, and the spread
+ * that stops trade being a machine for turning spare wood into mana: a trader
+ * buys at 0.7 and sells at 1.4, so 120 wood buys about five crystals against a
+ * vein's six.
+ */
+export const TRADE_BASE_VALUE: Record<ResourceType, number> = {
+  wood: 1,
+  stone: 1,
+  food: 2,
+  manaCrystal: 12,
+};
+export const TRADE_BUY_RATE = 0.7;
+export const TRADE_SELL_RATE = 1.4;
+/** Checked every five days: rarer than the three-day arrival roll. */
+export const TRADE_INTERVAL_TICKS = TICKS_PER_DAY * 5;
+/** One day at the post - long enough to ask whether the hauling keeps up. */
+export const TRADE_STAY_TICKS = TICKS_PER_DAY;
 export const SLEEP_WAKE_AT = 3;
 export const EAT_TICKS = 30;
 export const FOOD_PER_MEAL = 10;
@@ -203,6 +222,12 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'wood', quantity: 10 },
     { type: 'manaCrystal', quantity: 4 },
   ],
+  // cheap: the point of trade is to be reachable by a colony that is short of
+  // something, and a post nobody can afford defeats it
+  tradingPost: [
+    { type: 'wood', quantity: 20 },
+    { type: 'stone', quantity: 10 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -221,6 +246,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   manaExtractor: 180,
   hearth: 90,
   manaTurret: 150,
+  tradingPost: 100,
 };
 
 /** Structures that block movement once finished. */
@@ -247,6 +273,8 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   // you sit at it, so you have to be able to reach it
   hearth: false,
   manaTurret: true,
+  // a post is a counter you walk up to
+  tradingPost: false,
 };
 
 export const COLONIST_COLORS = [

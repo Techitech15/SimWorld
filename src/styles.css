@@ -242,6 +242,32 @@ button.active {
   gap: 6px;
 }
 
+/* the stall: one row per thing on offer, one button per thing to pay with */
+.trade {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.trade__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.trade__take {
+  min-width: 88px;
+  color: var(--accent);
+}
+
+.trade__give {
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
 /* supply against demand: the phase-2 decision, readable without a click */
 .mana {
   display: flex;

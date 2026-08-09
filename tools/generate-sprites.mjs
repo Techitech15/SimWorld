@@ -1201,6 +1201,56 @@ function manaTurretTile(live) {
   return c;
 }
 
+
+/** The trading post: a plank counter with an awning. */
+function tradingPostTile() {
+  const c = new Canvas(TILE, TILE);
+  // counter
+  c.rect(3, 17, 26, 10, P.plankMid);
+  c.hline(3, 17, 26, P.plankLight);
+  c.hline(3, 26, 26, P.plankDark);
+  for (let x = 6; x < 29; x += 6) c.vline(x, 18, 8, P.plankDark);
+  // posts and awning
+  c.rect(3, 6, 2, 12, P.trunk[0]);
+  c.rect(27, 6, 2, 12, P.trunk[0]);
+  for (let i = 0; i < 5; i++) {
+    c.rect(2 + i * 6, 4, 3, 5, i % 2 === 0 ? '#c2543f' : '#e8d9b8');
+    c.rect(5 + i * 6, 4, 3, 5, i % 2 === 0 ? '#e8d9b8' : '#c2543f');
+  }
+  c.hline(2, 3, 28, P.trunk[1]);
+  // a crate and a sack on the counter
+  c.rect(7, 12, 7, 6, P.plankDark);
+  c.hline(7, 12, 7, P.plankMid);
+  c.disc(21, 15, 4, '#cbbda4');
+  c.disc(21, 14, 3, '#ded6c2');
+  c.outline(P.outline);
+  return c;
+}
+
+/** A trader: a colonist silhouette in a travelling cloak, with a pack. */
+function traderSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    const cloak = frame === 0 ? '#3f6bb8' : '#456fbd';
+    c.rect(11, 11, 10, 13, cloak);
+    c.rect(11, 11, 10, 3, '#2f4f8c');
+    c.rect(13, 24, 3, 5, P.boots);
+    c.rect(17, 24, 3, 5, P.boots);
+    c.disc(16, 8, 5, P.skin);
+    c.rect(10, 3, 12, 3, '#2f4f8c'); // wide brim
+    c.set(14, 8, P.eye);
+    c.set(18, 8, P.eye);
+    // pack on the back, and a staff that sways a pixel between frames
+    c.rect(6, 13, 6, 8, P.plankDark);
+    c.hline(6, 13, 6, P.plankMid);
+    c.vline(24 + frame, 8, 18, P.trunk[0]);
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1237,6 +1287,8 @@ written.push(save('buildings/hearth.png', hearthTile()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));
+written.push(save('buildings/trading_post.png', tradingPostTile()));
+written.push(save('raiders/trader.png', traderSheet()));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));

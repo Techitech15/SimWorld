@@ -22,6 +22,8 @@ export interface GameTextures {
   animals: Record<AnimalSpecies, Texture[]>;
   /** two-frame raider, same convention as the animals */
   raiders: Texture[];
+  /** two-frame trader */
+  traders: Texture[];
 }
 
 async function decodeImage(url: string): Promise<HTMLImageElement> {
@@ -92,6 +94,7 @@ export async function loadTextures(): Promise<GameTextures> {
   }
 
   const raiders = [slice(tiles.raider, 0, 0), slice(tiles.raider, TILE_SIZE, 0)];
+  const traders = [slice(tiles.trader, 0, 0), slice(tiles.trader, TILE_SIZE, 0)];
 
-  return { tiles, colonistWalk, colonistWork, animals, raiders };
+  return { tiles, colonistWalk, colonistWork, animals, raiders, traders };
 }

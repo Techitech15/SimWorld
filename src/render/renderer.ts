@@ -57,6 +57,7 @@ export class GameRenderer {
   private itemSprites = new Map<string, Sprite>();
   private animalViews = new Map<string, AnimalView>();
   private raiderViews = new Map<string, AnimalView>();
+  private traderViews = new Map<string, AnimalView>();
   private colonistViews = new Map<string, ColonistView>();
 
   private lastState: GameState | null = null;
@@ -220,6 +221,8 @@ export class GameRenderer {
         return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
       case 'hearth':
         return t.hearth;
+      case 'tradingPost':
+        return t.tradingPost;
       case 'manaTurret':
         return isPowered(this.networks, building.id) ? t.manaTurretLive : t.manaTurret;
       case 'manaExtractor':
@@ -364,6 +367,32 @@ export class GameRenderer {
       if (seen.has(id)) continue;
       view.sprite.destroy();
       this.animalViews.delete(id);
+    }
+  }
+
+  /** Traders stand still by definition, so this is the simplest of the three. */
+  private syncTraders(state: GameState): void {
+    const seen = new Set<string>();
+    for (const id in state.traders ?? {}) {
+      const trader = state.traders[id];
+      seen.add(id);
+      let view = this.traderViews.get(id);
+      if (!view) {
+        const sprite = new Sprite(this.textures.traders[0]);
+        sprite.anchor.set(0.5);
+        this.animalLayer.addChild(sprite);
+        view = { sprite, displayX: trader.position.x, displayY: trader.position.y, facingRight: true };
+        this.traderViews.set(id, view);
+      }
+      // a slow sway rather than a walk cycle: they are standing at a stall
+      view.sprite.texture = this.textures.traders[Math.floor(performance.now() / 700) % 2];
+      view.sprite.x = trader.position.x * TILE_SIZE + TILE_SIZE / 2;
+      view.sprite.y = trader.position.y * TILE_SIZE + TILE_SIZE / 2;
+    }
+    for (const [id, view] of this.traderViews) {
+      if (seen.has(id)) continue;
+      view.sprite.destroy();
+      this.traderViews.delete(id);
     }
   }
 
@@ -630,6 +659,7 @@ export class GameRenderer {
     }
     this.syncAnimals(state, deltaMs);
     this.syncRaiders(state, deltaMs);
+    this.syncTraders(state);
     this.syncColonists(state, deltaMs);
     this.consumeFocusRequest();
     this.syncSelectionOverlay(state);

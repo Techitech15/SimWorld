@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -266,6 +266,16 @@ export const migrations: Record<number, Migration> = {
   14: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, raiders: state.raiders ?? {} };
+  },
+
+  /**
+   * 15 -> 16: traders (11章 フェーズ5). Nobody is mid-visit in a save that
+   * predates trade, and the visit schedule is a function of the tick, so an old
+   * colony simply gets its first roll at the next five-day boundary.
+   */
+  15: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, traders: state.traders ?? {} };
   },
 };
 

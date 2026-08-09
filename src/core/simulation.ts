@@ -7,7 +7,8 @@
 import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
 import { runArrivals } from './arrivals';
 import { runIncidents } from './events';
-import { runMana } from './mana';
+import { runMana, refreshNetworks } from './mana';
+import { runTrade } from './trade';
 import { runDefenders, runRaiders, runTurrets } from './raid';
 import { runRelationships } from './relationships';
 import { regrowForest } from './regrowth';
@@ -42,6 +43,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   regrowForest(next);
   runIncidents(next);
   runArrivals(next);
+  // traders come and go on the same footing as arrivals: schedule from the
+  // tick, conditions from the state, and no pathfinding at all
+  runTrade(next, refreshNetworks(ctx, next));
   // needs run first so an interrupted job is back in the queue before the
   // generator and the candidate filter look at it this same tick
   runNeeds(next, ctx);
