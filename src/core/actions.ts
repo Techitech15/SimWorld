@@ -271,7 +271,7 @@ export function placeStorageZone(state: GameState, tileIds: TileId[]): GameState
 
 /**
  * Pasture zones bound where tamed animals graze, and their area caps the herd
- * (docs/design-animals.md 4). Like storage zones they are free and immediate.
+ * (docs/design-phase2.5-animals.md 4). Like storage zones they are free and immediate.
  */
 export function placePastureZone(state: GameState, tileIds: TileId[]): GameState {
   return placeZone(state, 'pasture', tileIds);

@@ -677,7 +677,7 @@ function iconSleep() {
   return c;
 }
 
-// --- animals (docs/design-animals.md 9) ------------------------------------
+// --- animals (docs/design-phase2.5-animals.md 9) ------------------------------------
 // Each species is a 2-frame walk cycle facing right; the renderer mirrors the
 // sprite for the other direction, which halves the art without halving the
 // readability.

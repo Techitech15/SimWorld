@@ -1,4 +1,4 @@
-// The ecology layer (docs/design-animals.md 4).
+// The ecology layer (docs/design-phase2.5-animals.md 4).
 //
 // Animals live outside the job system: they are not work the player schedules,
 // they are creatures that graze, flee, hunt and breed on their own. The only
@@ -453,7 +453,7 @@ function runPredator(state: GameState, ctx: SimContext, id: AnimalId): void {
 
 /**
  * Prey preference is wild herbivores > livestock > colonists, so a wolf rarely
- * opens by going for a person (docs/design-animals.md 5).
+ * opens by going for a person (docs/design-phase2.5-animals.md 5).
  */
 function findPrey(
   state: GameState,

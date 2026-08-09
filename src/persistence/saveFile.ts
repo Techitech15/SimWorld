@@ -29,7 +29,7 @@ export type Migration = (old: unknown) => unknown;
  */
 export const migrations: Record<number, Migration> = {
   /**
-   * 1 -> 2: the animal layer (docs/design-animals.md 7). A version 1 save knows
+   * 1 -> 2: the animal layer (docs/design-phase2.5-animals.md 7). A version 1 save knows
    * nothing about animals, forage or colonist health, so the migration fills in
    * the values a freshly generated world would have had: no animals yet, grass
    * fully grown, everybody healthy. Nothing existing is rewritten, so a v1 save

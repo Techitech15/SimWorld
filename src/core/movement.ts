@@ -11,7 +11,7 @@ import type { ColonistId, GameState, TileId, Vector2 } from './types';
 export type MoveResult = 'arrived' | 'moving' | 'blocked';
 
 /**
- * Close in on a *moving* target (docs/design-animals.md 3).
+ * Close in on a *moving* target (docs/design-phase2.5-animals.md 3).
  *
  * `advanceTowards` recomputes a path whenever the destination tile changes,
  * which for a wandering animal would mean an A* run every single step. So this

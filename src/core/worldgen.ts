@@ -335,7 +335,7 @@ export function addColonist(
 
 /**
  * Scatter the starting herds. Predators are deliberately absent at world
- * generation: they only arrive from day 2 (docs/design-animals.md 6).
+ * generation: they only arrive from day 2 (docs/design-phase2.5-animals.md 6).
  */
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
