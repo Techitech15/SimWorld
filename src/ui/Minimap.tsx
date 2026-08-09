@@ -33,6 +33,7 @@ const BUILDING: Record<string, Rgb> = {
   bed: [143, 166, 216],
   farmPlot: [122, 82, 50],
   berryBush: [138, 58, 82],
+  frostbloom: [168, 200, 226],
   storageZoneMarker: [92, 108, 132],
 };
 

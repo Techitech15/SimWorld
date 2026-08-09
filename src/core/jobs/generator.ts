@@ -119,8 +119,9 @@ export function runJobGenerator(state: GameState): void {
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.isBlueprint) continue;
-    // a ripe bush is harvest work and nothing else: there is no sowing to do
-    if (building.type === 'berryBush') {
+    // a ripe bush is harvest work and nothing else: there is no sowing to do,
+    // and a frostbloom is a bush that keeps a different calendar
+    if (building.type === 'berryBush' || building.type === 'frostbloom') {
       if (building.growth < 1) continue;
       const key = `farm:${building.tileId}`;
       if (has(key)) continue;
@@ -311,7 +312,9 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     case 'farm': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       if (!building || building.isBlueprint) return false;
-      if (building.type === 'berryBush') return building.growth >= 1;
+      if (building.type === 'berryBush' || building.type === 'frostbloom') {
+        return building.growth >= 1;
+      }
       return !building.sown || building.growth >= 1;
     }
     case 'build': {

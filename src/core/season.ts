@@ -33,6 +33,19 @@ export const CROP_GROWTH_BY_SEASON: Record<Season, number> = {
   winter: 0,
 };
 
+/**
+ * Frostbloom (11章 フェーズ5) reads the crop table upside down. It is written
+ * out rather than computed from `CROP_GROWTH_BY_SEASON` because the inverse of
+ * "1.25 in summer" is not a number anybody wants to defend, and the whole point
+ * of the plant is the one value that is non-zero.
+ */
+export const FROSTBLOOM_GROWTH_BY_SEASON: Record<Season, number> = {
+  spring: 0,
+  summer: 0,
+  autumn: 0,
+  winter: 1,
+};
+
 /** Multiplier on how fast grazed grass comes back. */
 export const FORAGE_REGROW_BY_SEASON: Record<Season, number> = {
   spring: 1.2,

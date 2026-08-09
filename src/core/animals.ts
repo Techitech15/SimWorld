@@ -32,6 +32,10 @@ import {
   FORAGE_REGROW_INTERVAL_TICKS,
   FORAGE_REGROW_PER_TICK,
   GESTATION_TICKS,
+  LIGHTMOSS_REGROW_FACTOR,
+  ROCKEATER_GNAW_TICKS,
+  ROCKEATER_HUNGER_RESTORED,
+  ROCKEATER_SEARCH_RADIUS,
   MAP_HEIGHT,
   MAP_WIDTH,
   PASTURE_TILES_PER_ANIMAL,
@@ -55,7 +59,7 @@ import {
 } from './constants';
 import { killColonist } from './death';
 import { invalidateTile } from './derived';
-import { invalidateNetworks, isManaBuilding } from './mana';
+import { LAMP_RADIUS, invalidateNetworks, isManaBuilding, isPowered, refreshNetworks } from './mana';
 import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
 import { scaledCount, scenarioOf } from './scenario';
@@ -75,7 +79,7 @@ import {
   updateTile,
 } from './state';
 import { releaseByJob, releaseEntity } from './jobs/reservations';
-import type { Animal, AnimalId, AnimalSpecies, GameState, Vector2 } from './types';
+import type { Animal, AnimalId, AnimalSpecies, GameState, Tile, TileId, Vector2 } from './types';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
 
 /** Deterministic per-tick randomness: the same save replays the same way. */
@@ -118,21 +122,70 @@ export function runAnimals(state: GameState, ctx: SimContext): void {
  */
 function regrowForage(state: GameState, ctx: SimContext): void {
   if (state.tick % FORAGE_REGROW_INTERVAL_TICKS !== 0) return;
+  const lit = lightmossTiles(state, ctx);
+  // Lightmoss grows on ground that has never been grazed, so unlike grass it
+  // cannot be discovered by "somebody ate here". The lamp sweep is what puts
+  // those tiles into the index, which also makes the whole thing self-healing
+  // after a load: rebuildForageIndex knows nothing about lamps and does not
+  // need to (design-notes: derived state must not need a second bookkeeper).
+  for (const tileId of lit) {
+    const tile = state.tiles[tileId];
+    if (tile && tile.forage < 1) ctx.forageDepleted.add(tileId);
+  }
   if (ctx.forageDepleted.size === 0) return;
-  const step =
+
+  const grassStep =
     FORAGE_REGROW_PER_TICK *
     FORAGE_REGROW_INTERVAL_TICKS *
     FORAGE_REGROW_BY_SEASON[seasonOf(state.tick)];
+  // The point of the lamp: this one does not read the season at all (11章
+  // フェーズ5). Slower than a summer meadow, faster than a winter one.
+  const mossStep = FORAGE_REGROW_PER_TICK * FORAGE_REGROW_INTERVAL_TICKS * LIGHTMOSS_REGROW_FACTOR;
+
   for (const tileId of [...ctx.forageDepleted]) {
     const tile = state.tiles[tileId];
-    if (!tile || tile.terrain !== 'grass') {
+    const under = lit.has(tileId);
+    if (!tile || (tile.terrain !== 'grass' && !under)) {
+      // grazed-down moss whose lamp went out stops here and stays where it is:
+      // it does not regrow, and it does not cost anything to keep looking at
       ctx.forageDepleted.delete(tileId);
       continue;
     }
-    const forage = Math.min(1, tile.forage + step);
+    const forage = Math.min(1, tile.forage + (under ? Math.max(grassStep, mossStep) : grassStep));
     updateTile(state, tileId, { forage });
     if (forage >= 1) ctx.forageDepleted.delete(tileId);
   }
+}
+
+/**
+ * Ground under a lit mana lamp (11章 フェーズ5).
+ *
+ * Derived every time it is needed rather than stored, like everything else that
+ * depends on the mana grid: a saved list of lit tiles is a list that can
+ * disagree with which furnaces are actually burning. It is only built on the
+ * regrow interval, so the cost is a lamp count times a radius-6 diamond once
+ * every fifty ticks.
+ */
+function lightmossTiles(state: GameState, ctx: SimContext): Set<TileId> {
+  const lit = new Set<TileId>();
+  const networks = refreshNetworks(ctx, state);
+  for (const id in state.buildings) {
+    const building = state.buildings[id];
+    if (building.type !== 'manaLamp' || building.isBlueprint) continue;
+    if (!isPowered(networks, id)) continue;
+    const centre = state.tiles[building.tileId];
+    if (!centre) continue;
+    for (let dy = -LAMP_RADIUS; dy <= LAMP_RADIUS; dy++) {
+      const span = LAMP_RADIUS - Math.abs(dy);
+      for (let dx = -span; dx <= span; dx++) {
+        const tile = state.tiles[tileIdOf(centre.x + dx, centre.y + dy)];
+        // it grows on anything you can stand on, stone floor included - what a
+        // lamp makes is pasture, not grass
+        if (tile?.walkable) lit.add(tile.id);
+      }
+    }
+  }
+  return lit;
 }
 
 function decayAnimalNeeds(state: GameState, id: AnimalId): void {
@@ -148,6 +201,13 @@ function decayAnimalNeeds(state: GameState, id: AnimalId): void {
 
 function runBehaviour(state: GameState, ctx: SimContext, id: AnimalId): void {
   const animal = state.animals[id];
+
+  // A rockeater is not on the same ladder as everything else: it neither flees
+  // nor hunts, so it leaves before any of that is considered (11章 フェーズ5).
+  if (SPECIES[animal.species].diet === 'lithovore') {
+    runLithovore(state, ctx, id);
+    return;
+  }
 
   if (animal.activity.kind === 'fleeing') {
     if (state.tick >= animal.activity.untilTick) {
@@ -233,7 +293,11 @@ function startBoarCharge(state: GameState, id: AnimalId): boolean {
 function startGrazing(state: GameState, id: AnimalId): boolean {
   const animal = state.animals[id];
   const tile = state.tiles[tileIdOf(animal.position.x, animal.position.y)];
-  if (!tile || tile.terrain !== 'grass' || tile.forage < FORAGE_PER_GRAZE) return false;
+  // What is grazeable is what has forage on it, not what terrain it is. Grass
+  // is the only thing that starts with any, so this reads the same as it always
+  // did - except under a lit lamp, where the moss grows on bare floor too
+  // (11章 フェーズ5).
+  if (!tile || tile.forage < FORAGE_PER_GRAZE) return false;
   if (animal.tame && !isInsidePasture(state, animal)) return false;
   updateAnimal(state, id, {
     activity: { kind: 'grazing', ticksRemaining: ANIMAL_GRAZE_TICKS },
@@ -471,6 +535,9 @@ function findPrey(
   for (const id in state.animals) {
     const other = state.animals[id];
     if (other.id === predator.id || isPredator(other)) continue;
+    // there is no meat on a rockeater and it does not run: a wolf that picked
+    // one would stand there biting a boulder until it starved
+    if (SPECIES[other.species].diet === 'lithovore') continue;
     consider('animal', id, other.position, other.tame ? 6 : 0);
   }
   for (const id in state.colonists) {
@@ -575,6 +642,21 @@ function gnawStructure(
     return;
   }
 
+  breakStructure(state, ctx, buildingId);
+  // whatever it was after is on the other side; go and look again
+  updateAnimal(state, id, { activity: { kind: 'idle' }, path: null, pathExpiresAtTick: null });
+}
+
+/**
+ * Take a finished structure off the map because something ate it. Shared by the
+ * predator chewing a door and the rockeater chewing a stone wall: what has to
+ * happen afterwards - the reservation released, the network cut, the region
+ * labels rebuilt - is the same either way, and doing it in one place is what
+ * keeps a chewed-through conduit from being a silently dead run.
+ */
+function breakStructure(state: GameState, ctx: SimContext, buildingId: string): void {
+  const building = state.buildings[buildingId];
+  if (!building) return;
   const tile = state.tiles[building.tileId];
   releaseEntity(state, buildingId);
   const { [buildingId]: _removed, ...rest } = state.buildings;
@@ -587,8 +669,150 @@ function gnawStructure(
     invalidateTile(ctx, state, tile.id);
   }
   addLog(state, `the ${building.type} at ${tile.id} was broken open`);
-  // whatever it was after is on the other side; go and look again
-  updateAnimal(state, id, { activity: { kind: 'idle' }, path: null, pathExpiresAtTick: null });
+}
+
+// --- the rockeater (11章 フェーズ5) ------------------------------------------
+
+/**
+ * Eats stone. Never anything else.
+ *
+ * The whole creature is one loop: when hungry, find the nearest thing made of
+ * rock, walk to it, and spend ROCKEATER_GNAW_TICKS on it. When it finishes, the
+ * tile opens the same way a mined one does - which is the point, because a
+ * rockeater working its way through a mass can lay a crystal vein bare that
+ * nobody could reach to designate.
+ *
+ * It does not eat the vein itself. A creature that ate mana would be a creature
+ * that competed with the colony for the scarcest thing on the map; one that
+ * only clears the way to it is a stroke of luck the player did not arrange.
+ */
+function runLithovore(state: GameState, ctx: SimContext, id: AnimalId): void {
+  const animal = state.animals[id];
+
+  if (animal.activity.kind === 'gnawing') {
+    continueGnawing(state, ctx, id);
+    return;
+  }
+  if (animal.hunger < ANIMAL_GRAZE_THRESHOLD) {
+    wander(state, id);
+    return;
+  }
+
+  const target = nearestStone(state, animal.position);
+  if (!target) {
+    wander(state, id);
+    return;
+  }
+  if (manhattan(animal.position, { x: target.x, y: target.y }) <= 1) {
+    updateAnimal(state, id, {
+      activity: {
+        kind: 'gnawing',
+        targetTileId: target.id,
+        ticksRemaining: ROCKEATER_GNAW_TICKS,
+      },
+    });
+    return;
+  }
+  // Greedy, like every other animal step and for the same reason: a rockeater
+  // is standing in a rock field, so the straight line is almost always right and
+  // the A* budget stays the colonists'.
+  if (!canStep(state, animal)) return;
+  greedyStep(state, id, { x: target.x, y: target.y });
+}
+
+function continueGnawing(state: GameState, ctx: SimContext, id: AnimalId): void {
+  const animal = state.animals[id];
+  if (animal.activity.kind !== 'gnawing') return;
+  const tile = state.tiles[animal.activity.targetTileId];
+  // somebody mined it, or built over it, while the rockeater was working
+  if (!tile || !isChewableStone(state, tile)) {
+    updateAnimal(state, id, { activity: { kind: 'idle' } });
+    return;
+  }
+  const remaining = animal.activity.ticksRemaining - 1;
+  if (remaining > 0) {
+    updateAnimal(state, id, { activity: { ...animal.activity, ticksRemaining: remaining } });
+    return;
+  }
+
+  if (tile.buildingId) {
+    breakStructure(state, ctx, tile.buildingId);
+  } else {
+    // exactly what mining leaves behind, minus the stone: it ate that
+    updateTile(state, tile.id, { terrain: 'grass', designation: null, walkable: true, forage: 0 });
+    // walkability changed, so cached paths through it and the region labels are
+    // both stale - the same two things the mine job invalidates
+    invalidateTile(ctx, state, tile.id);
+    ctx.forageDepleted.add(tile.id);
+    // Measured: two rockeaters get through about fifty tiles in a year, and a
+    // line each turned the log into the wolves-eating-rabbits problem the whole
+    // logging pass was about. A tile of rock opening in the hills is weather.
+    // A vein coming into reach is not - it is work the player can now order.
+    if (exposesVein(state, tile)) {
+      addLog(
+        state,
+        `${animal.name} the rockeater laid a mana crystal vein bare at ${tile.id}`,
+        'incident',
+      );
+    }
+  }
+  updateAnimal(state, id, {
+    hunger: Math.max(0, animal.hunger - ROCKEATER_HUNGER_RESTORED),
+    activity: { kind: 'idle' },
+  });
+}
+
+/**
+ * Did opening this tile put a crystal vein within reach of a pick?
+ *
+ * Mining needs a colonist standing next to the face, so a vein buried in the
+ * middle of a mass is unreachable until the rock around it is gone. This is the
+ * moment that stops being true - and the only thing a rockeater does that is
+ * worth a line in the log.
+ */
+function exposesVein(state: GameState, opened: Tile): boolean {
+  for (const [dx, dy] of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ]) {
+    const neighbour = state.tiles[tileIdOf(opened.x + dx, opened.y + dy)];
+    if (neighbour?.terrain === 'crystal') return true;
+  }
+  return false;
+}
+
+/** Plain rock, or a stone wall. Never a crystal vein, and never wood. */
+function isChewableStone(state: GameState, tile: Tile): boolean {
+  if (tile.buildingId) {
+    const building = state.buildings[tile.buildingId];
+    return !!building && !building.isBlueprint && building.type === 'stoneWall';
+  }
+  return tile.terrain === 'stone';
+}
+
+/**
+ * Nearest chewable tile inside a small box. Deliberately not a search over the
+ * whole map: the box is scanned only on the animal's own step interval, and a
+ * rockeater that cannot see stone from where it is standing wanders until it
+ * can, which is cheaper than being clever and reads the same from outside.
+ */
+function nearestStone(state: GameState, from: Vector2): Tile | null {
+  let best: Tile | null = null;
+  let bestDistance = Infinity;
+  for (let dy = -ROCKEATER_SEARCH_RADIUS; dy <= ROCKEATER_SEARCH_RADIUS; dy++) {
+    for (let dx = -ROCKEATER_SEARCH_RADIUS; dx <= ROCKEATER_SEARCH_RADIUS; dx++) {
+      const tile = state.tiles[tileIdOf(from.x + dx, from.y + dy)];
+      if (!tile || !isChewableStone(state, tile)) continue;
+      const distance = Math.abs(dx) + Math.abs(dy);
+      if (distance < bestDistance) {
+        best = tile;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best;
 }
 
 /**
@@ -773,7 +997,7 @@ function runProduction(state: GameState, id: AnimalId): void {
   if (state.tick < animal.nextProduceTick) return;
   updateAnimal(state, id, { nextProduceTick: state.tick + profile.produceIntervalTicks });
   if (animal.hunger > 70) return; // a starving animal produces nothing
-  addItem(state, 'food', profile.produceAmount, animal.position.x, animal.position.y);
+  addItem(state, profile.produceType, profile.produceAmount, animal.position.x, animal.position.y);
 }
 
 // --- shared helpers ---------------------------------------------------------
@@ -893,7 +1117,9 @@ export function killAnimal(
   const animal = state.animals[id];
   if (!animal) return;
   if (animal.reservedByJobId) releaseByJob(state, animal.reservedByJobId);
-  if (dropFood) {
+  // A rockeater yields nothing, and a zero-quantity stack is an item the haul
+  // chain would carry around for ever.
+  if (dropFood && SPECIES[animal.species].foodYield > 0) {
     addItem(state, 'food', SPECIES[animal.species].foodYield, animal.position.x, animal.position.y);
   }
   removeAnimal(state, id);

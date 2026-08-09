@@ -49,8 +49,11 @@ describe('the goat', () => {
   it('is harder to tame than what it replaces, or it is a free upgrade', () => {
     for (const species of tameable) {
       if (species === 'goat') continue;
-      // the trade: better to keep, harder to get
-      if (SPECIES[species].produceAmount > 0) {
+      // the trade: better to keep, harder to get. Only against the animals it
+      // is actually an alternative to - a crystal elk produces mana rather than
+      // food, so it is not on this ladder at all and is harder to tame for its
+      // own reasons (11章 フェーズ5).
+      if (SPECIES[species].produceAmount > 0 && SPECIES[species].produceType === 'food') {
         expect(SPECIES.goat.tameChance).toBeLessThan(SPECIES[species].tameChance);
       }
     }

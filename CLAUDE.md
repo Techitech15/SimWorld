@@ -71,7 +71,7 @@ npm run build:single  # 単一HTML（dist/simworld.html）
 
 ## テスト
 
-`npm test` は各段階の受け入れ条件をヘッドレスで検証する（50ファイル・311テスト）。
+`npm test` は各段階の受け入れ条件をヘッドレスで検証する（56ファイル・405テスト）。
 テストの一覧と対応する条件は `README.md` にある。
 
 - `src/core/longrun.test.ts` は無操作で1年（20日 = 60,000 tick）回す。tick 予算・セーブ往復・

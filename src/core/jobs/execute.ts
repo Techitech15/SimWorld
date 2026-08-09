@@ -11,6 +11,7 @@ import {
   DECONSTRUCT_REFUND,
   FAILED_JOB_RETENTION_TICKS,
   FOOD_PER_BERRY_HARVEST,
+  FOOD_PER_FROSTBLOOM_HARVEST,
   FOOD_PER_HARVEST,
   HUNT_RANGE,
   MAX_RETRIES,
@@ -165,9 +166,11 @@ function applyJobEffect(
     case 'farm': {
       const building = state.buildings[job.targetEntityId!];
       const tile = state.tiles[building.tileId];
-      if (building.type === 'berryBush') {
+      if (building.type === 'berryBush' || building.type === 'frostbloom') {
         updateBuilding(state, building.id, { growth: 0 });
-        addItem(state, 'food', FOOD_PER_BERRY_HARVEST, tile.x, tile.y);
+        const harvest =
+          building.type === 'frostbloom' ? FOOD_PER_FROSTBLOOM_HARVEST : FOOD_PER_BERRY_HARVEST;
+        addItem(state, 'food', harvest, tile.x, tile.y);
         break;
       }
       if (!building.sown) {

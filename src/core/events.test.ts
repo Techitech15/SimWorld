@@ -224,8 +224,11 @@ describe('incidents', () => {
     for (const species of ANIMAL_SPECIES) {
       const profile = SPECIES[species];
       expect(profile.plural).toBeTruthy();
-      // a plural that is just the label with an s stuck on is the bug above
-      expect(profile.plural === `${profile.label}s`).toBe(species !== 'deer' && species !== 'wolf');
+      // a plural that is just the label with an s stuck on is the bug above.
+      // Three of them are irregular: deer, wolves, and the crystal elk, which
+      // inherits the deer's plural along with its silhouette.
+      const irregular = species === 'deer' || species === 'wolf' || species === 'crystalElk';
+      expect(profile.plural === `${profile.label}s`).toBe(!irregular);
     }
   });
 

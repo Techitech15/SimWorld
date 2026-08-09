@@ -229,6 +229,8 @@ export class GameRenderer {
         return isPowered(this.networks, building.id) ? t.manaExtractorRun : t.manaExtractor;
       case 'berryBush':
         return building.growth >= 1 ? t.berryRipe : t.berryBare;
+      case 'frostbloom':
+        return building.growth >= 1 ? t.frostbloomBloom : t.frostbloomBare;
       case 'farmPlot':
         if (!building.sown) return t.farm0;
         return building.growth >= 1 ? t.farm2 : building.growth > 0.35 ? t.farm1 : t.farm0;

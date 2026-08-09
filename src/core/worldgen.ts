@@ -1,6 +1,7 @@
 // Map generation: one 60x60 map with grass / forest / stone (section 9).
 import {
   BERRY_BUSH_COUNT,
+  FROSTBLOOM_COUNT,
   BUILDING_HP,
   COLONIST_COLORS,
   COLONIST_MAX_HEALTH,
@@ -219,6 +220,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   }
 
   scatterBerryBushes(state, seed, { x: cx, y: cy });
+  scatterFrostblooms(state, seed, { x: cx, y: cy });
   spawnInitialWildlife(state, seed, { x: cx, y: cy });
 
   return state;
@@ -301,6 +303,46 @@ function scatterBerryBushes(state: GameState, seed: number, camp: { x: number; y
 }
 
 /**
+ * Frostbloom (11章 フェーズ5), scattered the same way the berries are but into
+ * the open ground beside the rock rather than into the woods. Two reasons: the
+ * places a colony walks past in summer and ignores are exactly where it wants
+ * something to do in winter, and putting them against the stone means the
+ * winter harvest and the mine are in the same part of the map.
+ *
+ * They start bare rather than at a random ripeness. A bush the player finds
+ * half grown in spring is a bush that will sit at that value until the year
+ * turns, which reads as broken; starting at zero means the first bloom is
+ * always something winter did.
+ */
+function scatterFrostblooms(state: GameState, seed: number, camp: { x: number; y: number }): void {
+  const rnd = mulberry32(seed + 6421);
+  let placed = 0;
+  for (let attempt = 0; attempt < 1200 && placed < FROSTBLOOM_COUNT; attempt++) {
+    const x = Math.floor(rnd() * MAP_WIDTH);
+    const y = Math.floor(rnd() * MAP_HEIGHT);
+    const tile = state.tiles[tileIdOf(x, y)];
+    if (!tile || tile.terrain !== 'grass' || tile.buildingId) continue;
+    if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < 5) continue;
+    const nearRock = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+    ].some(([dx, dy]) => {
+      const neighbour = state.tiles[tileIdOf(x + dx, y + dy)];
+      return !!neighbour && isRock(neighbour.terrain);
+    });
+    if (!nearRock) continue;
+    addBuilding(state, 'frostbloom', tile.id);
+    placed++;
+  }
+}
+
+/**
  * Create a colonist. Names and colours cycle, so a colony that grows past the
  * hand-written list still has everybody visually distinct.
  */
@@ -339,7 +381,17 @@ export function addColonist(
  */
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
-  for (const species of ['deer', 'boar', 'rabbit', 'chicken', 'goat'] as AnimalSpecies[]) {
+  for (const species of [
+    'deer',
+    'boar',
+    'rabbit',
+    'chicken',
+    'goat',
+    // the fantasy layer (11章 フェーズ5): both start on the map from day one,
+    // because neither is a threat that needs a grace period
+    'crystalElk',
+    'rockeater',
+  ] as AnimalSpecies[]) {
     const wanted = scaledCount(SPECIES[species].initialCount, scenarioOf(state).wildlife);
     for (let i = 0; i < wanted; i++) {
       const spot = findSpawnTile(state, rnd, camp, species === 'chicken' || species === 'rabbit' ? 6 : 12);

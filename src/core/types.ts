@@ -212,6 +212,12 @@ export type BuildingType =
   | 'bed'
   | 'farmPlot'
   | 'berryBush'
+  /**
+   * [ext] Frostbloom (11章 フェーズ5). Wild like the berry bush, and grown the
+   * same way, but it reads the season table upside down: the one plant on the
+   * map whose season is winter. Nobody builds one.
+   */
+  | 'frostbloom'
   | 'storageZoneMarker'
   /**
    * [ext] The mana layer (11章 フェーズ2). A furnace burns crystal to supply a
@@ -405,7 +411,20 @@ export interface Zone {
 
 // --- animal layer (docs/design-phase2.5-animals.md) ----------------------------------
 
-export type AnimalSpecies = 'deer' | 'boar' | 'rabbit' | 'chicken' | 'goat' | 'wolf';
+export type AnimalSpecies =
+  | 'deer'
+  | 'boar'
+  | 'rabbit'
+  | 'chicken'
+  | 'goat'
+  | 'wolf'
+  /**
+   * [ext] The fantasy layer (11章 フェーズ5). A crystal elk is the only animal
+   * that produces something other than food, and a rockeater is the only one
+   * that eats the map rather than what grows on it.
+   */
+  | 'crystalElk'
+  | 'rockeater';
 
 /** What the player has marked this animal for; mirrors Tile.designation. */
 export type AnimalDesignation = 'hunt' | 'tame' | 'slaughter';
@@ -430,6 +449,13 @@ export type AnimalActivity =
    * it cannot open: it chews on the door instead. That is what gives a pen its
    * cost - it keeps the wolves out until it does not.
    */
+  /**
+   * [ext] A rockeater working through a tile of stone (11章 フェーズ5). It is
+   * not `attacking`: there is nothing to hurt, no bite interval and no target
+   * that can run away - just a countdown against a tile that either finishes or
+   * is interrupted because somebody mined it first.
+   */
+  | { kind: 'gnawing'; targetTileId: TileId; ticksRemaining: number }
   | {
       kind: 'attacking';
       targetKind: 'animal' | 'colonist' | 'building';
