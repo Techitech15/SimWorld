@@ -1,7 +1,7 @@
 import { HUNGER_THRESHOLD, SLEEP_THRESHOLD } from '../core/constants';
 import { MOOD_LOW, moodLabel, moodOf, thoughtsOf } from '../core/mood';
 import { AFFINITY_MAX, FRIEND_AT, closestTo } from '../core/relationships';
-import { SKILL_NAMES, levelOf } from '../core/skills';
+import { SKILL_NAMES, levelOf, titleSkillOf } from '../core/skills';
 import type { Colonist, GameState } from '../core/types';
 import { getNetworks, useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
@@ -160,6 +160,9 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
   const state = useGameStore((s) => s.state);
   if (!colonist) return null;
 
+  const titleSkill = titleSkillOf(colonist);
+  const title = titleSkill ? strings.titleLabels[titleSkill] : strings.titleColonist;
+
   return (
     <button
       type="button"
@@ -180,6 +183,7 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
           }}
         />
         <strong>{colonist.name}</strong>
+        <span className="muted">{title}</span>
         <span className="muted">{activityLabel(strings, colonist, state)}</span>
       </div>
       <NeedBar

@@ -11,6 +11,7 @@ export const icons = {
   deconstruct: sprites.jobDeconstruct,
   hunt: sprites.jobHunt,
   handle: sprites.jobHandle,
+  research: sprites.jobResearch,
   hunger: sprites.needHunger,
   sleep: sprites.needSleep,
   health: sprites.needHealth,

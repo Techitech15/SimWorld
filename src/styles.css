@@ -211,6 +211,12 @@ button.active {
   text-align: left;
 }
 
+/* a building nobody has researched yet: visible, named, not yet buildable
+   (design-phase12-research.md 3.3) */
+.tool--locked {
+  opacity: 0.45;
+}
+
 /* the build category switcher: one row of chips, only the open one's buttons below */
 .toolbar__categories {
   display: flex;
@@ -390,6 +396,34 @@ button.active {
 .work__auto {
   width: 100%;
   margin-top: 6px;
+}
+
+/* profession preset buttons, above the work table (design-phase12-research.md 4.2) */
+.professions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.professions button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.professions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* the research panel's grouped rows (11章 フェーズ12) */
+.research__block {
+  margin-bottom: 8px;
+}
+
+.research__block:last-child {
+  margin-bottom: 0;
 }
 
 .goals {

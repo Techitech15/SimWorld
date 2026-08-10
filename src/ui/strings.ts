@@ -26,6 +26,7 @@ import type {
   ResourceType,
   ScenarioName,
   SkillName,
+  TechName,
   TerrainType,
   TraderKind,
   TraitName,
@@ -79,6 +80,11 @@ export interface Strings {
   scenarioLabels: Record<ScenarioName, string>;
   scenarioDescriptions: Record<ScenarioName, string>;
   jobTypeLabels: Record<JobType, string>;
+  /** the research tree (11章 フェーズ12) */
+  techLabels: Record<TechName, string>;
+  /** the derived colonist title (design-phase12-research.md 4.2): highest skill wins */
+  titleLabels: Record<SkillName, string>;
+  titleColonist: string;
   activityLabels: Record<ColonistActivityName, string>;
   animalActivityLabels: Record<AnimalActivityName, string>;
   animalKinds: Record<AnimalKind, string>;
@@ -145,6 +151,8 @@ export interface Strings {
   costFree: string;
   costList: (costs: { type: ResourceType; quantity: number }[]) => string;
   buildButtonTitle: (label: string, cost: string) => string;
+  /** a build-menu button greyed out for a tech nobody has unlocked yet (design-phase12-research.md 3.3) */
+  lockedHint: (techLabel: string) => string;
   toolbarHintDrag: string;
   toolbarHintKeys: string;
 
@@ -217,6 +225,7 @@ export interface Strings {
   rowRest: string;
   rowTrait: string;
   rowPace: string;
+  rowTitle: string;
   needLine: (value: number, word: NeedWord) => string;
   skillMastered: (level: number) => string;
   skillProgress: (level: number, percent: number) => string;
@@ -284,6 +293,26 @@ export interface Strings {
   tradeFootnote: string;
   tradeGiveTitle: (give: ResourceType, take: ResourceType) => string;
   tradeCallOff: string;
+
+  // --- research panel (11章 フェーズ12) ---------------------------------------
+  panelResearch: string;
+  researchCurrentLabel: string;
+  researchNoneSelected: string;
+  researchProgressLine: (have: number, want: number) => string;
+  researchAwaitingDelivery: (need: string) => string;
+  researchAvailableLabel: string;
+  researchUnlockedLabel: string;
+  researchNoneUnlocked: string;
+  researchSelectTitle: (techLabel: string) => string;
+  researchCostLine: (points: number) => string;
+  researchUnlocksLine: (buildings: string) => string;
+  researchNoUnlocks: string;
+  researchNeedsDesk: string;
+
+  // --- profession presets (11章 フェーズ12, design-phase12-research.md 4.2) --
+  professionsLabel: string;
+  professionTitle: (label: string) => string;
+  professionNoSelection: string;
 
   // --- goals panel ----------------------------------------------------------
   goalSummaryLine: (done: number, total: number, season: Season) => string;
@@ -356,6 +385,7 @@ const EN_BUILDINGS: Record<BuildingType, string> = {
   dresser: 'Dresser',
   armchair: 'Armchair',
   statue: 'Statue',
+  researchDesk: 'Research desk',
 };
 
 const EN_SKILLS: Record<SkillName, string> = {
@@ -366,6 +396,26 @@ const EN_SKILLS: Record<SkillName, string> = {
   haul: 'Hauling',
   hunt: 'Hunting',
   handle: 'Animals',
+  research: 'Research',
+};
+
+const EN_TECHS: Record<TechName, string> = {
+  woodcraft: 'Woodcraft',
+  stonecarving: 'Stonecarving',
+  ironwork: 'Ironwork',
+  crystallography: 'Crystallography',
+};
+
+/** The colonist sheet's title (design-phase12-research.md 4.2): highest skill wins. */
+const EN_TITLES: Record<SkillName, string> = {
+  chop: 'Woodcutter',
+  mine: 'Miner',
+  farm: 'Farmer',
+  build: 'Builder',
+  haul: 'Hauler',
+  hunt: 'Hunter',
+  handle: 'Handler',
+  research: 'Researcher',
 };
 
 const EN_SEASONS: Record<Season, string> = {
@@ -481,7 +531,11 @@ const en: Strings = {
     handle: 'handle',
     deconstruct: 'deconstruct',
     repair: 'repair',
+    research: 'research',
   },
+  techLabels: EN_TECHS,
+  titleLabels: EN_TITLES,
+  titleColonist: 'Colonist',
   activityLabels: {
     idle: 'idle',
     eating: 'eating',
@@ -571,6 +625,7 @@ const en: Strings = {
     pasture: () => 'A pasture to keep them in',
     tame: (p) => `Livestock of your own (${p.tame})`,
     filter: () => 'Tell a store what it takes',
+    research: () => 'Finish your first research',
   },
   goalHints: {
     beds: 'Build > Bed. Sleeping on the ground recovers rest at little more than half the rate.',
@@ -582,6 +637,8 @@ const en: Strings = {
     pasture:
       'Build > Pasture on grass. Its area is what caps the herd, and the grass is what feeds them.',
     tame: 'Animals > Tame, on a deer, boar, rabbit or chicken. Wolves cannot be tamed.',
+    research:
+      'Build > Research desk, pick a tech in the research panel, then raise a column of the work table.',
     filter:
       'Click a storage tile and use the Accepts chips - a wood yard by the wall, a larder by the beds.',
   },
@@ -591,6 +648,7 @@ const en: Strings = {
     refusalMine: () => 'Mining needs a rock face.',
     refusalDeconstruct: () => 'Only a finished building can be dismantled.',
     refusalBuild: () => 'Nothing can be built there: the ground is taken or is solid rock.',
+    refusalLocked: (p) => `Requires ${en.techLabels[p.tech as TechName]} research.`,
     refusalStorage: () => 'A storage zone needs clear, walkable ground.',
     refusalPasture: () => 'A pasture needs grass to graze.',
     refusalTame: () => 'Nothing there can be tamed.',
@@ -685,6 +743,7 @@ const en: Strings = {
     traderLeft: (p) => `${p.name} packs up and leaves`,
     tradeSettled: (p) =>
       `traded ${p.gaveQuantity} ${EN_RESOURCES[p.gave as ResourceType]} for ${p.tookQuantity} ${EN_RESOURCES[p.took as ResourceType]}`,
+    researchUnlocked: (p) => `${en.techLabels[p.tech as TechName]} research completed`,
   },
   jobFailReasons: {
     interrupted: 'interrupted by a need',
@@ -753,6 +812,7 @@ const en: Strings = {
   costList: (costs) =>
     costs.map((c) => `${c.quantity} ${EN_RESOURCES[c.type]}`).join(', '),
   buildButtonTitle: (label, cost) => `${label} — ${cost}`,
+  lockedHint: (techLabel) => `Requires ${techLabel} research`,
   toolbarHintDrag:
     'Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms; WASD or the arrow keys pan too.',
   toolbarHintKeys:
@@ -826,6 +886,7 @@ const en: Strings = {
   rowRest: 'Rest',
   rowTrait: 'Trait',
   rowPace: 'Pace',
+  rowTitle: 'Title',
   needLine: (value, word) => `${value} — ${en.needWords[word]}`,
   skillMastered: (level) => `${level} — mastered`,
   skillProgress: (level, percent) => `${level} (${percent}% to ${level + 1})`,
@@ -893,6 +954,24 @@ const en: Strings = {
   tradeGiveTitle: (give, take) => `hand over ${EN_RESOURCES[give]} for ${EN_RESOURCES[take]}`,
   tradeCallOff: 'Call the deal off',
 
+  panelResearch: 'Research',
+  researchCurrentLabel: 'Current',
+  researchNoneSelected: 'No tech selected',
+  researchProgressLine: (have, want) => `${have} / ${want}`,
+  researchAwaitingDelivery: (need) => `Awaiting delivery: ${need}`,
+  researchAvailableLabel: 'Available',
+  researchUnlockedLabel: 'Unlocked',
+  researchNoneUnlocked: 'Nothing unlocked yet',
+  researchSelectTitle: (techLabel) => `research ${techLabel}`,
+  researchCostLine: (points) => `${points} points`,
+  researchUnlocksLine: (buildings) => `unlocks: ${buildings}`,
+  researchNoUnlocks: 'unlocks nothing yet',
+  researchNeedsDesk: 'Build a research desk to put a chosen tech to work.',
+
+  professionsLabel: 'Set as:',
+  professionTitle: (label) => `Set the selected colonist's priorities to ${label}`,
+  professionNoSelection: 'Select a colonist first',
+
   goalSummaryLine: (done, total, season) => `${done}/${total} — ${EN_SEASONS[season]}`,
   goalsDead: 'The colony has died out.',
   goalNext: (label) => ` · next: ${label}`,
@@ -948,6 +1027,7 @@ const JA_BUILDINGS: Record<BuildingType, string> = {
   dresser: '戸棚',
   armchair: '安楽椅子',
   statue: '石像',
+  researchDesk: '研究台',
 };
 
 const JA_SKILLS: Record<SkillName, string> = {
@@ -958,6 +1038,26 @@ const JA_SKILLS: Record<SkillName, string> = {
   haul: '運搬',
   hunt: '狩猟',
   handle: '世話',
+  research: '研究',
+};
+
+const JA_TECHS: Record<TechName, string> = {
+  woodcraft: '木工の心得',
+  stonecarving: '石彫の心得',
+  ironwork: '鉄工の基礎',
+  crystallography: '晶学の初歩',
+};
+
+/** 入植者パネルの肩書き（design-phase12-research.md 4.2）。最高スキルが決める。 */
+const JA_TITLES: Record<SkillName, string> = {
+  chop: '木こり',
+  mine: '坑夫',
+  farm: '農夫',
+  build: '建築士',
+  haul: '運び手',
+  hunt: '狩人',
+  handle: '世話係',
+  research: '研究者',
 };
 
 const JA_SEASONS: Record<Season, string> = {
@@ -1066,7 +1166,11 @@ const ja: Strings = {
     handle: '世話',
     deconstruct: '解体',
     repair: '修理',
+    research: '研究',
   },
+  techLabels: JA_TECHS,
+  titleLabels: JA_TITLES,
+  titleColonist: '入植者',
   activityLabels: {
     idle: '手すき',
     eating: '食事中',
@@ -1151,6 +1255,7 @@ const ja: Strings = {
     pasture: () => '家畜を放す牧草地を',
     tame: (p) => `自分の家畜を（${p.tame}頭）`,
     filter: () => '倉庫に受け入れ品目を教える',
+    research: () => '最初の研究を終える',
   },
   goalHints: {
     beds: '建設 > ベッド。地面で寝ると休息の回復は半分ほどしかない。',
@@ -1158,6 +1263,7 @@ const ja: Strings = {
     farm: '建設 > 畑。入植者ひとりに畑一面が回る植民地。それ未満は縮む植民地。',
     stone: '指示 > 採掘で岩壁を。石の壁は建てるのに時間がかかるが、壊すには倍かかる。',
     wall: '建設 > 壁、そこにドアを。動物は取っ手を回せないので、壁とドアが囲いになる。',
+    research: '建設 > 研究台を建て、研究パネルでテックを選び、仕事優先度表の列を上げる。',
     pasture: '建設 > 牧草地を草地の上に。広さが頭数の上限を決め、草がそのまま餌になる。',
     tame: '動物 > 飼い慣らしを、シカ・イノシシ・ウサギ・ニワトリに。オオカミは慣れない。',
     filter: '備蓄タイルをクリックして受け入れチップを。壁際に木材置き場、ベッドの隣に食料庫。',
@@ -1168,6 +1274,7 @@ const ja: Strings = {
     refusalMine: () => '採掘には岩壁が要る。',
     refusalDeconstruct: () => '解体できるのは完成した建物だけ。',
     refusalBuild: () => 'そこには建てられない：地面が塞がっているか岩盤になっている。',
+    refusalLocked: (p) => `${ja.techLabels[p.tech as TechName]}の研究が必要。`,
     refusalStorage: () => '備蓄ゾーンには歩ける更地が要る。',
     refusalPasture: () => '牧草地には草地が要る。',
     refusalTame: () => 'そこに飼い慣らせるものはいない。',
@@ -1252,6 +1359,7 @@ const ja: Strings = {
     traderLeft: (p) => `${p.name}は店をたたんで去っていった`,
     tradeSettled: (p) =>
       `${JA_RESOURCES[p.gave as ResourceType]}${p.gaveQuantity}を${JA_RESOURCES[p.took as ResourceType]}${p.tookQuantity}と交換した`,
+    researchUnlocked: (p) => `${ja.techLabels[p.tech as TechName]}の研究が完了した`,
   },
   jobFailReasons: {
     interrupted: '欲求による中断',
@@ -1319,6 +1427,7 @@ const ja: Strings = {
   costFree: '無料',
   costList: (costs) => costs.map((c) => `${JA_RESOURCES[c.type]}${c.quantity}`).join('、'),
   buildButtonTitle: (label, cost) => `${label} — ${cost}`,
+  lockedHint: (techLabel) => `${techLabel}の研究が必要`,
   toolbarHintDrag:
     'ドラッグで範囲にツールを適用。右ドラッグか Shift ドラッグで画面移動、ホイールで拡縮。WASD と矢印キーでも動く。',
   toolbarHintKeys:
@@ -1391,6 +1500,7 @@ const ja: Strings = {
   rowRest: '休息',
   rowTrait: '特性',
   rowPace: '作業速度',
+  rowTitle: '肩書き',
   needLine: (value, word) => `${value} — ${ja.needWords[word]}`,
   skillMastered: (level) => `${level} — 極めた`,
   skillProgress: (level, percent) => `${level}（次のレベルまで${percent}%）`,
@@ -1457,6 +1567,24 @@ const ja: Strings = {
     '何を渡し、何を受け取るかを決める。持ち込みは通常の運搬仕事なので、他のすべての運搬と取り合いになる。',
   tradeGiveTitle: (give, take) => `${JA_RESOURCES[give]}を渡して${JA_RESOURCES[take]}を受け取る`,
   tradeCallOff: '取引をやめる',
+
+  panelResearch: '研究',
+  researchCurrentLabel: '研究中',
+  researchNoneSelected: 'テック未選択',
+  researchProgressLine: (have, want) => `${have} / ${want}`,
+  researchAwaitingDelivery: (need) => `搬入待ち：${need}`,
+  researchAvailableLabel: '選択できるテック',
+  researchUnlockedLabel: '解禁済み',
+  researchNoneUnlocked: 'まだ何も解禁していない',
+  researchSelectTitle: (techLabel) => `${techLabel}を研究する`,
+  researchCostLine: (points) => `${points}進捗`,
+  researchUnlocksLine: (buildings) => `解禁：${buildings}`,
+  researchNoUnlocks: '当面は解禁なし',
+  researchNeedsDesk: '研究台を建てると、選んだテックに取りかかれる。',
+
+  professionsLabel: '職業:',
+  professionTitle: (label) => `選択中の入植者の優先度を${label}にする`,
+  professionNoSelection: 'まず入植者を選ぶ',
 
   goalSummaryLine: (done, total, season) => `${done}/${total} — ${JA_SEASONS[season]}`,
   goalsDead: '植民地は全滅した。',

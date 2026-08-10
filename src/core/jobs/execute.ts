@@ -17,6 +17,8 @@ import {
   MAX_RETRIES,
   SPECIES,
   TAME_FAIL_FLEE_TICKS,
+  TECH_PROGRESS_PER_CYCLE,
+  TECHS,
   veinYieldOf,
   WOOD_PER_TREE,
   WORK_TICKS,
@@ -231,6 +233,34 @@ function applyJobEffect(
         invalidateTile(ctx, state, tile.id);
       }
       addLog(state, 'buildingDismantled', { building: building.type, tile: tile.id });
+      break;
+    }
+    case 'research': {
+      // Guarded by isJobStillValid, so `current` is set whenever a research job
+      // is actually executing; the null check is only for a tech finishing on
+      // the very tick two colonists both bank progress into it.
+      const current = state.research.current;
+      if (!current) break;
+      const colonist = state.colonists[colonistId];
+      const rate = workRate(
+        colonist,
+        'research',
+        moodOf(state, colonist, refreshNetworks(ctx, state)),
+      );
+      const progress = (state.research.progress[current] ?? 0) + TECH_PROGRESS_PER_CYCLE * rate;
+      if (progress >= TECHS[current].cost) {
+        state.research = {
+          current: null,
+          progress: { ...state.research.progress, [current]: progress },
+          unlocked: [...state.research.unlocked, current],
+        };
+        addLog(state, 'researchUnlocked', { tech: current });
+      } else {
+        state.research = {
+          ...state.research,
+          progress: { ...state.research.progress, [current]: progress },
+        };
+      }
       break;
     }
     default:

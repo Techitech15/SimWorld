@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import * as actions from '../core/actions';
 import { createSimContext, rebuildPathIndex, rebuildRegions } from '../core/derived';
 import { refreshNetworks } from '../core/mana';
+import { isUnlocked, techForBuilding } from '../core/research';
 import { clearTradeDeal, setTradeDeal } from '../core/trade';
 import type { ManaNetworks } from '../core/mana';
 import type { SimContext } from '../core/derived';
@@ -24,6 +25,7 @@ import type {
   GameState,
   JobType,
   ResourceType,
+  TechName,
   TileId,
   Vector2,
   ZoneId,
@@ -59,6 +61,7 @@ export type StatusKey =
   | 'refusalMine'
   | 'refusalDeconstruct'
   | 'refusalBuild'
+  | 'refusalLocked' // { tech } - build menu bypass onto a still-locked type
   | 'refusalStorage'
   | 'refusalPasture'
   | 'refusalTame'
@@ -142,6 +145,8 @@ export interface GameStore {
   applyTool: (tileIds: TileId[]) => void;
   orderMove: (colonistId: ColonistId, target: Vector2) => void;
   toggleFarmSowing: (tileId: TileId) => void;
+  setResearchCurrent: (tech: TechName | null) => void;
+  applyProfession: (colonistId: ColonistId, primary: JobType) => void;
 
   // persistence
   newGame: (scenario?: ScenarioName, seed?: number) => void;
@@ -188,14 +193,16 @@ function applyToolTo(state: GameState, tool: Tool, tileIds: TileId[]): GameState
 }
 
 /** Why a tool refused the whole drag, in the player's terms. */
-function refusalFor(tool: Tool): StatusKey | null {
+function refusalFor(tool: Tool, state: GameState): StatusKey | null {
   switch (tool.kind) {
     case 'designate':
       if (tool.designation === 'chop') return 'refusalChop';
       if (tool.designation === 'mine') return 'refusalMine';
       return 'refusalDeconstruct';
     case 'build':
-      return 'refusalBuild';
+      // a locked type refuses for a different reason than occupied ground, and
+      // the player has to be told which one it was (design-phase12-research.md 3.3)
+      return isUnlocked(state, tool.building) ? 'refusalBuild' : 'refusalLocked';
     case 'storage':
       return 'refusalStorage';
     case 'pasture':
@@ -284,8 +291,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // Every tool silently ignores tiles it cannot use, so a drag that lands
       // entirely on the wrong ground did nothing and looked like a broken
       // click. Say which rule refused it.
-      const why = refusalFor(tool);
-      set(why ? { statusMessage: { key: why } } : {});
+      const why = refusalFor(tool, state);
+      const params =
+        why === 'refusalLocked' && tool.kind === 'build'
+          ? { tech: techForBuilding(tool.building) ?? '' }
+          : undefined;
+      set(why ? { statusMessage: { key: why, params } } : {});
       return;
     }
     set({ state: next, statusMessage: null });
@@ -297,6 +308,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }),
 
   toggleFarmSowing: (tileId) => set({ state: actions.toggleFarmSowing(get().state, tileId) }),
+
+  setResearchCurrent: (tech) =>
+    set({ state: actions.setResearchCurrent(get().state, tech) }),
+
+  applyProfession: (colonistId, primary) =>
+    set({ state: actions.applyProfession(get().state, colonistId, primary) }),
 
   newGame: (scenario, seed) => {
     const chosen = scenario ?? DEFAULT_SCENARIO;

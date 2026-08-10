@@ -5,8 +5,9 @@
 // so a designated tree never grows a second chop job while the first is alive.
 import { DEFAULT_JOB_PRIORITY } from '../constants';
 import { wantsFuel } from '../mana';
+import { deskReadyToResearch, researchResourceCost } from '../research';
 import { findTradingPost, traderAtPost } from '../trade';
-import { nextId, tileIdOf, isRock } from '../state';
+import { nextId, tileIdOf, isRock, updateBuilding } from '../state';
 import { acceptsHere, findNearestItem } from '../storage';
 import type { GameState, Job, JobId, JobType, TileId } from '../types';
 
@@ -208,6 +209,57 @@ export function runJobGenerator(state: GameState): void {
     claim(key);
   }
 
+  // --- research: the desk works through whatever tech is selected -----------
+  // Mirrors the blueprint-delivery loop above: a resource-costing tech (only
+  // crystallography, for now) gets its cost lines added to the desk's own
+  // `requiredResources` once, and a haul job follows for whatever is still
+  // outstanding - the same shape a blueprint's own materials take, and the
+  // same field, so nothing new has to track "how much has arrived so far"
+  // (design-phase12-research.md 2.1, 3.2).
+  for (const buildingId in state.buildings) {
+    let building = state.buildings[buildingId];
+    if (building.type !== 'researchDesk' || building.isBlueprint) continue;
+
+    const need = researchResourceCost(state);
+    if (need.length > 0) {
+      const missingLines = need.filter(
+        (line) => !building.requiredResources.some((r) => r.type === line.type),
+      );
+      if (missingLines.length > 0) {
+        building = updateBuilding(state, buildingId, {
+          requiredResources: [
+            ...building.requiredResources,
+            ...missingLines.map((line) => ({ ...line })),
+          ],
+        });
+      }
+      for (const line of need) {
+        const have = building.requiredResources.find((r) => r.type === line.type);
+        if (!have || have.quantity <= 0) continue;
+        const key = `deliver:${buildingId}:${line.type}`;
+        if (has(key)) continue;
+        const tile = state.tiles[building.tileId];
+        const source = findNearestItem(state, line.type, { x: tile.x, y: tile.y }, {
+          preferStorage: true,
+        });
+        if (!source) continue;
+        createJob(state, 'haul', {
+          targetTileId: tileIdOf(source.position.x, source.position.y),
+          targetEntityId: source.id,
+          destinationId: buildingId,
+          payloadType: line.type,
+        });
+        claim(key);
+      }
+    }
+
+    if (!state.research.current || !deskReadyToResearch(state, building)) continue;
+    const key = `research:${building.tileId}`;
+    if (has(key)) continue;
+    createJob(state, 'research', { targetTileId: building.tileId, targetEntityId: buildingId });
+    claim(key);
+  }
+
   // --- a standing trade deal -> haul the goods to the post -------------------
   // The same haul job again, pointed at the post. Making a deal is hauling
   // work, so it competes with everything else on that column: a colony that
@@ -330,6 +382,12 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       return !!building && !building.isBlueprint && building.hpCurrent < building.hpMax;
     }
+    case 'research': {
+      const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      if (!building || building.isBlueprint || building.type !== 'researchDesk') return false;
+      if (!state.research.current) return false;
+      return deskReadyToResearch(state, building);
+    }
     case 'hunt':
     case 'handle': {
       const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;
@@ -353,6 +411,13 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
           if (destination.type === 'tradingPost' && !destination.isBlueprint) {
             const trader = traderAtPost(state);
             return !!trader && trader.deal?.give === item.type;
+          }
+          // a finished research desk still takes deliveries for a resource-costing
+          // tech, tracked on its own requiredResources exactly like a blueprint
+          if (destination.type === 'researchDesk' && !destination.isBlueprint) {
+            return destination.requiredResources.some(
+              (r) => r.type === item.type && r.quantity > 0,
+            );
           }
           if (!destination.isBlueprint) return false;
           return destination.requiredResources.some((r) => r.type === item.type && r.quantity > 0);

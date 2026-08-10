@@ -30,7 +30,8 @@ export function jobWorkSite(
     case 'chop':
     case 'farm':
     case 'deconstruct':
-    case 'repair': {
+    case 'repair':
+    case 'research': {
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
       if (!tile) return null;
       return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable };
@@ -77,6 +78,7 @@ function reservationTargets(state: GameState, job: Job): string[] | null {
     case 'repair':
     case 'hunt':
     case 'handle':
+    case 'research':
       return job.targetEntityId ? [job.targetEntityId] : null;
     case 'haul': {
       const item: Item | undefined = job.targetEntityId

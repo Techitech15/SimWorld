@@ -61,7 +61,10 @@ function makeTile(x: number, y: number, terrain: Tile['terrain']): Tile {
 
 function defaultPriorities(): Record<JobType, number> {
   const table = {} as Record<JobType, number>;
-  for (const t of JOB_TYPES) table[t] = t === 'haul' ? 3 : 2;
+  // research starts at the lowest priority too (design-phase12-research.md
+  // 2.2): a colonist should never drift to the desk before the player has
+  // built one, picked a tech, and raised this column on purpose
+  for (const t of JOB_TYPES) table[t] = t === 'haul' || t === 'research' ? 3 : 2;
   return table;
 }
 

@@ -379,6 +379,48 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 200).tick).toBe(harness.state.tick + 200);
   });
 
+  it('migrates a version 19 save into the research tree', () => {
+    // A real v19 save predates research entirely: no `research` on state, no
+    // `research` column on any colonist's workPriorities or skills.
+    const harness = createHarness(109);
+    harness.run(100);
+    const v19 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { research: _dropped, ...rest } = v19;
+    for (const id in rest.colonists) {
+      const { research: _wp, ...workPriorities } = rest.colonists[id].workPriorities as Record<
+        string,
+        number
+      >;
+      const { research: _sk, ...skills } = rest.colonists[id].skills as Record<string, number>;
+      rest.colonists[id] = {
+        ...rest.colonists[id],
+        workPriorities: workPriorities as GameState['colonists'][string]['workPriorities'],
+        skills: skills as GameState['colonists'][string]['skills'],
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 19,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // 3.1: nothing existing gets re-locked, and nothing is unlocked for free
+    expect(migrated.state.research).toEqual({
+      current: null,
+      progress: { woodcraft: 0, stonecarving: 0, ironwork: 0, crystallography: 0 },
+      unlocked: [],
+    });
+    for (const id in migrated.state.colonists) {
+      expect(migrated.state.colonists[id].workPriorities.research).toBe(3);
+      expect(migrated.state.colonists[id].skills.research).toBe(0);
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

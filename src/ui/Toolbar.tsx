@@ -1,3 +1,4 @@
+import { techForBuilding } from '../core/research';
 import { useGameStore } from '../store/gameStore';
 import type { Tool } from '../store/gameStore';
 import {
@@ -31,14 +32,24 @@ export function Toolbar(): React.JSX.Element {
   const setTool = useGameStore((s) => s.setTool);
   const category = useBuildCategoryStore((s) => s.category);
   const setCategory = useBuildCategoryStore((s) => s.setCategory);
+  // a joined string, not the array: this selector runs every tick and a fresh
+  // array reference would never compare equal (the same reason ResearchPanel
+  // joins its rows)
+  const unlockedJoined = useGameStore((s) => s.state.research.unlocked.join(','));
   const strings = useStrings();
 
-  const button = (candidate: Tool, label: string, iconUrl?: string, title?: string) => (
+  const button = (
+    candidate: Tool,
+    label: string,
+    iconUrl?: string,
+    title?: string,
+    locked?: boolean,
+  ) => (
     <button
       key={label}
       type="button"
       title={title ?? label}
-      className={sameTool(tool, candidate) ? 'tool active' : 'tool'}
+      className={`${sameTool(tool, candidate) ? 'tool active' : 'tool'}${locked ? ' tool--locked' : ''}`}
       onClick={() => setTool(candidate)}
     >
       {iconUrl ? <img src={iconUrl} alt="" width={20} height={20} /> : null}
@@ -76,14 +87,20 @@ export function Toolbar(): React.JSX.Element {
             </button>
           ))}
         </div>
-        {BUILD_MENU.filter((entry) => entry.category === category).map((entry) =>
-          button(
+        {BUILD_MENU.filter((entry) => entry.category === category).map((entry) => {
+          // grey it out rather than hide it (design-phase12-research.md 3.3):
+          // "here is something, here is how to unlock it" is the whole point
+          const tech =
+            entry.tool.kind === 'build' ? techForBuilding(entry.tool.building) : undefined;
+          const locked = !!tech && !unlockedJoined.split(',').includes(tech);
+          return button(
             entry.tool,
             buildMenuLabel(strings, entry),
             MENU_ICONS[entry.tool.kind],
-            buildMenuHint(strings, entry),
-          ),
-        )}
+            locked ? strings.lockedHint(strings.techLabels[tech]) : buildMenuHint(strings, entry),
+            locked,
+          );
+        })}
         {button({ kind: 'cancel' }, strings.toolCancel, undefined, strings.toolCancelHint)}
       </div>
 

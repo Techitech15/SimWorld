@@ -28,7 +28,8 @@ export type GoalId =
   | 'wall'
   | 'pasture'
   | 'tame'
-  | 'filter';
+  | 'filter'
+  | 'research';
 
 export interface Goal {
   id: GoalId;
@@ -130,6 +131,15 @@ export function colonyGoals(state: GameState): Goal[] {
       params: {},
       done: filtered,
       progress: filtered ? 1 : 0,
+    },
+    {
+      // "the first research" (design-phase12-research.md 3.3): derived from
+      // `unlocked`, so it drops off the moment a colony's first tech clears,
+      // whatever built the desk or picked the tech in between.
+      id: 'research',
+      params: {},
+      done: state.research.unlocked.length > 0,
+      progress: state.research.unlocked.length > 0 ? 1 : 0,
     },
   ];
 

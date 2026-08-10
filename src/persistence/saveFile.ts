@@ -5,12 +5,13 @@
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
 import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
+import { emptyResearch } from '../core/research';
 import { DEFAULT_SCENARIO } from '../core/scenario';
 import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -342,6 +343,28 @@ export const migrations: Record<number, Migration> = {
       zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'iron'] };
     }
     return { ...state, tiles, zones };
+  },
+
+  /**
+   * 19 -> 20: the research tree (11章 フェーズ12). No save from before this can
+   * have a desk, a selected tech or any progress, so the colony starts exactly
+   * where 3.1 promises it does: nothing unlocked, nothing re-locked, every
+   * existing building still standing. `research.research = 3` and
+   * `skills.research = 0` join every colonist the same way the traits and
+   * recreation migrations added a field nobody had touched yet.
+   */
+  19: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        workPriorities: { ...colonist.workPriorities, research: colonist.workPriorities?.research ?? 3 },
+        skills: { ...colonist.skills, research: colonist.skills?.research ?? 0 },
+      };
+    }
+    return { ...state, colonists, research: state.research ?? emptyResearch() };
   },
 };
 

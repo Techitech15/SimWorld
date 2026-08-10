@@ -1,9 +1,50 @@
 import { JOB_TYPES } from '../core/types';
-import type { JobType } from '../core/types';
+import type { JobType, SkillName } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
 import { icons } from './icons';
 import { useStrings } from './language';
+
+/**
+ * Which bundles get a button (design-phase12-research.md 4.2). Six of the
+ * eight columns, chosen for how often a player would actually reach for them;
+ * the titles that label them are the same ones the colonist sheet derives
+ * (`titleLabels`), so the button and the displayed title never disagree about
+ * what a "Farmer" is.
+ */
+const PROFESSION_PRESETS: SkillName[] = ['farm', 'build', 'mine', 'chop', 'hunt', 'research'];
+
+/**
+ * One click sets every column of the selected colonist's row at once - a
+ * declared bundle, not a nudge (unlike "assign by skill" below, which only
+ * ever raises a column, never lowers one). Nothing about the preset itself is
+ * saved; only the `workPriorities` it produces are.
+ */
+function ProfessionPresets(): React.JSX.Element {
+  const strings = useStrings();
+  const selectedColonistId = useGameStore((s) => s.selectedColonistId);
+  const applyProfession = useGameStore((s) => s.applyProfession);
+  return (
+    <div className="professions">
+      <span className="filters__label">{strings.professionsLabel}</span>
+      {PROFESSION_PRESETS.map((primary) => (
+        <button
+          key={primary}
+          type="button"
+          disabled={!selectedColonistId}
+          title={
+            selectedColonistId
+              ? strings.professionTitle(strings.titleLabels[primary])
+              : strings.professionNoSelection
+          }
+          onClick={() => selectedColonistId && applyProfession(selectedColonistId, primary)}
+        >
+          {strings.titleLabels[primary]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const JOB_ICON: Record<JobType, string> = {
   chop: icons.chop,
@@ -16,6 +57,7 @@ const JOB_ICON: Record<JobType, string> = {
   haul: icons.haul,
   hunt: icons.hunt,
   handle: icons.handle,
+  research: icons.research,
 };
 
 /**
@@ -68,6 +110,7 @@ export function WorkPriorityTable(): React.JSX.Element {
 
   return (
     <>
+      <ProfessionPresets />
       <table className="work">
         <thead>
           <tr>

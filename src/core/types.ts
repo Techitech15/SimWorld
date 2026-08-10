@@ -255,11 +255,39 @@ export type BuildingType =
   | 'stool'
   | 'dresser'
   | 'armchair'
-  | 'statue';
+  | 'statue'
+  /**
+   * [ext] The research desk (11章 フェーズ12, design-phase12-research.md 2章).
+   * One building, one job, one column: it targets the desk the same way a
+   * farm plot targets `farm`, and what it unlocks lives in `TECHS`
+   * (src/core/constants.ts) rather than on the building, for the same reason
+   * `SPECIES` is a table and not a field.
+   */
+  | 'researchDesk';
 
 export interface RequiredResource {
   type: ResourceType;
   quantity: number;
+}
+
+/**
+ * [ext] The research tree (11章 フェーズ12, design-phase12-research.md 3.2).
+ * Four techs, two deep: `TECHS` (src/core/constants.ts) carries prerequisites,
+ * cost and what each unlocks - a kind's profile, not an instance's, so it is
+ * never saved (the same reasoning as `SPECIES`).
+ */
+export type TechName = 'woodcraft' | 'stonecarving' | 'ironwork' | 'crystallography';
+
+/**
+ * [ext] What the colony has done with the tree so far (design-phase12-research.md 5章).
+ * `progress` keeps every tech's tally, completed ones included: it is a
+ * history, not a derived value, so it is not reset on completion.
+ */
+export interface ResearchState {
+  /** the tech the desk is working on; null = nothing selected */
+  current: TechName | null;
+  progress: Record<TechName, number>;
+  unlocked: TechName[];
 }
 
 export interface Building {
@@ -357,7 +385,13 @@ export type JobType =
   | 'hunt'
   | 'handle'
   | 'deconstruct'
-  | 'repair';
+  | 'repair'
+  /**
+   * [ext] Working the research desk (11章 フェーズ12). Its own column, its own
+   * skill, default priority 3 (lowest) so a colonist never drifts to the desk
+   * unasked (design-phase12-research.md 2.2).
+   */
+  | 'research';
 
 /**
  * The columns of the work-priority table. `deconstruct` and `repair` are
@@ -372,6 +406,7 @@ export const JOB_TYPES: JobType[] = [
   'haul',
   'hunt',
   'handle',
+  'research',
 ];
 
 /**
@@ -601,6 +636,8 @@ export interface GameState {
   deaths: { colonistId: ColonistId; name: string; tick: number }[];
   /** rolling event log surfaced in the UI (failed jobs, deaths of crops, ...) */
   log: LogEntry[];
+  /** [ext] the research tree (11章 フェーズ12). The one field the phase adds. */
+  research: ResearchState;
 }
 
 /**
@@ -662,7 +699,8 @@ export type LogKey =
   | 'rockeaterExposedVein' // { name, tile }
   | 'traderArrived' // { name, kind }
   | 'traderLeft' // { name }
-  | 'tradeSettled'; // { gaveQuantity, gave, tookQuantity, took }
+  | 'tradeSettled' // { gaveQuantity, gave, tookQuantity, took }
+  | 'researchUnlocked'; // { tech }
 
 /**
  * [ext] Why a job was given up on; rendered per language like everything else.

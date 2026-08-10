@@ -6,6 +6,7 @@
 // (plus the handful of always-mutated colonist/job objects) and every mutation
 // helper below replaces the individual entity object it touches.
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from './constants';
+import { emptyResearch } from './research';
 import type {
   Animal,
   AnimalId,
@@ -80,6 +81,7 @@ export function createEmptyState(
     relationships: {},
     deaths: [],
     log: [],
+    research: emptyResearch(),
   };
 }
 

@@ -14,7 +14,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GameState } from '../core/types';
 
-export type PanelId = 'goals' | 'colonists' | 'work' | 'animals' | 'log' | 'resources' | 'map';
+export type PanelId =
+  | 'goals'
+  | 'colonists'
+  | 'work'
+  | 'animals'
+  | 'log'
+  | 'resources'
+  | 'map'
+  | 'research';
 
 const KEY = 'simworld.panels';
 
@@ -49,6 +57,9 @@ function write(value: Stored): void {
 export interface ColonyShape {
   colonists: number;
   anyTame: boolean;
+  /** [ext] a finished research desk (11章 フェーズ12): the panel is worth
+   *  opening the moment there is one to work, not before. */
+  hasResearchDesk: boolean;
 }
 
 export function defaultOpenFrom(id: PanelId, shape: ColonyShape): boolean {
@@ -58,6 +69,8 @@ export function defaultOpenFrom(id: PanelId, shape: ColonyShape): boolean {
       return shape.colonists > 3;
     case 'animals':
       return shape.anyTame;
+    case 'research':
+      return shape.hasResearchDesk;
     case 'log':
       return false;
     default:
@@ -71,6 +84,9 @@ export function defaultOpen(id: PanelId, state: GameState): boolean {
   return defaultOpenFrom(id, {
     colonists: Object.keys(state.colonists).length,
     anyTame: Object.values(state.animals).some((a) => a.tame),
+    hasResearchDesk: Object.values(state.buildings).some(
+      (b) => b.type === 'researchDesk' && !b.isBlueprint,
+    ),
   });
 }
 

@@ -8,6 +8,7 @@ import { Fold } from './Fold';
 import { GameCanvas } from './GameCanvas';
 import { GoalPanel } from './GoalPanel';
 import { Minimap } from './Minimap';
+import { ResearchPanel } from './ResearchPanel';
 import { TradePanel } from './TradePanel';
 import { ResourcePanel } from './ResourcePanel';
 import { SelectionFrame } from './SelectionFrame';
@@ -63,6 +64,9 @@ export function App(): React.JSX.Element {
           </Fold>
           <Fold id="work" title={strings.panelWork}>
             <WorkPriorityTable />
+          </Fold>
+          <Fold id="research" title={strings.panelResearch}>
+            <ResearchPanel />
           </Fold>
           <Fold id="animals" title={strings.panelAnimals}>
             <AnimalPanel />

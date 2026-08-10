@@ -29,7 +29,7 @@ export interface BuildMenuEntry {
 }
 
 export const BUILD_MENU: BuildMenuEntry[] = [
-  // structure: 5
+  // structure: 7 - the new size cap, matched by furniture below (design-phase12-research.md 2.2)
   { tool: { kind: 'build', building: 'wall' }, category: 'structure', shortcut: 'b' },
   { tool: { kind: 'build', building: 'stoneWall' }, category: 'structure' },
   { tool: { kind: 'build', building: 'floor' }, category: 'structure', shortcut: 'f' },
@@ -38,6 +38,9 @@ export const BUILD_MENU: BuildMenuEntry[] = [
   // the trading post is a structure the colony erects, not a zone it paints:
   // it costs materials, occupies its tile, and traders stand beside it (フェーズ5)
   { tool: { kind: 'build', building: 'tradingPost' }, category: 'structure' },
+  // the research desk (11章 フェーズ12): a structure like any other in the menu,
+  // and never itself gated by a tech (design-phase12-research.md 3.1)
+  { tool: { kind: 'build', building: 'researchDesk' }, category: 'structure' },
   // furniture: 7 - the largest category, which is what sets the visible-button
   // cap the switcher design is built around (design-phase10-ores.md 5.2)
   { tool: { kind: 'build', building: 'bed' }, category: 'furniture', shortcut: 'n' },

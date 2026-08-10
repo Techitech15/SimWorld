@@ -69,6 +69,27 @@ export function workRate(colonist: Colonist, workType: JobType, mood?: number): 
   return mood === undefined ? rate : rate * moodWorkFactor(mood);
 }
 
+/**
+ * [ext] The skill that earns a colonist their displayed title (11章 フェーズ12,
+ * design-phase12-research.md 4.2). Highest level wins; a tie goes to whichever
+ * skill comes first in `SKILL_NAMES`, which is what keeps the title from
+ * flickering between two columns levelling up together. `null` at level 0
+ * everywhere - the caller shows "colonist" in that case. Display only: nothing
+ * in the simulation reads this.
+ */
+export function titleSkillOf(colonist: Colonist): SkillName | null {
+  let best: SkillName | null = null;
+  let bestLevel = 0;
+  for (const name of SKILL_NAMES) {
+    const level = skillLevel(colonist, name);
+    if (level > bestLevel) {
+      bestLevel = level;
+      best = name;
+    }
+  }
+  return best;
+}
+
 export function emptySkills(): Record<SkillName, number> {
   const skills = {} as Record<SkillName, number>;
   for (const name of SKILL_NAMES) skills[name] = 0;

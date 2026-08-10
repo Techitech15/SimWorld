@@ -338,6 +338,11 @@ describe('what furniture costs', () => {
     addItem(harness.state, 'iron', 10, at.x, at.y + 1);
     addItem(harness.state, 'stone', 30, at.x + 1, at.y + 1);
 
+    // the dresser is gated behind ironwork (11章 フェーズ12); the table and
+    // stool stayed free on purpose (design-phase12-research.md 3.1), which is
+    // exactly what this test is about, so only the dresser's tech is unlocked
+    harness.state.research = { ...harness.state.research, unlocked: ['ironwork'] };
+
     const tableTile = tileIdOf(at.x + 3, at.y);
     const dresserTile = tileIdOf(at.x + 3, at.y + 2);
     harness.state = placeBuildingBlueprint(harness.state, 'table', [tableTile]);

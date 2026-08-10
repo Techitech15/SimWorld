@@ -1475,6 +1475,55 @@ function statueTile() {
   return c;
 }
 
+// --- research (11章 フェーズ12, design-phase12-research.md) -----------------
+
+/** The research desk: a plank lectern with an open book laid across it. */
+function researchDeskTile() {
+  const c = new Canvas(TILE, TILE);
+  // legs
+  for (const [x, y] of [
+    [5, 22],
+    [24, 22],
+  ]) {
+    c.rect(x, y, 3, 7, P.plankDark);
+  }
+  // the desktop
+  c.rect(3, 14, 26, 10, P.plankMid);
+  c.hline(3, 14, 26, P.plankLight);
+  c.hline(3, 23, 26, P.plankDark);
+  c.vline(3, 14, 10, P.plankLight);
+  c.vline(28, 14, 10, P.plankDark);
+  // the open book: two pages meeting at a spine
+  c.rect(8, 8, 8, 11, '#ede0c8');
+  c.rect(16, 8, 8, 11, '#ded1b8');
+  c.vline(16, 8, 11, P.plankDark);
+  for (let y = 10; y < 18; y += 3) {
+    c.hline(9, y, 6, '#cbbda4');
+    c.hline(17, y, 6, '#cbbda4');
+  }
+  // a candle standing beside it, so a night shift at the desk reads at a glance
+  c.rect(23, 5, 2, 8, '#ede0c8');
+  c.disc(24, 4, 2, '#e8c34a');
+  c.set(24, 3, '#ff9478');
+  c.outline(P.outline);
+  return c;
+}
+
+/** The research job icon: an open book, matching the desk it targets. */
+function iconResearch() {
+  const c = new Canvas(ICON, ICON);
+  c.rect(3, 6, 8, 13, '#ede0c8');
+  c.rect(12, 6, 8, 13, '#ded1b8');
+  c.vline(12, 6, 13, P.iconWoodDark);
+  for (let y = 9; y < 17; y += 3) {
+    c.hline(5, y, 5, '#cbbda4');
+    c.hline(13, y, 5, '#cbbda4');
+  }
+  c.hline(3, 5, 17, P.iconWoodDark);
+  c.outline(P.outline);
+  return c;
+}
+
 /** A raider: the colonist silhouette in dark colours with a blade. */
 function raiderSheet() {
   const sheet = new Canvas(TILE * 2, TILE);
@@ -1612,6 +1661,7 @@ written.push(save('buildings/stool.png', stoolTile()));
 written.push(save('buildings/dresser.png', dresserTile()));
 written.push(save('buildings/armchair.png', armchairTile()));
 written.push(save('buildings/statue.png', statueTile()));
+written.push(save('buildings/research_desk.png', researchDeskTile()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));
@@ -1640,6 +1690,7 @@ written.push(save('buildings/frostbloom_bloom.png', frostbloom(true)));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));
+written.push(save('ui/job_research.png', iconResearch()));
 written.push(save('ui/need_health.png', iconHealth()));
 written.push(save('ui/need_mood.png', iconMood()));
 

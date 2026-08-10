@@ -17,6 +17,7 @@ import {
   SKILL_NAMES,
   levelOf,
   skillLevel,
+  titleSkillOf,
   workRate,
   xpForLevel,
 } from '../core/skills';
@@ -84,6 +85,8 @@ export function describeColonist(
   const add = (label: string, value: string) => rows.push(`${label}: ${value}`);
 
   add(strings.rowName, colonist.name);
+  const titleSkill = titleSkillOf(colonist);
+  add(strings.rowTitle, titleSkill ? strings.titleLabels[titleSkill] : strings.titleColonist);
   add(strings.rowDoing, doingLabel(strings, state, colonist));
   add(strings.rowWhere, `${colonist.position.x}, ${colonist.position.y}`);
   add(strings.rowHealth, `${Math.round(colonist.health)} / 100`);

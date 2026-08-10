@@ -6,6 +6,7 @@ import type {
   JobType,
   RequiredResource,
   ResourceType,
+  TechName,
   TerrainType,
 } from './types';
 
@@ -131,6 +132,9 @@ export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   handle: 2,
   haul: 3,
   repair: 1, // a hole in the fence is not something to get round to
+  // a colonist can only ever be sent here on purpose (2.2), so ties never
+  // matter; grouped with haul so it never jumps the queue by accident
+  research: 3,
 };
 
 /** Work ticks required once the colonist stands in place. */
@@ -144,6 +148,7 @@ export const WORK_TICKS: Record<JobType, number> = {
   handle: 45,
   deconstruct: 30, // faster to tear down than to put up
   repair: 30,
+  research: 50, // heavier than farm(25), lighter than mine(60)
 };
 
 /**
@@ -282,6 +287,13 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   ],
   armchair: [{ type: 'wood', quantity: 12 }],
   statue: [{ type: 'stone', quantity: 15 }],
+  // Research (11章 フェーズ12, design-phase12-research.md 6章). Heavier than a
+  // bed (wood 12), lighter than a furnace (stone 25 + wood 10): a real
+  // decision, not a formality.
+  researchDesk: [
+    { type: 'wood', quantity: 20 },
+    { type: 'stone', quantity: 5 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -307,6 +319,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   dresser: 80,
   statue: 120, // solid stone: it outlasts the wooden wall it decorates
   armchair: 60,
+  researchDesk: 90,
 };
 
 /** Structures that block movement once finished. */
@@ -343,6 +356,8 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   dresser: true,
   armchair: false,
   statue: true,
+  // a desk you stand at, like the table it is built the same way as
+  researchDesk: true,
 };
 
 // --- furniture effects (design-phase10-ores.md 4.2 / 7.2) --------------------
@@ -372,6 +387,60 @@ export const ARMCHAIR_RECREATION_MULTIPLIER = 1.3;
 /** A finished statue is worth a thought to anyone within its square. */
 export const STATUE_RADIUS = 4;
 export const STATUE_THOUGHT_BONUS = 3;
+
+// --- research (11章 フェーズ12, design-phase12-research.md 3.2 / 5章 / 6章) ---
+//
+// A tech's profile - what it needs, what it unlocks - is a property of the
+// kind of tech, not of one colony's run at it, so it lives here beside
+// BUILDING_COSTS rather than on GameState (the same reasoning as SPECIES).
+
+export interface TechProfile {
+  prerequisites: TechName[];
+  /** progress points to complete, at TECH_PROGRESS_PER_CYCLE per work cycle */
+  cost: number;
+  /**
+   * Delivered to the desk before progress starts accumulating (crystallography
+   * only, for now) - the same shape as a blueprint's `requiredResources`, and
+   * carried on the desk building itself rather than duplicated here.
+   */
+  resourceCost?: RequiredResource[];
+  /** what building the world grandfathers as free until this tech clears it */
+  unlocks: BuildingType[];
+}
+
+/** Iteration order for the research panel: the tree's own reading order. */
+export const TECH_NAMES: TechName[] = [
+  'woodcraft',
+  'stonecarving',
+  'ironwork',
+  'crystallography',
+];
+
+/**
+ * The design document's starting costs (300 / 300 / 600 / 500) measured at
+ * roughly a third of a day for woodcraft with one dedicated, uninterrupted
+ * researcher - not the "about a day" the document estimated (docs/design-notes.md,
+ * 「研究と職業（フェーズ12）」). All four are scaled up 2.5x from that
+ * measurement, which lands woodcraft within a few percent of a day; the
+ * scaling keeps every tech's cost relative to the others exactly as designed.
+ */
+export const TECHS: Record<TechName, TechProfile> = {
+  woodcraft: { prerequisites: [], cost: 750, unlocks: ['armchair'] },
+  stonecarving: { prerequisites: [], cost: 750, unlocks: ['statue'] },
+  ironwork: { prerequisites: ['woodcraft'], cost: 1500, unlocks: ['dresser'] },
+  // "unlocks nothing yet" is deliberate (design-phase12-research.md 3.2): this
+  // tech exists to prove the resource-cost mechanism on its own, one time,
+  // before a later phase brings the mana-side building that spends it.
+  crystallography: {
+    prerequisites: [],
+    cost: 1250,
+    resourceCost: [{ type: 'manaCrystal', quantity: 4 }],
+    unlocks: [],
+  },
+};
+
+/** Points banked per completed WORK_TICKS.research cycle, before skill/mood. */
+export const TECH_PROGRESS_PER_CYCLE = 10;
 
 export const COLONIST_COLORS = [
   0x8ecae6, 0xffb703, 0xb5e48c, 0xe0a3c8, 0x9d8df1, 0xf28f6b, 0x6bd6c4, 0xd6cf6b,
