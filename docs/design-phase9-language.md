@@ -29,7 +29,7 @@ i18n の仕組みは現在**一切存在しない**（`i18n` / `locale` / `trans
 | --- | --- | --- |
 | ① JSX 直書き | `<h3>Build</h3>`（`Toolbar.tsx:71`）、操作ヒント段落（`Toolbar.tsx:108-115`） | 静的。表示の瞬間にしか存在しない |
 | ② 散在するラベル表 | `RESOURCE_LABELS`（`constants.ts:158`）、`SKILL_LABELS`（`skills.ts:34`）、`TRAITS[*].label`（`traits.ts`）、`BUILDING_LABEL`（`SelectionPanel.tsx:15`）ほか計 12 表 | 半ば整理済み。ただし**表ごとに置き場所が違い、建物名は2箇所で別の名前**（Toolbar は `'Wall'`、SelectionPanel は `'Wooden wall'`） |
-| ③ コアが組み立てる英文 | `addLog` 約34箇所、`alerts.ts` のアラート文、`goals.ts` の目標文、`gameStore.ts` の状態メッセージ | **動的**。`plural(count, 'colonist is', 'colonists are')` のように英語の文法が関数シグネチャに入り込んでいる |
+| ③ コアが組み立てる英文 | `addLog` 33箇所（調査時点）、`alerts.ts` のアラート文、`goals.ts` の目標文、`gameStore.ts` の状態メッセージ | **動的**。`plural(count, 'colonist is', 'colonists are')` のように英語の文法が関数シグネチャに入り込んでいる |
 
 系統③のうち**ログだけが特別**である。アラートと目標は毎回状態から導出されるので保存されないが、
 ログ（`GameState.log`）は組み立てた英文がそのまま**セーブに入る**。ここが 3 章の主題になる。
@@ -94,7 +94,7 @@ const STRINGS: Record<Language, Strings> = { en: {...}, ja: {...} };
 現在のログは導出値（英文）を保存しているので、原則の側に寄せる。
 
 **過去のエントリを翻訳しないのは手抜きではなく判断である。** 保存済みの英文を構文解析して
-出来事に逆変換する処理は、書けるが必ず漏れる。移行（v15→v16）は旧エントリを
+出来事に逆変換する処理は、書けるが必ず漏れる。移行は旧エントリを
 `{ key: 'legacy', params: { text } }` に包み、原文のまま表示する。100件のリングバッファなので
 数日分のプレイで自然に押し出される。
 
@@ -108,10 +108,11 @@ const STRINGS: Record<Language, Strings> = { en: {...}, ja: {...} };
 type Language = 'en' | 'ja';
 // localStorage キー 'simworld.language'。GameState には入れない（2.1）
 
-// 変更前: interface LogEntry { tick: number; message: string }
+// 変更前: interface LogEntry { tick: number; message: string; kind?: 'incident' }
 // 変更後:
 interface LogEntry {
   tick: number;
+  kind?: 'incident';                             // 既存のまま。襲撃などの行の別表示に使う
   key: LogKey;                                   // 'skillLevelUp' | 'raidArrived' | ... | 'legacy'
   params?: Record<string, string | number>;      // { name: 'Ash', skill: 'mining', level: 3 }
 }
@@ -119,9 +120,11 @@ interface LogEntry {
 
 - `LogKey` は文字列 union。`Strings` インターフェース（2.2）が全キーの文言を要求するので、
   キーを足して訳を書き忘れるとコンパイルエラーになる
+- 既存の任意フィールド `kind?: 'incident'` は変えず、移行でもそのまま引き継ぐ
 - `params` の値はプリミティブのみ。ID を入れる場合も文字列（プレーンデータの原則そのまま）
 - UI 側の言語状態は `gameStore` とは別の小さなストアに置く（シミュレーションの購読と混ぜない）
-- `schemaVersion` 15 → 16。移行は `log` の各エントリを `legacy` に包む1段だけ
+- `schemaVersion` は**実装した時点の値に1を足す**（フェーズ5 8 章の規約。現在値は
+  `src/persistence/saveFile.ts` を見ること）。移行は `log` の各エントリを `legacy` に包む1段だけ
 
 ---
 
@@ -134,7 +137,7 @@ PixiJS 側にテキストは1文字も無い（`Text` / `BitmapText` 未使用�
 | 箇所 | 現状 | 対応 |
 | --- | --- | --- |
 | フォント指定 | `body` の1箇所のみ。`'Inter', 'Segoe UI', system-ui, sans-serif`（`styles.css:29`）。`@font-face` 無し | フォールバックに日本語系（`'Hiragino Sans'`, `'Noto Sans JP'`, `'Yu Gothic UI'`）を挟む。**フォントは同梱しない**（下記） |
-| `text-transform: uppercase` | パネル見出し2箇所 | 日本語には無効（無害）。放置してよい |
+| `text-transform: uppercase` | 3箇所（パネル見出し2 + `.mana__label`） | 日本語には無効（無害）。放置してよい |
 | `text-transform: capitalize` | `.resource__name` | 同上 |
 | `letter-spacing: 0.08em` | 見出し | 日本語でも許容範囲。実ビルドで見て判断 |
 | 固定幅 | サイドバー 260px / 300px、`.inspect__row dt` 74px | 日本語ラベルは英語より短いことが**多い**が、これは主張であり実ビルドで測る |
@@ -155,13 +158,13 @@ PixiJS 側にテキストは1文字も無い（`Text` / `BitmapText` 未使用�
 | --- | --- | --- |
 | **A** | 辞書機構・言語切替 UI（TopBar のシナリオ選択の隣）・系統①②の静的文言 | 切替でリロードなしに全ラベルが変わる／`en` と `ja` のキーが型で一致する／建物名の定義が1箇所になる／切替が `localStorage` に残り、再訪時に効く |
 | **B** | 導出文言（アラート・目標・状態メッセージ・入植者の活動ラベル） | **発生済みの**アラートと目標が切替で即座に翻訳される（導出だから可能なこと）／テストが文章でなくキーを検証している |
-| **C** | ログの構造化と移行（v15 → v16） | v15 のセーブが読める／旧エントリは原文のまま表示される／新エントリは切替で両言語に出る／リングバッファ100件の性質は変わらない |
+| **C** | ログの構造化と移行（`schemaVersion` +1） | 移行前のセーブが読める／旧エントリは原文のまま表示される／新エントリは切替で両言語に出る／リングバッファ100件の性質は変わらない |
 
 ### テスト方針
 
 - 既存テストのうち**アラート・目標・ログの英文に依存しているもの**を、キー検証に書き換える。
   これは B・C の作業の一部であって前置きではない（文章依存のテストは翻訳と同時に必ず壊れるため）
-- 移行テスト: 既存の移行チェーン（`saveFile.ts`、1段ずつテスト済み）に v15→v16 を同じ形で足す
+- 移行テスト: 既存の移行チェーン（`saveFile.ts`、1段ずつテスト済み）に1段を同じ形で足す
 - 1年計測: 導入前後で一致すること。文字列処理は tick に影響しないはずで、「はず」をここで測る
 - バンドルサイズ: `build:single` の前後を測って記録する（辞書2言語ぶんの増分を数値で残す）
 
