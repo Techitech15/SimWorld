@@ -14,7 +14,15 @@
 // miserable long enough downs tools and broods (`ColonistActivity` gains a
 // variant), which is the only way a mood system can matter to a player who
 // never opens a panel.
-import { FOOD_PER_MEAL, RECREATION_THRESHOLD } from './constants';
+import {
+  FOOD_PER_MEAL,
+  RECREATION_THRESHOLD,
+  STATUE_RADIUS,
+  STATUE_THOUGHT_BONUS,
+  TABLE_RADIUS,
+  TABLE_THOUGHT_BONUS,
+  TABLE_WITH_STOOL_THOUGHT_BONUS,
+} from './constants';
 import { LAMP_RADIUS, isPowered } from './mana';
 import { friendNearby, griefOf, knowsAnyone } from './relationships';
 import type { ManaNetworks } from './mana';
@@ -59,6 +67,8 @@ export type ThoughtKey =
   | 'larderFull'
   | 'properFloor'
   | 'manaLight'
+  | 'ateAtTable'
+  | 'fineStatue'
   | 'friendNearby'
   | 'knowsNobody'
   | 'grieving'
@@ -111,6 +121,15 @@ interface ColonyFacts {
   onFloor: boolean;
   /** standing inside the light of a lamp that is actually lit */
   inLight: boolean;
+  /** a finished statue within STATUE_RADIUS of where they stand */
+  nearStatue: boolean;
+  /** eating within TABLE_RADIUS of a finished table: the thought's strength, 0 = none */
+  tableBonus: number;
+}
+
+/** Furniture radii are squares (see constants.ts): the board-game distance. */
+function within(a: { x: number; y: number }, b: { x: number; y: number }, radius: number): boolean {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= radius;
 }
 
 function factsFor(state: GameState, colonist: Colonist, networks?: ManaNetworks): ColonyFacts {
@@ -118,6 +137,14 @@ function factsFor(state: GameState, colonist: Colonist, networks?: ManaNetworks)
   let beds = 0;
   let onFloor = false;
   let inLight = false;
+  let nearStatue = false;
+  // The furniture thoughts ride this same single pass over the buildings (the
+  // phase-10 performance rule: no second radius loop). Tables and stools are
+  // only collected while this colonist is actually eating - for everyone else
+  // the branch costs a type check and nothing more.
+  const eating = colonist.activity.kind === 'eating';
+  const tablesInReach: { x: number; y: number }[] = [];
+  const stools: { x: number; y: number }[] = [];
   for (const id in state.buildings) {
     const building = state.buildings[id];
     if (building.isBlueprint) continue;
@@ -133,7 +160,25 @@ function factsFor(state: GameState, colonist: Colonist, networks?: ManaNetworks)
       ) {
         inLight = true;
       }
+    } else if (building.type === 'statue') {
+      const tile = state.tiles[building.tileId];
+      if (tile && within(tile, colonist.position, STATUE_RADIUS)) nearStatue = true;
+    } else if (eating && building.type === 'table') {
+      const tile = state.tiles[building.tileId];
+      if (tile && within(tile, colonist.position, TABLE_RADIUS)) tablesInReach.push(tile);
+    } else if (eating && building.type === 'stool') {
+      const tile = state.tiles[building.tileId];
+      if (tile) stools.push(tile);
     }
+  }
+
+  // Eating near a table is worth something; a stool drawn up to that table is
+  // worth a little more. Positive only - no table is simply no thought
+  // (design-phase10-ores.md 4.3).
+  let tableBonus = 0;
+  if (tablesInReach.length > 0) {
+    const seated = tablesInReach.some((table) => stools.some((stool) => within(table, stool, 1)));
+    tableBonus = seated ? TABLE_WITH_STOOL_THOUGHT_BONUS : TABLE_THOUGHT_BONUS;
   }
 
   let food = 0;
@@ -149,6 +194,8 @@ function factsFor(state: GameState, colonist: Colonist, networks?: ManaNetworks)
     foodDays: food / (mouths * FOOD_PER_MEAL * 2),
     onFloor,
     inLight,
+    nearStatue,
+    tableBonus,
   };
 }
 
@@ -206,6 +253,16 @@ export function thoughtsOf(
 
   if (facts.inLight) {
     thoughts.push({ key: 'manaLight', amount: 5 });
+  }
+
+  // Furniture (フェーズ10): a meal taken at a table, and a statue worth
+  // looking at. Both derived like everything else, so tearing the furniture
+  // down makes the thought vanish on the next read with nothing to clean up.
+  if (facts.tableBonus > 0) {
+    thoughts.push({ key: 'ateAtTable', amount: facts.tableBonus });
+  }
+  if (facts.nearStatue) {
+    thoughts.push({ key: 'fineStatue', amount: STATUE_THOUGHT_BONUS });
   }
 
   // company, and its absence. A colony of strangers is a worse place to live

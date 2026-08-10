@@ -39,7 +39,7 @@
 ```bash
 npm install
 npm run dev           # http://localhost:5173
-npm test              # ヘッドレスのシミュレーションテスト（約4分）
+npm test              # ヘッドレスのシミュレーションテスト（約8分）
 npm run typecheck     # tsc のみ
 npm run build         # 型チェック + 本番ビルド
 npm run sprites       # ドット絵アセットの再生成（決定論的）
@@ -74,7 +74,7 @@ npm run build:single  # 単一HTML（dist/simworld.html）
 
 ## テスト
 
-`npm test` は各段階の受け入れ条件をヘッドレスで検証する（59ファイル・432テスト、約8分）。
+`npm test` は各段階の受け入れ条件をヘッドレスで検証する（60ファイル・448テスト、約8分）。
 テストの一覧と対応する条件は `README.md` にある。
 
 - **テストは 60×60 の地図で回す。出荷される既定は 120×120**（11章 フェーズ6）。世界を作るときは

@@ -4,6 +4,9 @@
 // Need-driven behaviour deliberately sits outside the job system: it is not
 // player-prioritisable work, and it must be able to pre-empt a job.
 import {
+  ARMCHAIR_RECREATION_MULTIPLIER,
+  DRESSER_RADIUS,
+  DRESSER_REST_MULTIPLIER,
   EAT_TICKS,
   RECREATION_ALONE_MULTIPLIER,
   RECREATION_PER_TICK,
@@ -54,15 +57,41 @@ export function runNeeds(state: GameState, ctx: SimContext): void {
   }
 }
 
+/**
+ * The dresser's whole effect (design-phase10-ores.md 4.2): a finished dresser
+ * within DRESSER_RADIUS of the bed multiplies sleep recovery. It multiplies
+ * *with* traits - the same slot heavySleeper's 1.35 lives in - and the first
+ * dresser found is the only one that counts: the check returns on a hit, so a
+ * wall of wardrobes is worth exactly one.
+ */
+function dresserMultiplier(state: GameState, bedId: string): number {
+  const bed = state.buildings[bedId];
+  const at = bed ? state.tiles[bed.tileId] : undefined;
+  if (!at) return 1;
+  for (const id in state.buildings) {
+    const building = state.buildings[id];
+    if (building.type !== 'dresser' || building.isBlueprint) continue;
+    const tile = state.tiles[building.tileId];
+    if (
+      tile &&
+      Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= DRESSER_RADIUS
+    ) {
+      return DRESSER_REST_MULTIPLIER;
+    }
+  }
+  return 1;
+}
+
 function decayNeeds(state: GameState, colonistId: string): void {
   const colonist = state.colonists[colonistId];
   const activity = colonist.activity;
   const sleeping = activity.kind === 'sleeping';
   // a bed is the difference between a night's rest and a doze on the floor
-  const inBed = activity.kind === 'sleeping' && activity.bedId !== null;
+  const bedId = activity.kind === 'sleeping' ? activity.bedId : null;
   const recovery =
-    (inBed ? SLEEP_RECOVERY_PER_TICK : SLEEP_RECOVERY_ON_GROUND_PER_TICK) *
-    traitMultiplier(colonist, 'rest');
+    (bedId !== null
+      ? SLEEP_RECOVERY_PER_TICK * dresserMultiplier(state, bedId)
+      : SLEEP_RECOVERY_ON_GROUND_PER_TICK) * traitMultiplier(colonist, 'rest');
   const hunger = Math.min(
     100,
     colonist.needs.hunger + HUNGER_PER_TICK * traitMultiplier(colonist, 'hunger'),
@@ -99,26 +128,41 @@ function decayNeeds(state: GameState, colonistId: string): void {
  * What one tick of time off is worth.
  *
  * A hearth is the whole point of the building; sitting on the bare ground with
- * nothing to look at gives less than half as much. Company is worth as much
- * again - the need is met by other people, which is why it waited for the
- * colonists to know each other.
+ * nothing to look at gives less than half as much, and an armchair (フェーズ10)
+ * beats the hearth's baseline - a chair built for exactly one thing. Company is
+ * worth as much again in every case - the need is met by other people, which is
+ * why it waited for the colonists to know each other.
+ *
+ * The seat is looked up rather than trusted: a chair that was dismantled under
+ * them stops paying its rate the same tick, instead of a stale id keeping the
+ * hearth bonus alive.
  */
 function recreationGain(state: GameState, colonist: Colonist): number {
   const activity = colonist.activity;
-  const atHearth = activity.kind === 'relaxing' && activity.hearthId !== null;
+  const seat =
+    activity.kind === 'relaxing' && activity.hearthId !== null
+      ? state.buildings[activity.hearthId]
+      : undefined;
   let gain = RECREATION_RESTORED_PER_TICK;
-  if (!atHearth) gain *= RECREATION_ALONE_MULTIPLIER;
+  if (!seat || seat.isBlueprint) gain *= RECREATION_ALONE_MULTIPLIER;
+  else if (seat.type === 'armchair') gain *= ARMCHAIR_RECREATION_MULTIPLIER;
   if (friendNearby(state, colonist)) gain *= 1.5;
   return gain;
 }
 
-/** The nearest hearth nobody has to queue for. Hearths are shared, so no reservation. */
-function findHearth(state: GameState, colonist: Colonist): string | null {
+/**
+ * The nearest place worth relaxing at - a hearth or an armchair (フェーズ10),
+ * whichever is closer. Both are shared, so no reservation; nearest rather than
+ * best because time off that starts with a hike across the map is not time off.
+ */
+function findRelaxSpot(state: GameState, colonist: Colonist): string | null {
   let best: string | null = null;
   let bestDistance = Infinity;
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
-    if (building.type !== 'hearth' || building.isBlueprint) continue;
+    if ((building.type !== 'hearth' && building.type !== 'armchair') || building.isBlueprint) {
+      continue;
+    }
     const tile = state.tiles[building.tileId];
     const distance =
       Math.abs(tile.x - colonist.position.x) + Math.abs(tile.y - colonist.position.y);
@@ -155,7 +199,9 @@ function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: strin
     updateColonist(state, colonistId, {
       activity: {
         kind: 'relaxing',
-        hearthId: findHearth(state, colonist),
+        // the field is `hearthId` whatever they sit at - see the type's note
+        // on why the name outlived the hearth's monopoly
+        hearthId: findRelaxSpot(state, colonist),
         untilTick: state.tick + RELAX_TICKS,
       },
     });

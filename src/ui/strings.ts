@@ -48,6 +48,7 @@ export type ColonistActivityName =
   | 'binge'
   | 'fighting'
   | 'relaxingHearth'
+  | 'relaxingArmchair'
   | 'relaxingAlone';
 export type AnimalActivityName =
   | 'idle'
@@ -350,6 +351,11 @@ const EN_BUILDINGS: Record<BuildingType, string> = {
   manaTurret: 'Mana turret',
   tradingPost: 'Trading post',
   frostbloom: 'Frostbloom',
+  table: 'Table',
+  stool: 'Stool',
+  dresser: 'Dresser',
+  armchair: 'Armchair',
+  statue: 'Statue',
 };
 
 const EN_SKILLS: Record<SkillName, string> = {
@@ -487,6 +493,7 @@ const en: Strings = {
     binge: 'raiding the larder',
     fighting: 'fighting!',
     relaxingHearth: 'at the hearth',
+    relaxingArmchair: 'in the armchair',
     relaxingAlone: 'taking a moment',
   },
   animalActivityLabels: {
@@ -520,6 +527,8 @@ const en: Strings = {
     larderFull: () => 'The larder is full',
     properFloor: () => 'A proper floor underfoot',
     manaLight: () => 'Mana light to work by',
+    ateAtTable: () => 'Ate at a table',
+    fineStatue: () => 'A fine statue to look at',
     friendNearby: () => 'A friend close by',
     knowsNobody: () => 'Nobody here they are close to',
     grieving: (p) => `Grieving for ${p.name}`,
@@ -934,6 +943,11 @@ const JA_BUILDINGS: Record<BuildingType, string> = {
   manaTurret: '防衛タレット',
   tradingPost: '交易柱',
   frostbloom: '霜花',
+  table: '食卓',
+  stool: '腰掛け',
+  dresser: '戸棚',
+  armchair: '安楽椅子',
+  statue: '石像',
 };
 
 const JA_SKILLS: Record<SkillName, string> = {
@@ -1064,6 +1078,7 @@ const ja: Strings = {
     binge: '食料庫を漁っている',
     fighting: '戦闘中！',
     relaxingHearth: '炉端でひと休み',
+    relaxingArmchair: '安楽椅子でひと休み',
     relaxingAlone: 'ひと息ついている',
   },
   animalActivityLabels: {
@@ -1097,6 +1112,8 @@ const ja: Strings = {
     larderFull: () => '食料庫が満杯',
     properFloor: () => 'ちゃんとした床の上にいる',
     manaLight: () => '魔力の明かりの下で働ける',
+    ateAtTable: () => '食卓で食べた',
+    fineStatue: () => '見事な石像がある',
     friendNearby: () => '友人がそばにいる',
     knowsNobody: () => '親しい人がいない',
     grieving: (p) => `${p.name}を悼んでいる`,

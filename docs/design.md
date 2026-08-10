@@ -13,7 +13,7 @@
 | [design-phase7-time.md](design-phase7-time.md) | **フェーズ7** 昼夜の表現・なめらかな移動の設計案（未着手） |
 | [design-phase8-equipment.md](design-phase8-equipment.md) | **フェーズ8** 服と武器の設計案（未着手） |
 | [design-phase9-language.md](design-phase9-language.md) | **フェーズ9** 日本語表示と言語切り替えの設計案（**実装済み**。提案時のまま。現況は 11 章） |
-| [design-phase10-ores.md](design-phase10-ores.md) | **フェーズ10** 鉱石と家具・建築メニュー階層化の設計案（一部実装：段階A・C 済、B 未） |
+| [design-phase10-ores.md](design-phase10-ores.md) | **フェーズ10** 鉱石と家具・建築メニュー階層化の設計案（**実装済み**。提案時のまま。現況は 11 章） |
 | [design-phase11-worldmap.md](design-phase11-worldmap.md) | **フェーズ11** ワールドマップ・バイオーム・部族の設計案（未着手） |
 | [design-phase12-research.md](design-phase12-research.md) | **フェーズ12** 研究ツリーと職業の設計案（未着手） |
 | [design-next.md](design-next.md) | 未実装のものの検討。実装したらこちらの 11 章と notes へ移す |
@@ -81,7 +81,8 @@ type AnimalId = string;
 type Vector2 = { x: number; y: number };
 
 // crystal は岩盤の中のマナ結晶。建築ではなく地形なので、採掘は既存の mine ジョブがそのまま扱う
-type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal';
+// ironVein はその前例をなぞる2つ目の鉱脈（フェーズ10）。産出は VEIN_YIELD の表が決める
+type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal' | 'ironVein';
 type Designation = 'chop' | 'mine' | 'deconstruct';
 
 interface Tile {
@@ -96,7 +97,7 @@ interface Tile {
   forage: number;           // 草地の可食量 0..1。放牧で減り1日で戻る
 }
 
-type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal';
+type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal' | 'iron';
 interface Item {
   id: ItemId;
   type: ResourceType;
@@ -144,7 +145,10 @@ interface Colonist {
 type BuildingType =
   | 'wall' | 'stoneWall' | 'floor' | 'stoneFloor' | 'door' | 'bed'
   | 'farmPlot' | 'berryBush' | 'frostbloom' | 'storageZoneMarker'
-  | 'manaFurnace' | 'manaConduit' | 'manaLamp';
+  | 'manaFurnace' | 'manaConduit' | 'manaLamp' | 'manaExtractor' | 'manaTurret'
+  | 'hearth' | 'tradingPost'
+  // 家具5種（フェーズ10）。効果値は種類ごとの定数表にあり、Building には載せない
+  | 'table' | 'stool' | 'dresser' | 'armchair' | 'statue';
 
 interface Building {
   id: BuildingId;
@@ -552,17 +556,17 @@ MVP 当時の 60×60 の地図と、幅 300px に11個のパネルを縦積み�
 CLAUDE.md の言語方針は「UI 文言は辞書キー経由（辞書に en / ja）」に改定済み。
 コード・コメント・識別子・キー名は英語のまま。
 
-### フェーズ10: 鉱石と家具 — 一部実装（段階A・C 済、B 未）
+### フェーズ10: 鉱石と家具 — 実装済み
 
 当初のロードマップに無い追加。設計案は [design-phase10-ores.md](design-phase10-ores.md)。前提となるフェーズは無い。
 鉱石を足す → 使い道として家具を足す → 建築メニューが溢れる → 階層化する、という1本の因果で3つの変更が繋がる。
 
 | 項目 | 状態 | 内容 |
 | --- | --- | --- |
-| 鉱脈の一元表（`VEIN_YIELD`） | 済 | 採掘産出の分岐2箇所（`execute.ts` / `mana.ts`）が1枚の表を引く。以降の鉱石追加は「表に1行」 |
-| 鉄（`iron` / `ironVein`） | 済 | 結晶より浅く多い2つ目の鉱石（200シード実測は [design-notes.md](design-notes.md)）。移行は v9→v10 と同型（v18→v19） |
-| 家具5種 | 未 | 食卓・腰掛け・戸棚・安楽椅子・石像。効かせ先はすべて既存の系統（思考・睡眠回復・娯楽回復）で、新しいニーズは作らない。マイナスの思考は入れない |
-| 建築メニューの階層化 | 済 | カテゴリ切替式（構造/家具/魔力/区域、`src/ui/buildMenu.ts`）。表示ボタン数がカテゴリ内最大数で頭打ちになる。表示名は辞書（フェーズ9）と共有 |
+| 鉱脈の一元表（`VEIN_YIELD`） | 済 | 採掘産出の分岐2箇所（`execute.ts` / `mana.ts`）が1枚の表を引く。素の岩は行ではなくフォールバック（stone 20）。以降の鉱石追加は「表に1行」 |
+| 鉄（`iron` / `ironVein`） | 済 | 結晶より浅く多い2つ目の鉱石。生成は `s > 0.78` かつ鉄ノイズ `> 0.57`（結晶判定が先に走る。200シード実測は [design-notes.md](design-notes.md)）。移行は v9→v10 と同型（v18→v19） |
+| 家具5種 | 済 | 食卓（木10+鉄2、半径2の食事に思考+3）・腰掛け（木6、食卓に隣接で+3→+4）・戸棚（木15+鉄4、半径2のベッドの睡眠回復×1.15、重複せず特性と乗算）・安楽椅子（木12、`relaxing` の対象拡張で回復×1.3）・石像（石15、半径4に思考+3）。半径はすべてチェビシェフ距離。効果値は種類ごとの定数表（`constants.ts`）にあり `Building` には載せない。新しいニーズ・ジョブ・`GameState` フィールドは無し。マイナスの思考は入れない。設計図は無効果、解体は既存の半額返却 |
+| 建築メニューの階層化 | 済 | カテゴリ切替式（構造6/家具7/魔力5/区域3、`src/ui/buildMenu.ts`）。表示ボタン数がカテゴリ内最大数（7 = 家具）で頭打ちになる。表示名は辞書（フェーズ9）と共有 |
 
 ### フェーズ11: 世界（ワールドマップ・バイオーム・部族） — 未着手
 
@@ -583,7 +587,7 @@ CLAUDE.md の言語方針は「UI 文言は辞書キー経由（辞書に en / j
 ### フェーズ12: 研究と職業 — 未着手
 
 当初のロードマップに無い追加。設計案は [design-phase12-research.md](design-phase12-research.md)。
-**フェーズ10（家具）の段階Bが前提**（研究が解禁するものが先に要る）。
+**フェーズ10（家具）の段階Bが前提**（研究が解禁するものが先に要る。実装済みなので前提は満たされている）。
 
 | 項目 | 状態 | 内容 |
 | --- | --- | --- |

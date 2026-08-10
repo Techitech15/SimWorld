@@ -27,10 +27,16 @@ function activityLabel(strings: Strings, colonist: Colonist, state: GameState): 
       return strings.activityLabels.wandering;
     case 'binge':
       return strings.activityLabels.binge;
-    case 'relaxing':
-      return colonist.activity.hearthId
-        ? strings.activityLabels.relaxingHearth
-        : strings.activityLabels.relaxingAlone;
+    case 'relaxing': {
+      // the field holds a hearth or an armchair (フェーズ10); say which
+      const seat = colonist.activity.hearthId
+        ? state.buildings[colonist.activity.hearthId]
+        : undefined;
+      if (!seat) return strings.activityLabels.relaxingAlone;
+      return seat.type === 'armchair'
+        ? strings.activityLabels.relaxingArmchair
+        : strings.activityLabels.relaxingHearth;
+    }
     default:
       break;
   }

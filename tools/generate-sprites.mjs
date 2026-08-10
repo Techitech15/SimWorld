@@ -1346,6 +1346,135 @@ function hearthTile() {
 }
 
 
+// --- furniture (design-phase10-ores.md 4章) --------------------------------
+// All five read top-down like the bed: warm plank browns for the wooden
+// pieces so they sit in the bed/floor family, iron fittings in the metal
+// greys where the build cost says iron, and the statue in the stone palette
+// because that is what it is made of.
+
+/** The table: a plank top on four legs, iron brackets at the corners. */
+function tableTile() {
+  const c = new Canvas(TILE, TILE);
+  // legs first, peeking out at the corners
+  for (const [x, y] of [
+    [4, 4],
+    [24, 4],
+    [4, 24],
+    [24, 24],
+  ]) {
+    c.rect(x, y, 4, 4, P.plankDark);
+  }
+  // the top overlaps them: one broad slab of planks
+  c.rect(3, 6, 26, 20, P.plankMid);
+  c.hline(3, 6, 26, P.plankLight);
+  c.hline(3, 25, 26, P.plankDark);
+  for (let y = 10; y < 25; y += 5) c.hline(3, y, 26, P.plankDark);
+  c.vline(3, 6, 20, P.plankLight);
+  c.vline(28, 6, 20, P.plankDark);
+  // iron corner brackets: the 2 iron the build cost asks for, visible
+  for (const [x, y] of [
+    [4, 7],
+    [25, 7],
+    [4, 22],
+    [25, 22],
+  ]) {
+    c.rect(x, y, 3, 3, P.iconMetal);
+    c.set(x + 2, y + 2, P.iconMetalDark);
+  }
+  c.outline(P.outline);
+  return c;
+}
+
+/** The stool: a small round seat, low enough to tuck under the table. */
+function stoolTile() {
+  const c = new Canvas(TILE, TILE);
+  // three legs splayed out under the seat
+  c.rect(10, 20, 3, 7, P.plankDark);
+  c.rect(19, 20, 3, 7, P.plankDark);
+  c.rect(15, 22, 3, 6, P.plankDark);
+  // the seat: a disc of planks with a lit rim
+  c.disc(16, 14, 8, P.plankDark);
+  c.disc(16, 13, 7, P.plankMid);
+  c.disc(15, 12, 5, P.plankLight);
+  c.hline(10, 13, 12, P.plankDark);
+  c.hline(10, 16, 13, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The dresser: a two-door cabinet, iron hinges and handles. */
+function dresserTile() {
+  const c = new Canvas(TILE, TILE);
+  // carcass
+  c.rect(3, 3, 26, 26, P.plankMid);
+  c.hline(3, 3, 26, P.plankLight);
+  c.hline(3, 28, 26, P.plankDark);
+  c.vline(3, 3, 26, P.plankLight);
+  c.vline(28, 3, 26, P.plankDark);
+  // two door panels with a shadow line between them
+  c.rect(6, 6, 9, 20, P.plankLight);
+  c.rect(17, 6, 9, 20, P.plankLight);
+  c.strokeRect(6, 6, 9, 20, P.plankDark);
+  c.strokeRect(17, 6, 9, 20, P.plankDark);
+  c.vline(16, 5, 22, P.plankDark);
+  // iron hinges on the outer edges and a handle on each door: the 4 iron
+  for (const y of [8, 22]) {
+    c.rect(6, y, 2, 3, P.iconMetal);
+    c.rect(24, y, 2, 3, P.iconMetal);
+  }
+  c.rect(13, 14, 2, 4, P.iconMetal);
+  c.rect(17, 14, 2, 4, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The armchair: a cushioned seat with a back and two arms, facing south. */
+function armchairTile() {
+  const c = new Canvas(TILE, TILE);
+  // back rail, tallest part
+  c.rect(6, 4, 20, 7, P.bedBlanketDark);
+  c.rect(7, 5, 18, 5, P.bedBlanket);
+  // arms down both sides
+  c.rect(4, 8, 5, 18, P.bedBlanketDark);
+  c.rect(23, 8, 5, 18, P.bedBlanketDark);
+  c.rect(5, 9, 3, 15, P.bedBlanket);
+  c.rect(24, 9, 3, 15, P.bedBlanket);
+  // the seat cushion between them
+  c.rect(9, 11, 14, 13, P.bedBlanket);
+  c.hline(9, 11, 14, P.bedSheet);
+  c.hline(9, 18, 14, P.bedBlanketDark); // seam where the cushion folds
+  c.rect(9, 24, 14, 3, P.bedBlanketDark);
+  // wooden feet
+  c.rect(5, 26, 4, 3, P.plankDark);
+  c.rect(23, 26, 4, 3, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The statue: a stone figure on a plinth - the quarry's surplus, upright. */
+function statueTile() {
+  const c = new Canvas(TILE, TILE);
+  // plinth
+  c.rect(7, 24, 18, 6, P.stone[1]);
+  c.hline(7, 24, 18, P.stone[3]);
+  c.hline(7, 29, 18, P.stone[0]);
+  c.rect(10, 21, 12, 3, P.stone[2]);
+  // body: a robed figure, arms folded
+  c.rect(12, 10, 8, 11, P.stone[2]);
+  c.vline(12, 10, 11, P.stone[3]); // lit edge
+  c.vline(19, 10, 11, P.stone[0]); // shadowed edge
+  c.hline(12, 15, 8, P.stone[0]); // folded arms
+  c.hline(13, 16, 6, P.stone[1]);
+  // head
+  c.disc(16, 7, 3, P.stone[2]);
+  c.set(14, 6, P.stone[3]);
+  // a little moss at the base so it reads as a fixture, not a person
+  c.set(9, 28, P.grass[2]);
+  c.set(23, 28, P.grass[1]);
+  c.outline(P.outline);
+  return c;
+}
+
 /** A raider: the colonist silhouette in dark colours with a blade. */
 function raiderSheet() {
   const sheet = new Canvas(TILE * 2, TILE);
@@ -1478,6 +1607,11 @@ written.push(save('buildings/mana_lamp_lit.png', manaLampTile(true)));
 written.push(save('buildings/mana_extractor.png', manaExtractorTile(false)));
 written.push(save('buildings/mana_extractor_run.png', manaExtractorTile(true)));
 written.push(save('buildings/hearth.png', hearthTile()));
+written.push(save('buildings/table.png', tableTile()));
+written.push(save('buildings/stool.png', stoolTile()));
+written.push(save('buildings/dresser.png', dresserTile()));
+written.push(save('buildings/armchair.png', armchairTile()));
+written.push(save('buildings/statue.png', statueTile()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));

@@ -38,10 +38,15 @@ export const BUILD_MENU: BuildMenuEntry[] = [
   // the trading post is a structure the colony erects, not a zone it paints:
   // it costs materials, occupies its tile, and traders stand beside it (フェーズ5)
   { tool: { kind: 'build', building: 'tradingPost' }, category: 'structure' },
-  // furniture: 2 now; stage B adds table/stool/dresser/armchair/statue for 7,
-  // which is what sets the visible-button cap
+  // furniture: 7 - the largest category, which is what sets the visible-button
+  // cap the switcher design is built around (design-phase10-ores.md 5.2)
   { tool: { kind: 'build', building: 'bed' }, category: 'furniture', shortcut: 'n' },
   { tool: { kind: 'build', building: 'hearth' }, category: 'furniture' },
+  { tool: { kind: 'build', building: 'table' }, category: 'furniture' },
+  { tool: { kind: 'build', building: 'stool' }, category: 'furniture' },
+  { tool: { kind: 'build', building: 'dresser' }, category: 'furniture' },
+  { tool: { kind: 'build', building: 'armchair' }, category: 'furniture' },
+  { tool: { kind: 'build', building: 'statue' }, category: 'furniture' },
   // mana: 5
   { tool: { kind: 'build', building: 'manaFurnace' }, category: 'mana' },
   { tool: { kind: 'build', building: 'manaConduit' }, category: 'mana' },

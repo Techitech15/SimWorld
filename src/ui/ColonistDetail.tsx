@@ -50,10 +50,14 @@ function doingLabel(strings: Strings, state: GameState, colonist: Colonist): str
       return strings.activityLabels.binge;
     case 'fighting':
       return strings.activityLabels.fighting;
-    case 'relaxing':
-      return activity.hearthId
-        ? strings.activityLabels.relaxingHearth
-        : strings.activityLabels.relaxingAlone;
+    case 'relaxing': {
+      // the field holds a hearth or an armchair (フェーズ10); say which
+      const seat = activity.hearthId ? state.buildings[activity.hearthId] : undefined;
+      if (!seat) return strings.activityLabels.relaxingAlone;
+      return seat.type === 'armchair'
+        ? strings.activityLabels.relaxingArmchair
+        : strings.activityLabels.relaxingHearth;
+    }
     default:
       break;
   }

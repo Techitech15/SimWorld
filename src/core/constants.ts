@@ -267,6 +267,21 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'wood', quantity: 20 },
     { type: 'stone', quantity: 10 },
   ],
+  // Furniture (design-phase10-ores.md 7.2). The table and dresser are what the
+  // iron is *for*: the first build costs that ask for the second ore. The
+  // statue is the same thing for stone, which mining piles up faster than
+  // walls spend it.
+  table: [
+    { type: 'wood', quantity: 10 },
+    { type: 'iron', quantity: 2 },
+  ],
+  stool: [{ type: 'wood', quantity: 6 }],
+  dresser: [
+    { type: 'wood', quantity: 15 },
+    { type: 'iron', quantity: 4 },
+  ],
+  armchair: [{ type: 'wood', quantity: 12 }],
+  statue: [{ type: 'stone', quantity: 15 }],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -287,6 +302,11 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   hearth: 90,
   manaTurret: 150,
   tradingPost: 100,
+  table: 60,
+  stool: 40,
+  dresser: 80,
+  statue: 120, // solid stone: it outlasts the wooden wall it decorates
+  armchair: 60,
 };
 
 /** Structures that block movement once finished. */
@@ -316,7 +336,42 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   manaTurret: true,
   // a post is a counter you walk up to
   tradingPost: false,
+  // Furniture: what you sit on stays walkable (like the bed and the hearth);
+  // what you stand things on or in blocks the tile (like the furnace).
+  table: true,
+  stool: false,
+  dresser: true,
+  armchair: false,
+  statue: true,
 };
+
+// --- furniture effects (design-phase10-ores.md 4.2 / 7.2) --------------------
+// Per-*type* constants, like MANA_DRAW: a radius or a multiplier is a property
+// of what a table is, not of this table, and a number that is saved on the
+// building is a number that can disagree with the rule that made it.
+//
+// Every radius here is Chebyshev (a square of tiles, the "room around it" a
+// player reads straight off the grid) - the stool's adjacency is the same
+// metric at distance 1, so one helper serves all of it.
+
+/** Eating within this square of a finished table earns the thought. */
+export const TABLE_RADIUS = 2;
+export const TABLE_THOUGHT_BONUS = 3;
+/** ...and a finished stool adjacent (Chebyshev 1) to that table upgrades it. */
+export const TABLE_WITH_STOOL_THOUGHT_BONUS = 4;
+/**
+ * Sleep recovery in a bed within this square of a finished dresser. Multiplies
+ * with traits but deliberately stays under heavySleeper's 1.35: furniture is
+ * weaker than who somebody is (design-phase10-ores.md 7.2). One dresser at
+ * most - two wardrobes do not make the bed twice as good.
+ */
+export const DRESSER_RADIUS = 2;
+export const DRESSER_REST_MULTIPLIER = 1.15;
+/** Relaxing in an armchair, against the hearth's 1.0 baseline. */
+export const ARMCHAIR_RECREATION_MULTIPLIER = 1.3;
+/** A finished statue is worth a thought to anyone within its square. */
+export const STATUE_RADIUS = 4;
+export const STATUE_THOUGHT_BONUS = 3;
 
 export const COLONIST_COLORS = [
   0x8ecae6, 0xffb703, 0xb5e48c, 0xe0a3c8, 0x9d8df1, 0xf28f6b, 0x6bd6c4, 0xd6cf6b,

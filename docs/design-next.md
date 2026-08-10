@@ -18,7 +18,7 @@
 | [design-phase7-time.md](design-phase7-time.md) | 昼夜の表現・なめらかな移動の設計案（未着手） |
 | [design-phase8-equipment.md](design-phase8-equipment.md) | 服と武器の設計案（未着手） |
 | [design-phase9-language.md](design-phase9-language.md) | 日本語表示と言語切り替えの設計案（**実装済み**） |
-| [design-phase10-ores.md](design-phase10-ores.md) | 鉱石と家具・建築メニュー階層化の設計案（一部実装：段階A・C 済、B 未） |
+| [design-phase10-ores.md](design-phase10-ores.md) | 鉱石と家具・建築メニュー階層化の設計案（**実装済み**） |
 | [design-phase11-worldmap.md](design-phase11-worldmap.md) | ワールドマップ・バイオーム・部族の設計案（未着手） |
 | [design-phase12-research.md](design-phase12-research.md) | 研究ツリーと職業の設計案（未着手） |
 | **このファイル** | 未実装のものの検討。実装されたら上の2つへ移して消す |

@@ -262,6 +262,16 @@ export class GameRenderer {
         return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
       case 'hearth':
         return t.hearth;
+      case 'table':
+        return t.table;
+      case 'stool':
+        return t.stool;
+      case 'dresser':
+        return t.dresser;
+      case 'armchair':
+        return t.armchair;
+      case 'statue':
+        return t.statue;
       case 'tradingPost':
         return t.tradingPost;
       case 'manaTurret':

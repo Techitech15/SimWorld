@@ -123,7 +123,10 @@ export type ColonistActivity =
    */
   /**
    * [ext] Time off around the hearth. Not a job: nobody assigns it, and it
-   * cannot be prioritised away.
+   * cannot be prioritised away. Since フェーズ10 the id may also point at an
+   * armchair - the field keeps its old name so every save written before
+   * armchairs existed still reads without a migration, the same reason
+   * `fleeing.fromId` kept its shape when raiders arrived.
    */
   | { kind: 'relaxing'; hearthId: BuildingId | null; untilTick: number }
   /**
@@ -238,7 +241,21 @@ export type BuildingType =
   /** [ext] mana-fed defence (11章 フェーズ4, depends on the phase 2 network) */
   | 'manaTurret'
   /** [ext] where a trader stands (11章 フェーズ5, design-phase5-trade.md 4.2) */
-  | 'tradingPost';
+  | 'tradingPost'
+  /**
+   * [ext] Furniture (11章 フェーズ10, design-phase10-ores.md 4章). Five pieces,
+   * no new needs and no new jobs: each one plugs into a system the game already
+   * had. The table, stool and statue are the mana lamp's shape (a thought for
+   * colonists near it), the dresser is the heavySleeper trait's shape (a
+   * multiplier on sleep recovery), and the armchair is the hearth's shape (a
+   * second place the `relaxing` activity can sit). Effect numbers live in a
+   * constants table beside the build costs, not on the building.
+   */
+  | 'table'
+  | 'stool'
+  | 'dresser'
+  | 'armchair'
+  | 'statue';
 
 export interface RequiredResource {
   type: ResourceType;
