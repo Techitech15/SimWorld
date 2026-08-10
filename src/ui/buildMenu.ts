@@ -35,6 +35,9 @@ export const BUILD_MENU: BuildMenuEntry[] = [
   { tool: { kind: 'build', building: 'floor' }, category: 'structure', shortcut: 'f' },
   { tool: { kind: 'build', building: 'stoneFloor' }, category: 'structure' },
   { tool: { kind: 'build', building: 'door' }, category: 'structure', shortcut: 'r' },
+  // the trading post is a structure the colony erects, not a zone it paints:
+  // it costs materials, occupies its tile, and traders stand beside it (フェーズ5)
+  { tool: { kind: 'build', building: 'tradingPost' }, category: 'structure' },
   // furniture: 2 now; stage B adds table/stool/dresser/armchair/statue for 7,
   // which is what sets the visible-button cap
   { tool: { kind: 'build', building: 'bed' }, category: 'furniture', shortcut: 'n' },

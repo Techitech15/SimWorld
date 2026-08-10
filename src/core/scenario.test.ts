@@ -15,8 +15,9 @@ import {
 import { tickMany } from './simulation';
 import { countResource } from './storage';
 import { createEmptyState } from './state';
-import { generateWorld } from './worldgen';
+
 import type { GameState, ScenarioName } from './types';
+import { testWorld } from './testUtils';
 
 const wolves = (state: GameState) =>
   Object.values(state.animals).filter((a) => a.species === 'wolf').length;
@@ -26,7 +27,7 @@ const wildlife = (state: GameState) =>
 describe('scenarios', () => {
   it('start the colony with what they promise', () => {
     for (const name of SCENARIO_NAMES) {
-      const state = generateWorld({ seed: 9301, scenario: name });
+      const state = testWorld({ seed: 9301, scenario: name });
       expect(state.scenario).toBe(name);
       for (const [type, quantity] of Object.entries(SCENARIOS[name].startingResources)) {
         expect(countResource(state, type as 'food')).toBe(quantity);
@@ -46,9 +47,9 @@ describe('scenarios', () => {
   });
 
   it('put more game on a gentle map than a hard one', () => {
-    const gentle = generateWorld({ seed: 9307, scenario: 'gentle' });
-    const standard = generateWorld({ seed: 9307, scenario: 'standard' });
-    const harsh = generateWorld({ seed: 9307, scenario: 'harsh' });
+    const gentle = testWorld({ seed: 9307, scenario: 'gentle' });
+    const standard = testWorld({ seed: 9307, scenario: 'standard' });
+    const harsh = testWorld({ seed: 9307, scenario: 'harsh' });
     expect(wildlife(gentle)).toBeGreaterThan(wildlife(standard));
     expect(wildlife(harsh)).toBeLessThan(wildlife(standard));
     // and the same seed still means the same map underneath
@@ -66,14 +67,14 @@ describe('scenarios', () => {
     // the predator cap is a rule that runs daily, not a decision made once at
     // generation, which is why the scenario has to be stored on the state
     for (const name of ['gentle', 'harsh'] as ScenarioName[]) {
-      let state = generateWorld({ seed: 9311, scenario: name });
+      let state = testWorld({ seed: 9311, scenario: name });
       state = tickMany(state, createSimContext(state), TICKS_PER_DAY * 6);
       expect(wolves(state)).toBeLessThanOrEqual(SCENARIOS[name].predators);
     }
 
-    const harsh = generateWorld({ seed: 9313, scenario: 'harsh' });
+    const harsh = testWorld({ seed: 9313, scenario: 'harsh' });
     const grown = tickMany(harsh, createSimContext(harsh), TICKS_PER_DAY * 6);
-    const gentle = generateWorld({ seed: 9313, scenario: 'gentle' });
+    const gentle = testWorld({ seed: 9313, scenario: 'gentle' });
     const calm = tickMany(gentle, createSimContext(gentle), TICKS_PER_DAY * 6);
     expect(wolves(grown)).toBeGreaterThan(wolves(calm));
   });
@@ -91,7 +92,7 @@ describe('scenarios', () => {
   it('leave the standard opening exactly as it was', () => {
     // the scenario layer must not quietly rebalance the game everything else
     // was measured against
-    const state = generateWorld({ seed: 9317 });
+    const state = testWorld({ seed: 9317 });
     expect(state.scenario).toBe('standard');
     expect(countResource(state, 'food')).toBe(120);
     expect(countResource(state, 'wood')).toBe(60);
@@ -107,7 +108,7 @@ describe('scenarios', () => {
     // everything. So the test has to look past the opening, which is why it
     // runs ten days rather than five.
     const after = (name: ScenarioName) => {
-      let state = generateWorld({ seed: 9323, scenario: name });
+      let state = testWorld({ seed: 9323, scenario: name });
       state = tickMany(state, createSimContext(state), TICKS_PER_DAY * 10);
       return {
         food: countResource(state, 'food'),

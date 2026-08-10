@@ -1,7 +1,6 @@
 // Grid A* (section 7): 4-directional movement, Manhattan heuristic, uniform
 // terrain cost. Path recomputation is only ever triggered by (a) a new
 // destination and (b) a terrain change, both handled by the callers below.
-import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import { inBounds, tileIdOf } from './state';
 import type { GameState, TileId, Vector2 } from './types';
 
@@ -9,7 +8,7 @@ const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
 
 export function isWalkable(state: GameState, x: number, y: number): boolean {
-  if (!inBounds(x, y)) return false;
+  if (!inBounds(state, x, y)) return false;
   return state.tiles[tileIdOf(x, y)].walkable;
 }
 
@@ -93,30 +92,30 @@ export function findPath(
   goal: Vector2,
   options: PathOptions = {},
 ): Vector2[] | null {
-  const startIdx = start.y * MAP_WIDTH + start.x;
-  const goalIdx = goal.y * MAP_WIDTH + goal.x;
+  const startIdx = start.y * state.width + start.x;
+  const goalIdx = goal.y * state.width + goal.x;
   const adjacent = options.adjacent ?? false;
 
   const isGoal = (idx: number): boolean => {
     if (idx === goalIdx) return !adjacent || isWalkable(state, goal.x, goal.y);
     if (!adjacent) return false;
-    const x = idx % MAP_WIDTH;
-    const y = (idx / MAP_WIDTH) | 0;
+    const x = idx % state.width;
+    const y = (idx / state.width) | 0;
     return Math.abs(x - goal.x) + Math.abs(y - goal.y) === 1;
   };
 
   if (isGoal(startIdx)) return [];
   if (!isWalkable(state, start.x, start.y)) return null;
 
-  const total = MAP_WIDTH * MAP_HEIGHT;
+  const total = state.width * state.height;
   const gScore = new Float64Array(total).fill(Infinity);
   const cameFrom = new Int32Array(total).fill(-1);
   const closed = new Uint8Array(total);
   const open = new MinHeap();
 
   const heuristic = (idx: number) => {
-    const x = idx % MAP_WIDTH;
-    const y = (idx / MAP_WIDTH) | 0;
+    const x = idx % state.width;
+    const y = (idx / state.width) | 0;
     const h = Math.abs(x - goal.x) + Math.abs(y - goal.y);
     return adjacent ? Math.max(0, h - 1) : h;
   };
@@ -133,20 +132,20 @@ export function findPath(
       const path: Vector2[] = [];
       let node = current;
       while (node !== startIdx) {
-        path.push({ x: node % MAP_WIDTH, y: (node / MAP_WIDTH) | 0 });
+        path.push({ x: node % state.width, y: (node / state.width) | 0 });
         node = cameFrom[node];
       }
       path.reverse();
       return path;
     }
 
-    const cx = current % MAP_WIDTH;
-    const cy = (current / MAP_WIDTH) | 0;
+    const cx = current % state.width;
+    const cy = (current / state.width) | 0;
     for (let d = 0; d < 4; d++) {
       const nx = cx + DX[d];
       const ny = cy + DY[d];
       if (!isWalkable(state, nx, ny)) continue;
-      const nIdx = ny * MAP_WIDTH + nx;
+      const nIdx = ny * state.width + nx;
       if (closed[nIdx]) continue;
       const tentative = gScore[current] + 1;
       if (tentative >= gScore[nIdx]) continue;

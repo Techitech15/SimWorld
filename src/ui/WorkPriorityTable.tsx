@@ -67,8 +67,7 @@ export function WorkPriorityTable(): React.JSX.Element {
   };
 
   return (
-    <section className="panel">
-      <h2>{strings.panelWork}</h2>
+    <>
       <table className="work">
         <thead>
           <tr>
@@ -103,6 +102,6 @@ export function WorkPriorityTable(): React.JSX.Element {
         {strings.assignBySkill}
       </button>
       <p className="muted small">{strings.assignFootnote}</p>
-    </section>
+    </>
   );
 }

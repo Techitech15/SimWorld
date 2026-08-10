@@ -83,8 +83,7 @@ export function AnimalPanel(): React.JSX.Element | null {
   if (species.length === 0) return null;
 
   return (
-    <section className="panel">
-      <h2>{strings.panelAnimals}</h2>
+    <>
       <table className="work">
         <thead>
           <tr>
@@ -127,6 +126,6 @@ export function AnimalPanel(): React.JSX.Element | null {
       ) : (
         <p className="muted small">{strings.noPasture}</p>
       )}
-    </section>
+    </>
   );
 }

@@ -75,3 +75,31 @@ export function scenarioOf(state: GameState): Scenario {
 export function scaledCount(base: number, multiplier: number): number {
   return Math.max(1, Math.round(base * multiplier));
 }
+
+/**
+ * Scale a count that was written for the original 60x60 map to the map this
+ * world actually is (docs/design-phase6-space.md 3.2).
+ *
+ * Measured before this existed: at 120x120 the berry bushes went from 7.2 per
+ * thousand tiles to 1.8 and the animals from 9.2 to 2.3, because both were
+ * absolute numbers on a map that had quadrupled. That is not a bigger world,
+ * it is the same colony in a world four times emptier - the walk gets longer
+ * and nothing else changes.
+ *
+ * Predator caps deliberately do **not** go through this. How many wolves a map
+ * sustains is a statement about difficulty, not about area, and scaling it
+ * would turn `Hard frontier` into sixteen wolves for reasons nobody chose.
+ */
+export function perArea(state: GameState, baseAt60: number): number {
+  const area = state.width * state.height;
+  return Math.max(1, Math.round((baseAt60 * area) / (60 * 60)));
+}
+
+/**
+ * A distance written against the original map, as a fraction of the short side.
+ * "Far from the camp" means a share of the world, not a number of tiles.
+ */
+export function perSpan(state: GameState, baseAt60: number): number {
+  const span = Math.min(state.width, state.height);
+  return Math.max(1, Math.round((baseAt60 * span) / 60));
+}

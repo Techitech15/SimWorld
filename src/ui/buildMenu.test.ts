@@ -15,7 +15,7 @@ import {
 import { STRINGS } from './strings';
 
 /** The world places these itself; the player never builds one. */
-const NOT_PLAYER_BUILT: BuildingType[] = ['berryBush', 'storageZoneMarker'];
+const NOT_PLAYER_BUILT: BuildingType[] = ['berryBush', 'storageZoneMarker', 'frostbloom'];
 
 /** Everything the player can build, straight from the cost table's keys. */
 const PLAYER_BUILDABLE = (Object.keys(BUILDING_COSTS) as BuildingType[]).filter(

@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 19;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -269,13 +269,37 @@ export const migrations: Record<number, Migration> = {
   },
 
   /**
-   * 15 -> 16: the log stores events, not sentences (11章 フェーズ9). An old
+   * 15 -> 16: traders (11章 フェーズ5). Nobody is mid-visit in a save that
+   * predates trade, and the visit schedule is a function of the tick, so an old
+   * colony simply gets its first roll at the next five-day boundary.
+   */
+  15: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, traders: state.traders ?? {} };
+  },
+
+  /**
+   * 16 -> 17: the map carries its own size (11章 フェーズ6, design-phase6-space.md 3.1).
+   *
+   * Every save before this was 60x60, because that was the only size there was.
+   * Writing it down is what lets the *default* grow without those colonies
+   * becoming unreadable - the alternative was a version bump that could only
+   * refuse them, and a change that makes the player throw their colony away is
+   * not one worth making.
+   */
+  16: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, width: state.width ?? 60, height: state.height ?? 60 };
+  },
+
+  /**
+   * 17 -> 18: the log stores events, not sentences (11章 フェーズ9). An old
    * entry is a finished English sentence; parsing it back into an event would
    * be guesswork that necessarily misses, so it is wrapped as `legacy` and
    * shown verbatim in whatever language it was written. The ring buffer holds
    * 100 entries, so a few days of play push the old lines out naturally.
    */
-  15: (old) => {
+  17: (old) => {
     const state = old as Omit<Partial<GameState>, 'log'> & {
       log?: { tick: number; message?: string; kind?: 'incident'; key?: string }[];
     };
@@ -288,7 +312,7 @@ export const migrations: Record<number, Migration> = {
   },
 
   /**
-   * 16 -> 17: iron veins (design-phase10-ores.md 段階A). The same two gaps the
+   * 18 -> 19: iron veins (design-phase10-ores.md 段階A). The same two gaps the
    * mana crystal migration closed one ore ago, closed the same way.
    *
    * Old rock faces contain no iron, so veins are seeded into existing stone
@@ -302,7 +326,7 @@ export const migrations: Record<number, Migration> = {
    * so `iron` joins every existing storage zone's accepts: the player chose to
    * exclude nothing, so nothing should arrive excluded.
    */
-  16: (old) => {
+  18: (old) => {
     const state = old as Partial<GameState>;
     const tiles = { ...(state.tiles ?? {}) };
     const rnd = mulberry32(Math.abs(Math.floor(state.worldSeed ?? 0)) + 7211);

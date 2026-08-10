@@ -14,8 +14,8 @@ import {
 } from './events';
 import { SEASONS, TICKS_PER_SEASON, seasonOf } from './season';
 import { tickMany } from './simulation';
-import { createHarness, recordLogEntries } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, recordLogEntries, testWorld } from './testUtils';
+
 import type { GameState, Season } from './types';
 
 /** Run whole days of incident rolls without simulating anything else. */
@@ -184,7 +184,7 @@ describe('incidents', () => {
     const firsts: number[] = [];
     const kinds = new Set<string>();
     for (let seed = 0; seed < 60; seed++) {
-      const state = generateWorld({ seed: seed * 7919 + 13 });
+      const state = testWorld({ seed: seed * 7919 + 13 });
       for (const id in state.buildings) {
         if (state.buildings[id].type === 'farmPlot') {
           state.buildings[id] = { ...state.buildings[id], sown: true, growth: 0.5 };
@@ -227,12 +227,16 @@ describe('incidents', () => {
     expect([deer, rabbit].join(' ')).not.toContain('deers');
 
     for (const species of ANIMAL_SPECIES) {
-      // a plural that is just the singular with an s stuck on is the bug above
+      // a plural that is just the singular with an s stuck on is the bug above.
+      // Three of them are irregular: deer, wolves, and the crystal elk, which
+      // inherits the deer's plural along with its silhouette.
       const one = STRINGS.en.speciesCounted(species, 1);
       const many = STRINGS.en.speciesCounted(species, 4);
-      expect(many.endsWith('s') || species === 'deer').toBe(true);
+      const irregular = species === 'deer' || species === 'crystalElk';
+      expect(many.endsWith('s') || irregular).toBe(true);
       expect(many).not.toContain('deers');
       expect(many).not.toContain('wolfs');
+      expect(many).not.toContain('elks');
       expect(one.startsWith('1 ')).toBe(true);
     }
   });

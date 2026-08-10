@@ -11,6 +11,7 @@ import {
   DECONSTRUCT_REFUND,
   FAILED_JOB_RETENTION_TICKS,
   FOOD_PER_BERRY_HARVEST,
+  FOOD_PER_FROSTBLOOM_HARVEST,
   FOOD_PER_HARVEST,
   HUNT_RANGE,
   MAX_RETRIES,
@@ -32,6 +33,7 @@ import {
   wantsFuel,
 } from '../mana';
 import { moodOf } from '../mood';
+import { settleDelivery, traderAtPost } from '../trade';
 import { mulberry32 } from '../rng';
 import { grantWorkExperience, workRate } from '../skills';
 import {
@@ -162,9 +164,11 @@ function applyJobEffect(
     case 'farm': {
       const building = state.buildings[job.targetEntityId!];
       const tile = state.tiles[building.tileId];
-      if (building.type === 'berryBush') {
+      if (building.type === 'berryBush' || building.type === 'frostbloom') {
         updateBuilding(state, building.id, { growth: 0 });
-        addItem(state, 'food', FOOD_PER_BERRY_HARVEST, tile.x, tile.y);
+        const harvest =
+          building.type === 'frostbloom' ? FOOD_PER_FROSTBLOOM_HARVEST : FOOD_PER_BERRY_HARVEST;
+        addItem(state, 'food', harvest, tile.x, tile.y);
         break;
       }
       if (!building.sown) {
@@ -387,14 +391,18 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
 
     // A delivery only takes what the blueprint is still missing; hauling to
     // storage takes the whole stack.
+    // How much to pick up. Three kinds of destination answer this differently,
+    // and a fourth answering "nothing" by accident is how the trade deal was
+    // silently cancelled the moment it was picked up: a trading post has no
+    // materials list, so the blueprint rule handed back zero.
     const destination = job.destinationId ? state.buildings[job.destinationId] : undefined;
-    const needed = destination
-      ? // a furnace is a finished building that still takes deliveries, so what
-        // it wants comes from the fuel rule rather than from a materials list
-        wantsFuel(destination)
-        ? FURNACE_FUEL_BATCH
-        : (destination.requiredResources.find((r) => r.type === item.type)?.quantity ?? 0)
-      : item.quantity;
+    const needed = !destination
+      ? item.quantity // to a storage tile: the whole stack
+      : destination.type === 'tradingPost' && !destination.isBlueprint
+        ? item.quantity // across a counter: whatever they are carrying
+        : wantsFuel(destination)
+          ? FURNACE_FUEL_BATCH
+          : (destination.requiredResources.find((r) => r.type === item.type)?.quantity ?? 0);
     const taken = Math.max(0, Math.min(item.quantity, needed));
     if (taken === 0) {
       cancelJob(state, ctx, jobId, colonistId, 'nothing left to deliver');
@@ -433,6 +441,38 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
       return;
     }
     if (move !== 'arrived') return;
+
+    // goods across a counter: the trader pays on delivery, and the payment is
+    // dropped at the post for the ordinary haul chain to take to the store
+    if (destinationBuilding.type === 'tradingPost' && !destinationBuilding.isBlueprint) {
+      const trader = traderAtPost(state);
+      const paid = trader
+        ? settleDelivery(state, trader.id, carrying.type, carrying.quantity)
+        : null;
+      updateColonist(state, colonistId, { carrying: null });
+      if (paid) {
+        const at = state.tiles[destinationBuilding.tileId];
+        addItem(state, paid.resource, paid.quantity, at.x, at.y);
+        addLog(
+          state,
+          'tradeSettled',
+          {
+            gaveQuantity: carrying.quantity,
+            gave: carrying.type,
+            tookQuantity: paid.quantity,
+            took: paid.resource,
+          },
+          'incident',
+        );
+      } else {
+        // the trader left, or the credit did not cover a single unit: the goods
+        // stay in the colony rather than vanishing across the counter
+        const at = state.colonists[colonistId].position;
+        addItem(state, carrying.type, carrying.quantity, at.x, at.y);
+      }
+      completeJob(state, jobId, colonistId);
+      return;
+    }
 
     // fuel into a furnace, materials into a blueprint
     if (destinationBuilding.type === 'manaFurnace' && !destinationBuilding.isBlueprint) {

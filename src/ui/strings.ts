@@ -27,6 +27,7 @@ import type {
   ScenarioName,
   SkillName,
   TerrainType,
+  TraderKind,
   TraitName,
 } from '../core/types';
 
@@ -48,7 +49,13 @@ export type ColonistActivityName =
   | 'fighting'
   | 'relaxingHearth'
   | 'relaxingAlone';
-export type AnimalActivityName = 'idle' | 'grazing' | 'fleeing' | 'stalking' | 'attacking';
+export type AnimalActivityName =
+  | 'idle'
+  | 'grazing'
+  | 'fleeing'
+  | 'stalking'
+  | 'attacking'
+  | 'gnawing';
 export type AnimalKind = 'tame' | 'predator' | 'wild';
 export type NeedWord = 'fine' | 'wanting' | 'critical';
 
@@ -74,6 +81,7 @@ export interface Strings {
   activityLabels: Record<ColonistActivityName, string>;
   animalActivityLabels: Record<AnimalActivityName, string>;
   animalKinds: Record<AnimalKind, string>;
+  traderKindLabels: Record<TraderKind, string>;
   needWords: Record<NeedWord, string>;
 
   // --- derived text: keys composed at display time -------------------------
@@ -184,6 +192,10 @@ export interface Strings {
   conditionHp: (current: number, max: number) => string;
   berriesRipe: string;
   berriesRipening: (percent: number) => string;
+  rowBloom: string;
+  bloomInFlower: string;
+  bloomOpening: (percent: number) => string;
+  bloomDormant: (percent: number) => string;
   cropNotSown: string;
   cropReady: string;
   cropDormant: (percent: number) => string;
@@ -260,6 +272,18 @@ export interface Strings {
   assignBySkill: string;
   assignFootnote: string;
 
+  // --- trade panel (11章 フェーズ5) ------------------------------------------
+  panelTrader: string;
+  rowWho: string;
+  rowTradeKind: string;
+  rowLeaves: string;
+  leavesInHours: (hours: number) => string;
+  traderSells: (quantity: number, resource: ResourceType, price: string) => string;
+  traderDeal: (give: ResourceType, take: ResourceType) => string;
+  tradeFootnote: string;
+  tradeGiveTitle: (give: ResourceType, take: ResourceType) => string;
+  tradeCallOff: string;
+
   // --- goals panel ----------------------------------------------------------
   goalSummaryLine: (done: number, total: number, season: Season) => string;
   goalsDead: string;
@@ -290,9 +314,12 @@ const EN_SPECIES: Record<AnimalSpecies, string> = {
   chicken: 'Chicken',
   goat: 'Goat',
   wolf: 'Wolf',
+  crystalElk: 'Crystal elk',
+  rockeater: 'Rockeater',
 };
 
-/** English is not regular: deer stay deer and a wolf becomes wolves. */
+/** English is not regular: deer stay deer, a wolf becomes wolves, and the
+ *  crystal elk inherits the deer's plural along with its silhouette. */
 const EN_SPECIES_PLURAL: Record<AnimalSpecies, string> = {
   deer: 'Deer',
   boar: 'Boars',
@@ -300,6 +327,8 @@ const EN_SPECIES_PLURAL: Record<AnimalSpecies, string> = {
   chicken: 'Chickens',
   goat: 'Goats',
   wolf: 'Wolves',
+  crystalElk: 'Crystal elk',
+  rockeater: 'Rockeaters',
 };
 
 const EN_BUILDINGS: Record<BuildingType, string> = {
@@ -319,6 +348,8 @@ const EN_BUILDINGS: Record<BuildingType, string> = {
   manaLamp: 'Mana lamp',
   manaExtractor: 'Mana extractor',
   manaTurret: 'Mana turret',
+  tradingPost: 'Trading post',
+  frostbloom: 'Frostbloom',
 };
 
 const EN_SKILLS: Record<SkillName, string> = {
@@ -464,8 +495,10 @@ const en: Strings = {
     fleeing: 'fleeing',
     stalking: 'stalking',
     attacking: 'attacking',
+    gnawing: 'gnawing rock',
   },
   animalKinds: { tame: 'tame', predator: 'predator', wild: 'wild' },
+  traderKindLabels: { pedlar: 'pedlar', crystalFactor: 'crystal factor' },
   needWords: { fine: 'fine', wanting: 'wanting', critical: 'critical' },
 
   thoughts: {
@@ -634,6 +667,15 @@ const en: Strings = {
     animalKilledByPredator: (p) =>
       `${p.name} the ${enSpecies(p.species)} was killed by a ${enSpecies(p.predator)}`,
     wolfSpotted: (p) => `A wolf was spotted near the treeline (${p.name})`,
+    rockeaterExposedVein: (p) =>
+      `${p.name} the rockeater laid a mana crystal vein bare at ${p.tile}`,
+    traderArrived: (p) =>
+      p.kind === 'crystalFactor'
+        ? `${p.name}, a crystal factor, has set up at the post`
+        : `${p.name} the pedlar has set up at the post`,
+    traderLeft: (p) => `${p.name} packs up and leaves`,
+    tradeSettled: (p) =>
+      `traded ${p.gaveQuantity} ${EN_RESOURCES[p.gave as ResourceType]} for ${p.tookQuantity} ${EN_RESOURCES[p.took as ResourceType]}`,
   },
   jobFailReasons: {
     interrupted: 'interrupted by a need',
@@ -751,6 +793,10 @@ const en: Strings = {
   conditionHp: (current, max) => `${current} / ${max} hp`,
   berriesRipe: 'ripe',
   berriesRipening: (percent) => `ripening (${percent}%)`,
+  rowBloom: 'Bloom',
+  bloomInFlower: 'in flower',
+  bloomOpening: (percent) => `opening (${percent}%)`,
+  bloomDormant: (percent) => `${percent}% — dormant until winter`,
   cropNotSown: 'not sown',
   cropReady: 'ready to harvest',
   cropDormant: (percent) => `${percent}% — dormant until spring`,
@@ -825,6 +871,19 @@ const en: Strings = {
   assignFootnote:
     'Puts each colonist first in line for the two things they are best at, so specialists do their speciality. The cost is that everything else drops behind it, including work you have just ordered. Nothing is switched off, and columns you have disabled stay disabled.',
 
+  panelTrader: 'Trader',
+  rowWho: 'Who',
+  rowTradeKind: 'Trade',
+  rowLeaves: 'Leaves',
+  leavesInHours: (hours) => `in ${hours} ${n(hours, 'hour', 'hours')}`,
+  traderSells: (quantity, resource, price) =>
+    `Sells: ${quantity} ${EN_RESOURCES[resource]} at ${price} each`,
+  traderDeal: (give, take) => `Deal: ${EN_RESOURCES[give]} for ${EN_RESOURCES[take]}`,
+  tradeFootnote:
+    'Pick what to hand over and what to take. Hauling it there is ordinary haul work, so it competes with everything else on that column.',
+  tradeGiveTitle: (give, take) => `hand over ${EN_RESOURCES[give]} for ${EN_RESOURCES[take]}`,
+  tradeCallOff: 'Call the deal off',
+
   goalSummaryLine: (done, total, season) => `${done}/${total} — ${EN_SEASONS[season]}`,
   goalsDead: 'The colony has died out.',
   goalNext: (label) => ` · next: ${label}`,
@@ -853,6 +912,8 @@ const JA_SPECIES: Record<AnimalSpecies, string> = {
   chicken: 'ニワトリ',
   goat: 'ヤギ',
   wolf: 'オオカミ',
+  crystalElk: '晶角鹿',
+  rockeater: '岩喰い',
 };
 
 const JA_BUILDINGS: Record<BuildingType, string> = {
@@ -871,6 +932,8 @@ const JA_BUILDINGS: Record<BuildingType, string> = {
   manaLamp: '魔力灯',
   manaExtractor: '自動採掘機',
   manaTurret: '防衛タレット',
+  tradingPost: '交易柱',
+  frostbloom: '霜花',
 };
 
 const JA_SKILLS: Record<SkillName, string> = {
@@ -1009,8 +1072,10 @@ const ja: Strings = {
     fleeing: '逃走中',
     stalking: '獲物を狙っている',
     attacking: '攻撃中',
+    gnawing: '岩をかじっている',
   },
   animalKinds: { tame: '家畜', predator: '肉食獣', wild: '野生' },
+  traderKindLabels: { pedlar: '行商人', crystalFactor: '晶商' },
   needWords: { fine: '良好', wanting: '不足', critical: '危険' },
 
   thoughts: {
@@ -1165,6 +1230,11 @@ const ja: Strings = {
     animalKilledByPredator: (p) =>
       `${jaSpecies(p.species)}の${p.name}が${jaSpecies(p.predator)}に殺された`,
     wolfSpotted: (p) => `森の際でオオカミが目撃された（${p.name}）`,
+    rockeaterExposedVein: (p) => `岩喰いの${p.name}が${p.tile}で魔力結晶の鉱脈をむき出しにした`,
+    traderArrived: (p) => `${ja.traderKindLabels[p.kind as TraderKind]}の${p.name}が交易柱に店を構えた`,
+    traderLeft: (p) => `${p.name}は店をたたんで去っていった`,
+    tradeSettled: (p) =>
+      `${JA_RESOURCES[p.gave as ResourceType]}${p.gaveQuantity}を${JA_RESOURCES[p.took as ResourceType]}${p.tookQuantity}と交換した`,
   },
   jobFailReasons: {
     interrupted: '欲求による中断',
@@ -1280,6 +1350,10 @@ const ja: Strings = {
   conditionHp: (current, max) => `${current} / ${max} hp`,
   berriesRipe: '熟している',
   berriesRipening: (percent) => `熟しつつある（${percent}%）`,
+  rowBloom: '開花',
+  bloomInFlower: '咲いている',
+  bloomOpening: (percent) => `開きつつある（${percent}%）`,
+  bloomDormant: (percent) => `${percent}% — 冬まで休眠`,
   cropNotSown: '未播種',
   cropReady: '収穫できる',
   cropDormant: (percent) => `${percent}% — 春まで休眠`,
@@ -1353,6 +1427,19 @@ const ja: Strings = {
   assignBySkill: '腕前で割り振る',
   assignFootnote:
     '各入植者を最も得意な2つの仕事の先頭に置き、職人が本業をやるようにする。代償として、指示したばかりの仕事も含めて他のすべてが後回しになる。何も無効にはならず、無効にした列はそのまま。',
+
+  panelTrader: '交易商',
+  rowWho: '相手',
+  rowTradeKind: '商い',
+  rowLeaves: '出発',
+  leavesInHours: (hours) => `${hours}時間後`,
+  traderSells: (quantity, resource, price) =>
+    `販売: ${JA_RESOURCES[resource]}${quantity}（単価${price}）`,
+  traderDeal: (give, take) => `取引: ${JA_RESOURCES[give]}を${JA_RESOURCES[take]}に`,
+  tradeFootnote:
+    '何を渡し、何を受け取るかを決める。持ち込みは通常の運搬仕事なので、他のすべての運搬と取り合いになる。',
+  tradeGiveTitle: (give, take) => `${JA_RESOURCES[give]}を渡して${JA_RESOURCES[take]}を受け取る`,
+  tradeCallOff: '取引をやめる',
 
   goalSummaryLine: (done, total, season) => `${done}/${total} — ${JA_SEASONS[season]}`,
   goalsDead: '植民地は全滅した。',

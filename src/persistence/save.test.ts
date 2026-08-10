@@ -333,10 +333,17 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
-  it('migrates a version 15 save into the structured log', () => {
+  it('migrates a version 15 save through traders, map size and the structured log', () => {
     const harness = createHarness(103);
     harness.run(100);
-    const v15 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    // a real v15 save predates traders (16), stored map sizes (17) and the
+    // structured log (18): strip all three so the whole tail of the chain runs
+    const {
+      traders: _noTraders,
+      width: _noWidth,
+      height: _noHeight,
+      ...v15
+    } = JSON.parse(JSON.stringify(harness.state)) as GameState;
     // a v15 log as it was actually written: finished English sentences
     (v15 as unknown as { log: unknown }).log = [
       { tick: 10, message: 'Aria reached Woodcutting level 2' },
@@ -347,10 +354,15 @@ describe('save file versioning', () => {
       schemaVersion: 15,
       savedAtTick: harness.state.tick,
       savedAtRealTime: '2026-08-10T00:00:00.000Z',
-      state: v15,
+      state: v15 as GameState,
     });
 
     expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // nobody is mid-visit in a save that predates trade
+    expect(migrated.state.traders).toEqual({});
+    // every save before v17 was 60x60, because that was the only size there was
+    expect(migrated.state.width).toBe(60);
+    expect(migrated.state.height).toBe(60);
     // old sentences are wrapped, not parsed: guessing the event back out of the
     // wording would necessarily miss, so they display verbatim as `legacy`
     expect(migrated.state.log).toEqual([
@@ -454,27 +466,28 @@ describe('IndexedDB slot', () => {
   });
 
   it('gives an old save iron to find, the same way it was given mana', () => {
-    // A colony saved before phase 10 has rock with no iron in it and storage
-    // zones that never heard of the resource - the same two gaps, one ore on.
+    // A colony saved before phase 10 (v18) has rock with no iron in it and
+    // storage zones that never heard of the resource - the same two gaps, one
+    // ore on.
     const harness = createHarness(107);
-    const v16 = JSON.parse(JSON.stringify(harness.state)) as GameState;
-    for (const id in v16.tiles) {
-      if (v16.tiles[id].terrain === 'ironVein') {
-        v16.tiles[id] = { ...v16.tiles[id], terrain: 'stone' };
+    const v18 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v18.tiles) {
+      if (v18.tiles[id].terrain === 'ironVein') {
+        v18.tiles[id] = { ...v18.tiles[id], terrain: 'stone' };
       }
     }
-    for (const id in v16.zones) {
-      v16.zones[id] = {
-        ...v16.zones[id],
-        accepts: v16.zones[id].accepts.filter((type) => type !== 'iron'),
+    for (const id in v18.zones) {
+      v18.zones[id] = {
+        ...v18.zones[id],
+        accepts: v18.zones[id].accepts.filter((type) => type !== 'iron'),
       };
     }
 
     const migrated = migrateSave({
-      schemaVersion: 16,
-      savedAtTick: v16.tick,
+      schemaVersion: 18,
+      savedAtTick: v18.tick,
       savedAtRealTime: '2026-08-10T00:00:00.000Z',
-      state: v16,
+      state: v18,
     }).state;
 
     const veins = Object.values(migrated.tiles).filter((t) => t.terrain === 'ironVein');
@@ -482,7 +495,7 @@ describe('IndexedDB slot', () => {
     for (const vein of veins) expect(vein.walkable).toBe(false);
     // and crystal was left exactly where it was: iron is seeded into stone only
     expect(Object.values(migrated.tiles).filter((t) => t.terrain === 'crystal').length).toBe(
-      Object.values(v16.tiles).filter((t) => t.terrain === 'crystal').length,
+      Object.values(v18.tiles).filter((t) => t.terrain === 'crystal').length,
     );
     for (const id in migrated.zones) {
       if (migrated.zones[id].type !== 'storage') continue;
@@ -491,10 +504,10 @@ describe('IndexedDB slot', () => {
 
     // and the same world migrates to the same veins, not a fresh roll each load
     const again = migrateSave({
-      schemaVersion: 16,
-      savedAtTick: v16.tick,
+      schemaVersion: 18,
+      savedAtTick: v18.tick,
       savedAtRealTime: '2026-08-10T00:00:00.000Z',
-      state: JSON.parse(JSON.stringify(v16)) as GameState,
+      state: JSON.parse(JSON.stringify(v18)) as GameState,
     }).state;
     expect(Object.values(again.tiles).filter((t) => t.terrain === 'ironVein').length).toBe(
       veins.length,

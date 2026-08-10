@@ -18,8 +18,7 @@ import {
 import { setDesignation } from './actions';
 import { isRock } from './state';
 import { countStoredResource } from './storage';
-import { createHarness, quarryTo, recordLogEntries } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, quarryTo, recordLogEntries, testWorld } from './testUtils';
 import type { GameState, TileId } from './types';
 
 function veins(state: GameState): TileId[] {
@@ -67,7 +66,7 @@ describe('where iron comes from', () => {
     let iron = 0;
     let crystal = 0;
     for (let seed = 1; seed <= 10; seed++) {
-      const state = generateWorld({ seed });
+      const state = testWorld({ seed });
       const count = veins(state).length;
       expect(count).toBeGreaterThan(0);
       iron += count;
@@ -77,7 +76,7 @@ describe('where iron comes from', () => {
   });
 
   it('is solid ground: an iron vein blocks movement exactly like stone', () => {
-    const state = generateWorld({ seed: 37 });
+    const state = testWorld({ seed: 37 });
     for (const id of veins(state)) expect(state.tiles[id].walkable).toBe(false);
     expect(isRock('ironVein')).toBe(true);
   });
@@ -116,7 +115,7 @@ describe('cutting an iron vein open', () => {
 
   it('leaves the crystal branch exactly as it was', () => {
     // the same table serves both ores; iron joining must not have moved crystal
-    const state = generateWorld({ seed: 43 });
+    const state = testWorld({ seed: 43 });
     expect(crystals(state)).toBeGreaterThan(0);
     expect(veinYieldOf('crystal').resource).toBe('manaCrystal');
   });
@@ -139,7 +138,7 @@ describe('iron is a resource like any other', () => {
   });
 
   it('is accepted by a freshly placed storage zone', () => {
-    const state = generateWorld({ seed: 59 });
+    const state = testWorld({ seed: 59 });
     for (const id in state.zones) {
       if (state.zones[id].type === 'storage') {
         expect(state.zones[id].accepts).toContain('iron');

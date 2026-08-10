@@ -23,7 +23,7 @@ import {
   setJobPriority,
   setZoneAccepts,
 } from './actions';
-import { MAP_HEIGHT, MAP_WIDTH, RESOURCE_TYPES } from './constants';
+import { DEFAULT_MAP_WIDTH, RESOURCE_TYPES } from './constants';
 import { mulberry32 } from './rng';
 import { tileIdOf } from './state';
 import { candidatesFor } from './jobs/assign';
@@ -43,14 +43,14 @@ const BUILDINGS: BuildingType[] = [
 const DESIGNATIONS: (Designation | null)[] = ['chop', 'mine', 'deconstruct', null];
 
 /** A rectangle of tile ids somewhere on the map, as a drag would produce. */
-function rectangle(rnd: () => number, size: number): string[] {
-  const x0 = Math.floor(rnd() * MAP_WIDTH);
-  const y0 = Math.floor(rnd() * MAP_HEIGHT);
+function rectangle(state: GameState, rnd: () => number, size: number): string[] {
+  const x0 = Math.floor(rnd() * state.width);
+  const y0 = Math.floor(rnd() * state.height);
   const w = 1 + Math.floor(rnd() * size);
   const h = 1 + Math.floor(rnd() * size);
   const ids: string[] = [];
-  for (let y = y0; y < Math.min(MAP_HEIGHT, y0 + h); y++) {
-    for (let x = x0; x < Math.min(MAP_WIDTH, x0 + w); x++) ids.push(tileIdOf(x, y));
+  for (let y = y0; y < Math.min(state.height, y0 + h); y++) {
+    for (let x = x0; x < Math.min(state.width, x0 + w); x++) ids.push(tileIdOf(x, y));
   }
   return ids;
 }
@@ -62,26 +62,26 @@ function act(state: GameState, rnd: () => number): GameState {
     case 0:
       return setDesignation(
         state,
-        rectangle(rnd, 5),
+        rectangle(state, rnd, 5),
         DESIGNATIONS[Math.floor(rnd() * DESIGNATIONS.length)],
       );
     case 1:
       return placeBuildingBlueprint(
         state,
         BUILDINGS[Math.floor(rnd() * BUILDINGS.length)],
-        rectangle(rnd, 4),
+        rectangle(state, rnd, 4),
       );
     case 2:
-      return cancelBlueprint(state, rectangle(rnd, 6));
+      return cancelBlueprint(state, rectangle(state, rnd, 6));
     case 3:
-      return placeStorageZone(state, rectangle(rnd, 3));
+      return placeStorageZone(state, rectangle(state, rnd, 3));
     case 4:
-      return placePastureZone(state, rectangle(rnd, 4));
+      return placePastureZone(state, rectangle(state, rnd, 4));
     case 5:
-      return removeZoneTiles(state, rectangle(rnd, 3));
+      return removeZoneTiles(state, rectangle(state, rnd, 3));
     case 6: {
       const marks = ['hunt', 'tame', 'slaughter', null] as const;
-      return designateAnimals(state, rectangle(rnd, 8), marks[Math.floor(rnd() * marks.length)]);
+      return designateAnimals(state, rectangle(state, rnd, 8), marks[Math.floor(rnd() * marks.length)]);
     }
     case 7: {
       const ids = Object.keys(state.colonists);
@@ -225,6 +225,20 @@ describe('playing badly', () => {
     expect(Object.keys(harness.state.colonists).length).toBeGreaterThan(0);
   }, 120000);
 
+  it('holds the same invariants on the map the game ships', () => {
+    // The invariants are statements about the shape of the state, so they
+    // should not depend on how big the map is - which is a claim, and this is
+    // where it gets checked (docs/design-phase6-space.md 5, A-3).
+    const harness = createHarness(9507, DEFAULT_MAP_WIDTH);
+    const rnd = mulberry32(9507);
+    for (let round = 0; round < 12; round++) {
+      for (let i = 0; i < 3; i++) harness.state = act(harness.state, rnd);
+      harness.run(200);
+      assertDescribable(harness.state);
+    }
+    expect(Object.keys(harness.state.colonists).length).toBeGreaterThan(0);
+  }, 300000);
+
   it('holds up under a different stream of nonsense', () => {
     // a second seed, because one sequence is one sequence
     const harness = createHarness(9511);
@@ -275,8 +289,8 @@ describe('playing badly', () => {
 
     for (let round = 0; round < 20; round++) {
       // only orders that move things, never ones that create or consume them
-      harness.state = designateAnimals(harness.state, rectangle(rnd, 8), null);
-      harness.state = placeStorageZone(harness.state, rectangle(rnd, 3));
+      harness.state = designateAnimals(harness.state, rectangle(harness.state, rnd, 8), null);
+      harness.state = placeStorageZone(harness.state, rectangle(harness.state, rnd, 3));
       const before = total(harness.state);
       harness.run(120);
       const after = total(harness.state);

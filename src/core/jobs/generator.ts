@@ -5,6 +5,7 @@
 // so a designated tree never grows a second chop job while the first is alive.
 import { DEFAULT_JOB_PRIORITY } from '../constants';
 import { wantsFuel } from '../mana';
+import { findTradingPost, traderAtPost } from '../trade';
 import { nextId, tileIdOf, isRock } from '../state';
 import { acceptsHere, findNearestItem } from '../storage';
 import type { GameState, Job, JobId, JobType, TileId } from '../types';
@@ -118,8 +119,9 @@ export function runJobGenerator(state: GameState): void {
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.isBlueprint) continue;
-    // a ripe bush is harvest work and nothing else: there is no sowing to do
-    if (building.type === 'berryBush') {
+    // a ripe bush is harvest work and nothing else: there is no sowing to do,
+    // and a frostbloom is a bush that keeps a different calendar
+    if (building.type === 'berryBush' || building.type === 'frostbloom') {
       if (building.growth < 1) continue;
       const key = `farm:${building.tileId}`;
       if (has(key)) continue;
@@ -206,6 +208,31 @@ export function runJobGenerator(state: GameState): void {
     claim(key);
   }
 
+  // --- a standing trade deal -> haul the goods to the post -------------------
+  // The same haul job again, pointed at the post. Making a deal is hauling
+  // work, so it competes with everything else on that column: a colony that
+  // has hauling last will watch the trader leave with the deal unfilled.
+  for (const traderId in state.traders ?? {}) {
+    const trader = state.traders[traderId];
+    if (!trader.deal) continue;
+    const postId = findTradingPost(state);
+    if (!postId) continue;
+    const key = `deliver:${postId}:${trader.deal.give}`;
+    if (has(key)) continue;
+    const tile = state.tiles[state.buildings[postId].tileId];
+    const source = findNearestItem(state, trader.deal.give, { x: tile.x, y: tile.y }, {
+      preferStorage: true,
+    });
+    if (!source) continue;
+    createJob(state, 'haul', {
+      targetTileId: tileIdOf(source.position.x, source.position.y),
+      targetEntityId: source.id,
+      destinationId: postId,
+      payloadType: trader.deal.give,
+    });
+    claim(key);
+  }
+
   // --- damaged structures -> repair -----------------------------------------
   // Nothing damaged a building until predators started chewing on doors, which
   // is what makes this worth generating: a fence keeps wolves out only while
@@ -285,7 +312,9 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     case 'farm': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       if (!building || building.isBlueprint) return false;
-      if (building.type === 'berryBush') return building.growth >= 1;
+      if (building.type === 'berryBush' || building.type === 'frostbloom') {
+        return building.growth >= 1;
+      }
       return !building.sown || building.growth >= 1;
     }
     case 'build': {
@@ -319,6 +348,11 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
           // so "is it still a blueprint" is no longer the whole question
           if (destination.type === 'manaFurnace' && !destination.isBlueprint) {
             return item.type === 'manaCrystal' && wantsFuel(destination);
+          }
+          // a trading post takes deliveries while somebody is standing at it
+          if (destination.type === 'tradingPost' && !destination.isBlueprint) {
+            const trader = traderAtPost(state);
+            return !!trader && trader.deal?.give === item.type;
           }
           if (!destination.isBlueprint) return false;
           return destination.requiredResources.some((r) => r.type === item.type && r.quantity > 0);

@@ -19,8 +19,8 @@ import {
   workRate,
   xpForLevel,
 } from './skills';
-import { createHarness, idleColony, nearestTilesWithTerrain } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, idleColony, nearestTilesWithTerrain, testWorld } from './testUtils';
+
 import type { Colonist, GameState, SkillName } from './types';
 
 function withSkill(state: GameState, name: SkillName, level: number): void {
@@ -153,7 +153,7 @@ describe('skills', () => {
   });
 
   it('give the founders backgrounds that differ, and differ by map', () => {
-    const state = generateWorld({ seed: 3331 });
+    const state = testWorld({ seed: 3331 });
     const founders = Object.values(state.colonists);
     expect(founders.length).toBe(3);
     for (const colonist of founders) {
@@ -167,9 +167,9 @@ describe('skills', () => {
     expect(signatures.size).toBeGreaterThan(1);
 
     // and the same seed twice is the same three people (determinism, section 9)
-    expect(JSON.stringify(Object.values(generateWorld({ seed: 3331 }).colonists).map((c) => c.skills)))
+    expect(JSON.stringify(Object.values(testWorld({ seed: 3331 }).colonists).map((c) => c.skills)))
       .toBe(JSON.stringify(founders.map((c) => c.skills)));
-    expect(JSON.stringify(Object.values(generateWorld({ seed: 3337 }).colonists).map((c) => c.skills)))
+    expect(JSON.stringify(Object.values(testWorld({ seed: 3337 }).colonists).map((c) => c.skills)))
       .not.toBe(JSON.stringify(founders.map((c) => c.skills)));
   });
 

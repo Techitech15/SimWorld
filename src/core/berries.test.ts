@@ -13,8 +13,8 @@ import {
 import { createSimContext } from './derived';
 import { TICKS_PER_SEASON } from './season';
 import { tickMany } from './simulation';
-import { createHarness } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, testWorld } from './testUtils';
+
 import type { GameState } from './types';
 
 const bushes = (state: GameState) =>
@@ -22,7 +22,7 @@ const bushes = (state: GameState) =>
 
 describe('berry bushes', () => {
   it('are scattered through the woods, not the camp, at mixed ripeness', () => {
-    const state = generateWorld({ seed: 2001 });
+    const state = testWorld({ seed: 2001 });
     const found = bushes(state);
     expect(found.length).toBe(BERRY_BUSH_COUNT);
 
@@ -64,7 +64,7 @@ describe('berry bushes', () => {
     const perPlot = FOOD_PER_HARVEST * CROP_GROWTH_PER_TICK;
     expect(perBush).toBeLessThan(perPlot);
 
-    const state = generateWorld({ seed: 2017 });
+    const state = testWorld({ seed: 2017 });
     const plots = Object.values(state.buildings).filter((b) => b.type === 'farmPlot').length;
     const wild = bushes(state).length * perBush;
     const farmed = plots * perPlot;
@@ -74,7 +74,7 @@ describe('berry bushes', () => {
   });
 
   it('stop ripening in winter like everything else', () => {
-    const state = generateWorld({ seed: 2011 });
+    const state = testWorld({ seed: 2011 });
     state.tick = TICKS_PER_SEASON * 3;
     for (const id in state.buildings) {
       if (state.buildings[id].type === 'berryBush') {
