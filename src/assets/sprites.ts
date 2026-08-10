@@ -30,6 +30,8 @@ export const sprites = {
   stoneFloor: spriteUrl('buildings/stone_floor.png'),
   berryBare: spriteUrl('buildings/berry_bare.png'),
   berryRipe: spriteUrl('buildings/berry_ripe.png'),
+  frostbloomBare: spriteUrl('buildings/frostbloom_bare.png'),
+  frostbloomBloom: spriteUrl('buildings/frostbloom_bloom.png'),
   doorClosed: spriteUrl('buildings/door_closed.png'),
   doorOpen: spriteUrl('buildings/door_open.png'),
   bed: spriteUrl('buildings/bed.png'),
@@ -53,6 +55,8 @@ export const sprites = {
   manaTurret: spriteUrl('buildings/mana_turret.png'),
   manaTurretLive: spriteUrl('buildings/mana_turret_live.png'),
   raider: spriteUrl('raiders/raider.png'),
+  tradingPost: spriteUrl('buildings/trading_post.png'),
+  trader: spriteUrl('raiders/trader.png'),
   colonistWalk: spriteUrl('colonist/walk.png'),
   colonistWork: spriteUrl('colonist/work.png'),
   jobChop: spriteUrl('ui/job_chop.png'),
@@ -73,6 +77,8 @@ export const sprites = {
   chicken: spriteUrl('animals/chicken.png'),
   goat: spriteUrl('animals/goat.png'),
   wolf: spriteUrl('animals/wolf.png'),
+  crystalElk: spriteUrl('animals/crystal_elk.png'),
+  rockeater: spriteUrl('animals/rockeater.png'),
 } as const;
 
 export type SpriteKey = keyof typeof sprites;

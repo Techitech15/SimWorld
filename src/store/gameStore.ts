@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import * as actions from '../core/actions';
 import { createSimContext, rebuildPathIndex, rebuildRegions } from '../core/derived';
 import { refreshNetworks } from '../core/mana';
+import { clearTradeDeal, setTradeDeal } from '../core/trade';
 import type { ManaNetworks } from '../core/mana';
 import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
@@ -102,6 +103,8 @@ export interface GameStore {
   // player actions (section 3: UI writes to the store, the tick reacts to it)
   setJobPriority: (colonistId: ColonistId, jobType: JobType, priority: number) => void;
   setZoneAccepts: (zoneId: ZoneId, type: ResourceType, allowed: boolean) => void;
+  setTradeDeal: (traderId: string, give: ResourceType, take: ResourceType) => void;
+  clearTradeDeal: (traderId: string) => void;
   assignWorkBySkill: () => void;
   applyTool: (tileIds: TileId[]) => void;
   orderMove: (colonistId: ColonistId, target: Vector2) => void;
@@ -226,6 +229,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setZoneAccepts: (zoneId, type, allowed) =>
     set({ state: actions.setZoneAccepts(get().state, zoneId, type, allowed) }),
+
+  setTradeDeal: (traderId, give, take) =>
+    set({ state: setTradeDeal(get().state, traderId, give, take) }),
+
+  clearTradeDeal: (traderId) => set({ state: clearTradeDeal(get().state, traderId) }),
 
   assignWorkBySkill: () => {
     const state = actions.assignWorkBySkill(get().state);

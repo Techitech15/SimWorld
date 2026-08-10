@@ -2,10 +2,10 @@
 //
 // Collapsed to a single line once the colony has its feet under it, because a
 // checklist that stays open after everything on it is done is just furniture.
-import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { colonyGoals, goalSummary } from '../core/goals';
 import { useGameStore } from '../store/gameStore';
+import { usePanelFold } from './panelState';
 
 /** Nothing in a label or hint contains this, and it is visible if it leaks. */
 const FIELD = ' :: ';
@@ -24,7 +24,8 @@ export function GoalPanel(): React.JSX.Element | null {
     ),
   );
   const summary = useGameStore((s) => goalSummary(s.state));
-  const [open, setOpen] = useState(true);
+  // the fold survives a reload, and it is not part of the save (4.3)
+  const { open, toggle } = usePanelFold('goals', true);
   if (rows.length === 0) return null;
 
   const goals = rows.map((row) => {
@@ -40,7 +41,7 @@ export function GoalPanel(): React.JSX.Element | null {
         <button
           type="button"
           className="panel__clear"
-          onClick={() => setOpen(!open)}
+          onClick={toggle}
           title={open ? 'collapse' : 'expand'}
         >
           {open ? '−' : '+'}

@@ -37,8 +37,14 @@ function decodePNG(buf) {
 }
 
 const files = [];
-for (const dir of fs.readdirSync(SPRITES)) {
-  for (const f of fs.readdirSync(path.join(SPRITES, dir))) files.push(path.join(dir, f));
+// src/assets holds sprites.ts beside the sprite directories, so this has to
+// look at what each entry is rather than assuming everything there is a folder.
+for (const entry of fs.readdirSync(SPRITES, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  for (const f of fs.readdirSync(path.join(SPRITES, entry.name))) {
+    if (!f.endsWith('.png')) continue;
+    files.push(path.join(entry.name, f));
+  }
 }
 
 const images = files.map((f) => ({

@@ -3,7 +3,6 @@
 // paint a real world and read the pixels back.
 import { describe, expect, it } from 'vitest';
 import { placePastureZone, setDesignation } from '../core/actions';
-import { MAP_HEIGHT, MAP_WIDTH } from '../core/constants';
 import { tileIdOf } from '../core/state';
 import { createHarness, nearestTilesWithTerrain } from '../core/testUtils';
 import { addBuilding, createAnimal } from '../core/worldgen';
@@ -11,13 +10,19 @@ import type { GameState } from '../core/types';
 import { paintMinimap } from './Minimap';
 
 function paint(state: GameState): Uint8ClampedArray {
-  const data = new Uint8ClampedArray(MAP_WIDTH * MAP_HEIGHT * 4);
+  const data = new Uint8ClampedArray(state.width * state.height * 4);
   paintMinimap(state, data);
   return data;
 }
 
-function pixel(data: Uint8ClampedArray, x: number, y: number): [number, number, number, number] {
-  const at = (y * MAP_WIDTH + x) * 4;
+/** Dimensions come from the state under test, never from a build constant. */
+function pixel(
+  state: GameState,
+  data: Uint8ClampedArray,
+  x: number,
+  y: number,
+): [number, number, number, number] {
+  const at = (y * state.width + x) * 4;
   return [data[at], data[at + 1], data[at + 2], data[at + 3]];
 }
 
@@ -25,9 +30,9 @@ describe('minimap', () => {
   it('paints every tile of the world, leaving no holes', () => {
     const harness = createHarness(5101);
     const data = paint(harness.state);
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
-        expect(pixel(data, x, y)[3]).toBe(255);
+    for (let y = 0; y < harness.state.height; y++) {
+      for (let x = 0; x < harness.state.width; x++) {
+        expect(pixel(harness.state, data, x, y)[3]).toBe(255);
       }
     }
   });
@@ -50,7 +55,7 @@ describe('minimap', () => {
     for (const tileId in harness.state.tiles) {
       const tile = harness.state.tiles[tileId];
       if (tile.buildingId || tile.designation || occupied.has(tileId)) continue;
-      const key = pixel(data, tile.x, tile.y).slice(0, 3).join(',');
+      const key = pixel(harness.state, data, tile.x, tile.y).slice(0, 3).join(',');
       const already = seen.get(tile.terrain);
       if (already) expect(key).toBe(already);
       else seen.set(tile.terrain, key);
@@ -69,13 +74,13 @@ describe('minimap', () => {
     const harness = createHarness(5113);
     const at = Object.values(harness.state.colonists)[0].position;
     const bare = paint(harness.state);
-    const under = pixel(bare, at.x, at.y);
+    const under = pixel(harness.state, bare, at.x, at.y);
     expect(under.slice(0, 3)).toEqual([255, 255, 255]);
 
     // and the ground shows again once they walk off it
     harness.state.colonists = {};
     const empty = paint(harness.state);
-    expect(pixel(empty, at.x, at.y).slice(0, 3)).not.toEqual([255, 255, 255]);
+    expect(pixel(harness.state, empty, at.x, at.y).slice(0, 3)).not.toEqual([255, 255, 255]);
   });
 
   it('marks a wolf differently from the herd it is stalking', () => {
@@ -87,9 +92,9 @@ describe('minimap', () => {
     const cow = createAnimal(harness.state, 'chicken', at.x + 10, at.y + 8, { tame: true });
 
     const data = paint(harness.state);
-    const wolfPixel = pixel(data, wolf.position.x, wolf.position.y).slice(0, 3);
-    const deerPixel = pixel(data, deer.position.x, deer.position.y).slice(0, 3);
-    const tamePixel = pixel(data, cow.position.x, cow.position.y).slice(0, 3);
+    const wolfPixel = pixel(harness.state, data, wolf.position.x, wolf.position.y).slice(0, 3);
+    const deerPixel = pixel(harness.state, data, deer.position.x, deer.position.y).slice(0, 3);
+    const tamePixel = pixel(harness.state, data, cow.position.x, cow.position.y).slice(0, 3);
     expect(wolfPixel).not.toEqual(deerPixel);
     expect(tamePixel).not.toEqual(deerPixel);
     expect(wolfPixel).not.toEqual(tamePixel);
@@ -103,7 +108,7 @@ describe('minimap', () => {
     const tile = harness.state.tiles[tileId];
     harness.state = setDesignation(harness.state, [tileId], 'chop');
     const after = paint(harness.state);
-    expect(pixel(after, tile.x, tile.y)).not.toEqual(pixel(before, tile.x, tile.y));
+    expect(pixel(harness.state, after, tile.x, tile.y)).not.toEqual(pixel(harness.state, before, tile.x, tile.y));
   });
 
   it('draws a pasture as ground the herd may use, not as a building', () => {
@@ -119,9 +124,9 @@ describe('minimap', () => {
     harness.state = placePastureZone(harness.state, ids);
     const after = paint(harness.state);
     const tile = harness.state.tiles[ids[0]];
-    expect(pixel(after, tile.x, tile.y)).not.toEqual(pixel(before, tile.x, tile.y));
+    expect(pixel(harness.state, after, tile.x, tile.y)).not.toEqual(pixel(harness.state, before, tile.x, tile.y));
     // still green ground: the pen is grass the animals graze, not a structure
-    const [r, g, b] = pixel(after, tile.x, tile.y);
+    const [r, g, b] = pixel(harness.state, after, tile.x, tile.y);
     expect(g).toBeGreaterThan(r);
     expect(g).toBeGreaterThan(b);
   });
@@ -130,10 +135,10 @@ describe('minimap', () => {
     const harness = createHarness(5137);
     const at = Object.values(harness.state.colonists)[0].position;
     const wall = addBuilding(harness.state, 'wall', tileIdOf(at.x + 3, at.y - 3));
-    const whole = pixel(paint(harness.state), at.x + 3, at.y - 3);
+    const whole = pixel(harness.state, paint(harness.state), at.x + 3, at.y - 3);
 
     harness.state.buildings[wall.id] = { ...wall, hpCurrent: wall.hpMax - 1 };
-    const chewed = pixel(paint(harness.state), at.x + 3, at.y - 3);
+    const chewed = pixel(harness.state, paint(harness.state), at.x + 3, at.y - 3);
     expect(chewed).not.toEqual(whole);
     // reddest of the three channels: findable on a 60x60 map at a glance
     expect(chewed[0]).toBeGreaterThan(chewed[1]);
@@ -143,7 +148,7 @@ describe('minimap', () => {
   it('costs one pass over the world, however long the game has run', () => {
     const harness = createHarness(5131);
     harness.run(600);
-    const data = new Uint8ClampedArray(MAP_WIDTH * MAP_HEIGHT * 4);
+    const data = new Uint8ClampedArray(harness.state.width * harness.state.height * 4);
     const started = performance.now();
     for (let i = 0; i < 20; i++) paintMinimap(harness.state, data);
     const perPaint = (performance.now() - started) / 20;

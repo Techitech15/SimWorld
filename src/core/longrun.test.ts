@@ -15,6 +15,7 @@ import { ARRIVAL_MAX_COLONISTS, TICK_MS } from './constants';
 import { SKILL_NAMES, levelOf } from './skills';
 import { TICKS_PER_SEASON } from './season';
 import { countResource } from './storage';
+import { DEFAULT_MAP_WIDTH } from './constants';
 import { createHarness } from './testUtils';
 import type { GameState } from './types';
 
@@ -99,6 +100,40 @@ describe('a year unattended', () => {
 
     expect(perTick).toBeLessThan(TICK_MS / 20); // an order of magnitude of headroom
   }, 180000);
+
+  /**
+   * The same year again, on the map the game actually ships (11章 フェーズ6).
+   *
+   * The rest of the suite runs at 60x60 so it finishes in minutes and so the
+   * measurements in design-notes.md keep meaning what they said. This is the
+   * one place that asks whether the *default* colony survives - a bigger map
+   * means longer walks, more scattered forage and a herd that has more room to
+   * be somewhere else, and none of that is visible at the old size.
+   */
+  it('leaves a living colony on the map the game actually ships', () => {
+    const harness = createHarness(8123, DEFAULT_MAP_WIDTH);
+    expect(harness.state.width).toBe(DEFAULT_MAP_WIDTH);
+    const founders = Object.keys(harness.state.colonists).length;
+    let lowestPopulation = founders;
+    harness.run(YEAR, (state) => {
+      lowestPopulation = Math.min(lowestPopulation, Object.keys(state.colonists).length);
+    });
+    expect(lowestPopulation).toBe(founders);
+    expect(countResource(harness.state, 'food')).toBeGreaterThan(0);
+    expect(collectAlerts(harness.state).filter((a) => a.level === 'critical')).toEqual([]);
+  }, 600000);
+
+  it('stays inside the tick budget on the shipped map size', () => {
+    // Four times the tiles, and the budget is still one 200ms tick. Measured:
+    // 6.4 ms at 120x120 against 1.0 ms at 60x60 - well inside, and the number
+    // that will quietly rot as features are added.
+    const harness = createHarness(8129, DEFAULT_MAP_WIDTH);
+    harness.run(3000);
+    const started = performance.now();
+    harness.run(1000);
+    const perTick = (performance.now() - started) / 1000;
+    expect(perTick).toBeLessThan(TICK_MS / 20);
+  }, 600000);
 
   it('survives being saved and reloaded at any point in the year', () => {
     const harness = createHarness(8117);

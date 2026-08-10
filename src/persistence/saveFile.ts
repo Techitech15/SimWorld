@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 17;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -266,6 +266,30 @@ export const migrations: Record<number, Migration> = {
   14: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, raiders: state.raiders ?? {} };
+  },
+
+  /**
+   * 15 -> 16: traders (11章 フェーズ5). Nobody is mid-visit in a save that
+   * predates trade, and the visit schedule is a function of the tick, so an old
+   * colony simply gets its first roll at the next five-day boundary.
+   */
+  15: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, traders: state.traders ?? {} };
+  },
+
+  /**
+   * 16 -> 17: the map carries its own size (11章 フェーズ6, design-phase6-space.md 3.1).
+   *
+   * Every save before this was 60x60, because that was the only size there was.
+   * Writing it down is what lets the *default* grow without those colonies
+   * becoming unreadable - the alternative was a version bump that could only
+   * refuse them, and a change that makes the player throw their colony away is
+   * not one worth making.
+   */
+  16: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, width: state.width ?? 60, height: state.height ?? 60 };
   },
 };
 

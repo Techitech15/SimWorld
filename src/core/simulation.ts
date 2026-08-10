@@ -7,7 +7,8 @@
 import { fleeStep, healColonists, nearestPredator, runAnimals } from './animals';
 import { runArrivals } from './arrivals';
 import { runIncidents } from './events';
-import { runMana } from './mana';
+import { runMana, refreshNetworks } from './mana';
+import { runTrade } from './trade';
 import { runDefenders, runRaiders, runTurrets } from './raid';
 import { runRelationships } from './relationships';
 import { regrowForest } from './regrowth';
@@ -16,10 +17,17 @@ import {
   CROP_GROWTH_PER_TICK,
   FLEE_DURATION_TICKS,
   FLEE_TRIGGER_DISTANCE,
+  FROSTBLOOM_REGROW_PER_TICK,
   TICKS_PER_STEP,
 } from './constants';
 import { invalidateTile, rebuildRegions } from './derived';
-import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, isSeasonBoundary, seasonOf } from './season';
+import {
+  CROP_GROWTH_BY_SEASON,
+  FROSTBLOOM_GROWTH_BY_SEASON,
+  SEASON_LABEL,
+  isSeasonBoundary,
+  seasonOf,
+} from './season';
 import type { SimContext } from './derived';
 import { runAssignment } from './jobs/assign';
 import { runExecution } from './jobs/execute';
@@ -42,6 +50,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   regrowForest(next);
   runIncidents(next);
   runArrivals(next);
+  // traders come and go on the same footing as arrivals: schedule from the
+  // tick, conditions from the state, and no pathfinding at all
+  runTrade(next, refreshNetworks(ctx, next));
   // needs run first so an interrupted job is back in the queue before the
   // generator and the candidate filter look at it this same tick
   runNeeds(next, ctx);
@@ -139,13 +150,24 @@ function runMoveOrders(state: GameState, ctx: SimContext): void {
 }
 
 function growCrops(state: GameState): void {
+  const season = seasonOf(state.tick);
   // nothing grows in winter, so the year has to be planned around it
-  const rate = CROP_GROWTH_PER_TICK * CROP_GROWTH_BY_SEASON[seasonOf(state.tick)];
-  if (rate <= 0) return;
-  const berryRate = BERRY_REGROW_PER_TICK * CROP_GROWTH_BY_SEASON[seasonOf(state.tick)];
+  const rate = CROP_GROWTH_PER_TICK * CROP_GROWTH_BY_SEASON[season];
+  const berryRate = BERRY_REGROW_PER_TICK * CROP_GROWTH_BY_SEASON[season];
+  // ...except the one plant whose season is winter (11章 フェーズ5). It is read
+  // from its own table, so the early return below has to come after it rather
+  // than before: the tick where everything else stops is the tick this starts.
+  const frostRate = FROSTBLOOM_REGROW_PER_TICK * FROSTBLOOM_GROWTH_BY_SEASON[season];
+  if (rate <= 0 && frostRate <= 0) return;
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.isBlueprint || building.growth >= 1) continue;
+    if (building.type === 'frostbloom') {
+      if (frostRate <= 0) continue;
+      updateBuilding(state, buildingId, { growth: Math.min(1, building.growth + frostRate) });
+      continue;
+    }
+    if (rate <= 0) continue;
     // a bush needs no sowing: it just comes back, slower than a tended plot
     if (building.type === 'berryBush') {
       updateBuilding(state, buildingId, { growth: Math.min(1, building.growth + berryRate) });

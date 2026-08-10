@@ -5,7 +5,7 @@
 // tick would be wasteful, so `beginTick` shallow-copies the record containers
 // (plus the handful of always-mutated colonist/job objects) and every mutation
 // helper below replaces the individual entity object it touches.
-import { MAP_HEIGHT, MAP_WIDTH } from './constants';
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from './constants';
 import type {
   Animal,
   AnimalId,
@@ -34,8 +34,8 @@ export function parseTileId(id: TileId): Vector2 {
   return { x: Number(id.slice(0, comma)), y: Number(id.slice(comma + 1)) };
 }
 
-export function inBounds(x: number, y: number): boolean {
-  return x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT;
+export function inBounds(state: GameState, x: number, y: number): boolean {
+  return x >= 0 && y >= 0 && x < state.width && y < state.height;
 }
 
 export function tileAt(state: GameState, x: number, y: number): Tile | undefined {
@@ -52,8 +52,13 @@ export function nextId(state: GameState, kind: string): string {
   return `${kind}${n}`;
 }
 
-export function createEmptyState(): GameState {
+export function createEmptyState(
+  width = DEFAULT_MAP_WIDTH,
+  height = DEFAULT_MAP_HEIGHT,
+): GameState {
   return {
+    width,
+    height,
     tick: 0,
     speed: 1,
     tiles: {},
@@ -64,6 +69,7 @@ export function createEmptyState(): GameState {
     zones: {},
     animals: {},
     raiders: {},
+    traders: {},
     reservations: {},
     forestCapacity: 0,
     worldSeed: 0,

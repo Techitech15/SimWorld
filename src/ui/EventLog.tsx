@@ -20,8 +20,7 @@ export function EventLog(): React.JSX.Element | null {
   const entries = useGameStore(useShallow((s) => s.state.log.slice(-40).reverse()));
   if (entries.length === 0) return null;
   return (
-    <section className="panel">
-      <h2>Log</h2>
+    <>
       <ul className="log log--scroll">
         {entries.map((entry, index) => (
           <li
@@ -32,6 +31,6 @@ export function EventLog(): React.JSX.Element | null {
           </li>
         ))}
       </ul>
-    </section>
+    </>
   );
 }

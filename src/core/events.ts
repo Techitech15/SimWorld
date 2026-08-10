@@ -20,6 +20,7 @@ import {
   WOOD_PER_TREE,
 } from './constants';
 import { isUnderAttack, raidSize, spawnRaid } from './raid';
+import { perSpan } from './scenario';
 import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
@@ -121,7 +122,7 @@ export const INCIDENTS: Incident[] = [
       const camp = colonyCentre(state);
       let arrived = 0;
       for (let i = 0; i < 2; i++) {
-        const spot = findSpawnTile(state, rnd, camp, 22);
+        const spot = findSpawnTile(state, rnd, camp, perSpan(state, 22));
         if (!spot) continue;
         createAnimal(state, 'wolf', spot.x, spot.y);
         arrived++;
@@ -138,7 +139,7 @@ export const INCIDENTS: Incident[] = [
       const species: AnimalSpecies = rnd() < 0.5 ? 'deer' : 'rabbit';
       let arrived = 0;
       for (let i = 0; i < 4; i++) {
-        const spot = findSpawnTile(state, rnd, camp, 14);
+        const spot = findSpawnTile(state, rnd, camp, perSpan(state, 14));
         if (!spot) continue;
         createAnimal(state, species, spot.x, spot.y);
         arrived++;

@@ -242,6 +242,32 @@ button.active {
   gap: 6px;
 }
 
+/* the stall: one row per thing on offer, one button per thing to pay with */
+.trade {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.trade__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.trade__take {
+  min-width: 88px;
+  color: var(--accent);
+}
+
+.trade__give {
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
 /* supply against demand: the phase-2 decision, readable without a click */
 .mana {
   display: flex;
@@ -680,4 +706,102 @@ button.active {
   max-height: 190px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+/* --- overlays and folds (11章 フェーズ6, design-phase6-space.md 4) --------- */
+/*
+ * Corner overlays sit over the map rather than beside it. They are capped in
+ * width and allowed to scroll, because the alert strip can grow: a crisis must
+ * not push the minimap off the screen.
+ */
+.overlay {
+  position: absolute;
+  top: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: calc(100% - 16px);
+  pointer-events: none;
+}
+
+.overlay > * {
+  pointer-events: auto;
+}
+
+.overlay--tl {
+  left: 8px;
+  max-width: 260px;
+}
+
+.overlay--tr {
+  right: 8px;
+  width: 220px;
+}
+
+/* Over the map, so the panels behind them need to be readable rather than
+   transparent - the map is busy and a translucent panel is a smear. */
+.overlay .panel {
+  background: color-mix(in srgb, var(--panel-2) 92%, transparent);
+  backdrop-filter: blur(2px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.overlay--tr .minimap {
+  width: 100%;
+  height: auto;
+}
+
+.fold {
+  padding: 0;
+}
+
+.fold__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-align: left;
+}
+
+.fold__head:hover {
+  color: var(--text);
+}
+
+.fold__caret {
+  width: 10px;
+  color: var(--muted);
+}
+
+.fold__title {
+  flex: 1;
+}
+
+.fold__badge {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.fold__body {
+  padding: 0 10px 10px;
+}
+
+.fold--closed .fold__head {
+  padding-bottom: 8px;
+}
+
+/* the one frame that shows whatever is selected; empty when nothing is */
+.selection-frame:empty {
+  display: none;
 }

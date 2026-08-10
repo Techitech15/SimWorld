@@ -287,6 +287,61 @@ function berryBush(ripe) {
   return c;
 }
 
+/**
+ * Frostbloom (11章 フェーズ5). It has to read as "the berry bush's opposite" at
+ * a glance: pale blue-white against the bush's green, upright spikes instead of
+ * a round mass, and the bloomed state carries the mana violet so the one plant
+ * that belongs to winter is visibly on the same side of the world as the
+ * crystal.
+ */
+function frostbloom(bloomed) {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(bloomed ? 0x5f01 : 0x5f00);
+  const leaf = '#7fa8bf';
+  const leafDark = '#557d95';
+  // A low rosette of frosted leaves, splayed from a single point. It has to
+  // fill most of the tile: a dormant plant that is a few pale pixels is a plant
+  // the player walks past all summer and cannot find when winter comes.
+  for (let i = 0; i < 9; i++) {
+    const angle = (i / 8) * Math.PI - Math.PI;
+    const length = 11 + Math.floor(rnd() * 4);
+    const ex = 16 + Math.round(Math.cos(angle) * length);
+    const ey = 27 + Math.round(Math.sin(angle) * (length * 0.75));
+    c.line(16, 28, ex, ey, i % 2 === 0 ? leaf : leafDark);
+    c.set(ex, ey, leafDark);
+    c.set(ex, ey - 1, leaf);
+  }
+  c.vline(16, 18, 11, leafDark); // stem
+  if (bloomed) {
+    // six-petalled flower, ice white with a violet heart
+    const petals = [
+      [16, 12],
+      [12, 14],
+      [20, 14],
+      [12, 18],
+      [20, 18],
+      [16, 20],
+    ];
+    for (const [px, py] of petals) {
+      c.disc(px, py, 3, '#e6f2ff');
+      c.disc(px, py, 2, '#c3ddf2');
+    }
+    c.disc(16, 16, 3, P.mana[3]);
+    c.disc(16, 16, 2, P.manaGlow);
+    // frost specks around it, so a bloomed one reads even zoomed out
+    for (let i = 0; i < 6; i++) {
+      c.set(6 + Math.floor(rnd() * 21), 6 + Math.floor(rnd() * 8), '#e6f2ff');
+    }
+  } else {
+    // dormant: a tight closed bud on the stem
+    c.disc(16, 16, 4, leafDark);
+    c.disc(16, 15, 3, leaf);
+    c.set(16, 12, leafDark);
+  }
+  c.outline(P.outline);
+  return c;
+}
+
 function doorTile(open) {
   const c = new Canvas(TILE, TILE);
   // stone jambs on both sides
@@ -701,6 +756,9 @@ const A = {
   goatBelly: '#efeadd',
   goatDark: '#9d9587',
   goatHorn: '#7b6f5c',
+  elkBody: '#b9c6cf',
+  elkBelly: '#dde6ec',
+  elkDark: '#8b98a3',
   wolfBody: '#7d848f',
   wolfBelly: '#a4abb5',
   wolfDark: '#575d67',
@@ -872,6 +930,83 @@ function wolfSheet() {
     // bushy tail, raised
     c.rect(2, 12, 4, 3, A.wolfBody);
     c.rect(1, 13, 3, 3, A.wolfDark);
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
+/**
+ * Crystal elk (11章 フェーズ5). Built on the deer so the family resemblance is
+ * the point, then everything that says "deer" is turned down and the antlers
+ * are replaced with mana violet: at map zoom this reads as a pale deer with a
+ * lit rack, which is exactly what it is.
+ */
+function crystalElkSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    const { headX, headY } = quadruped(c, frame, {
+      body: A.elkBody,
+      belly: A.elkBelly,
+      dark: A.elkDark,
+      neck: 5,
+      bodyY: 14,
+      bodyW: 16,
+      bodyH: 7,
+      muzzle: A.elkDark,
+    });
+    // crystal antlers: taller and brighter than a deer's, in the mana palette
+    for (const [ax, ay, h] of [
+      [headX, -6, 5],
+      [headX + 2, -8, 7],
+      [headX + 4, -6, 5],
+    ]) {
+      c.vline(ax, headY + ay, h, P.mana[2]);
+      c.set(ax, headY + ay, P.manaGlow);
+    }
+    c.set(headX + 1, headY - 7, P.mana[2]);
+    c.set(headX + 3, headY - 7, P.mana[2]);
+    // a seam of the same violet along the flank, so a tamed one in a pen still
+    // reads as the crystal animal even with its head turned away
+    c.hline(8, 16, 6, P.mana[2]);
+    c.set(10, 15, P.manaGlow);
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
+/**
+ * Rockeater (11章 フェーズ5). Low, wide and made of the terrain palette: the
+ * silhouette should say "a piece of the rock face that moved" rather than
+ * "animal", because that is how it behaves.
+ */
+function rockeaterSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    const swing = frame === 0 ? 1 : -1;
+    // six stubby legs, alternating
+    for (let i = 0; i < 3; i++) {
+      const lx = 6 + i * 7;
+      c.rect(lx, 24 + (i % 2 === 0 ? swing : -swing), 3, 4, P.stone[0]);
+    }
+    // slab of a body, plated
+    c.rect(4, 14, 24, 11, P.stone[1]);
+    c.rect(5, 22, 22, 3, P.stone[0]);
+    c.hline(4, 14, 24, P.stone[2]);
+    for (let i = 0; i < 4; i++) {
+      c.rect(6 + i * 6, 12, 5, 4, P.stone[2]); // shell plates along the back
+      c.hline(6 + i * 6, 12, 5, P.stone[3]);
+    }
+    // blunt head at the right, all jaw
+    c.rect(26, 18, 5, 7, P.stone[2]);
+    c.rect(28, 21, 4, 3, P.stone[0]); // maw
+    c.set(27, 19, A.eye);
+    // grit it has been chewing, caught between the plates
+    c.set(11, 16, P.ore[2]);
+    c.set(20, 17, P.ore[1]);
     c.outline(P.outline);
     c.blitTo(sheet, frame * TILE, 0);
   }
@@ -1201,6 +1336,56 @@ function manaTurretTile(live) {
   return c;
 }
 
+
+/** The trading post: a plank counter with an awning. */
+function tradingPostTile() {
+  const c = new Canvas(TILE, TILE);
+  // counter
+  c.rect(3, 17, 26, 10, P.plankMid);
+  c.hline(3, 17, 26, P.plankLight);
+  c.hline(3, 26, 26, P.plankDark);
+  for (let x = 6; x < 29; x += 6) c.vline(x, 18, 8, P.plankDark);
+  // posts and awning
+  c.rect(3, 6, 2, 12, P.trunk[0]);
+  c.rect(27, 6, 2, 12, P.trunk[0]);
+  for (let i = 0; i < 5; i++) {
+    c.rect(2 + i * 6, 4, 3, 5, i % 2 === 0 ? '#c2543f' : '#e8d9b8');
+    c.rect(5 + i * 6, 4, 3, 5, i % 2 === 0 ? '#e8d9b8' : '#c2543f');
+  }
+  c.hline(2, 3, 28, P.trunk[1]);
+  // a crate and a sack on the counter
+  c.rect(7, 12, 7, 6, P.plankDark);
+  c.hline(7, 12, 7, P.plankMid);
+  c.disc(21, 15, 4, '#cbbda4');
+  c.disc(21, 14, 3, '#ded6c2');
+  c.outline(P.outline);
+  return c;
+}
+
+/** A trader: a colonist silhouette in a travelling cloak, with a pack. */
+function traderSheet() {
+  const sheet = new Canvas(TILE * 2, TILE);
+  for (let frame = 0; frame < 2; frame++) {
+    const c = new Canvas(TILE, TILE);
+    const cloak = frame === 0 ? '#3f6bb8' : '#456fbd';
+    c.rect(11, 11, 10, 13, cloak);
+    c.rect(11, 11, 10, 3, '#2f4f8c');
+    c.rect(13, 24, 3, 5, P.boots);
+    c.rect(17, 24, 3, 5, P.boots);
+    c.disc(16, 8, 5, P.skin);
+    c.rect(10, 3, 12, 3, '#2f4f8c'); // wide brim
+    c.set(14, 8, P.eye);
+    c.set(18, 8, P.eye);
+    // pack on the back, and a staff that sways a pixel between frames
+    c.rect(6, 13, 6, 8, P.plankDark);
+    c.hline(6, 13, 6, P.plankMid);
+    c.vline(24 + frame, 8, 18, P.trunk[0]);
+    c.outline(P.outline);
+    c.blitTo(sheet, frame * TILE, 0);
+  }
+  return sheet;
+}
+
 // --- main ------------------------------------------------------------------
 const written = [];
 written.push(save('terrain/grass.png', grassTile()));
@@ -1237,6 +1422,8 @@ written.push(save('buildings/hearth.png', hearthTile()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));
+written.push(save('buildings/trading_post.png', tradingPostTile()));
+written.push(save('raiders/trader.png', traderSheet()));
 written.push(save('colonist/walk.png', colonistWalkSheet()));
 written.push(save('colonist/work.png', colonistWorkSheet()));
 written.push(save('ui/job_chop.png', iconChop()));
@@ -1253,6 +1440,10 @@ written.push(save('animals/rabbit.png', rabbitSheet()));
 written.push(save('animals/chicken.png', chickenSheet()));
 written.push(save('animals/goat.png', goatSheet()));
 written.push(save('animals/wolf.png', wolfSheet()));
+written.push(save('animals/crystal_elk.png', crystalElkSheet()));
+written.push(save('animals/rockeater.png', rockeaterSheet()));
+written.push(save('buildings/frostbloom_bare.png', frostbloom(false)));
+written.push(save('buildings/frostbloom_bloom.png', frostbloom(true)));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));

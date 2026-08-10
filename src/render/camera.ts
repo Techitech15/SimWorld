@@ -1,6 +1,6 @@
 // Camera state: pan with drag / arrow keys, zoom with the wheel (section 10,
 // week 2). Lives in the rendering layer only - the camera is not game state.
-import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from '../core/constants';
+import { TILE_SIZE } from '../core/constants';
 
 export const MIN_ZOOM = 0.4;
 export const MAX_ZOOM = 3;
@@ -11,18 +11,33 @@ export interface Camera {
   zoom: number;
 }
 
-export function createCamera(viewportWidth: number, viewportHeight: number): Camera {
+/**
+ * The map size is a property of the world being shown, not of the build
+ * (docs/design-phase6-space.md 3.1), so it is passed in rather than imported.
+ */
+export function createCamera(
+  viewportWidth: number,
+  viewportHeight: number,
+  mapWidth: number,
+  mapHeight: number,
+): Camera {
   const zoom = 1;
   return {
-    x: (MAP_WIDTH * TILE_SIZE) / 2 - viewportWidth / (2 * zoom),
-    y: (MAP_HEIGHT * TILE_SIZE) / 2 - viewportHeight / (2 * zoom),
+    x: (mapWidth * TILE_SIZE) / 2 - viewportWidth / (2 * zoom),
+    y: (mapHeight * TILE_SIZE) / 2 - viewportHeight / (2 * zoom),
     zoom,
   };
 }
 
-export function clampCamera(camera: Camera, viewportWidth: number, viewportHeight: number): void {
-  const worldWidth = MAP_WIDTH * TILE_SIZE;
-  const worldHeight = MAP_HEIGHT * TILE_SIZE;
+export function clampCamera(
+  camera: Camera,
+  viewportWidth: number,
+  viewportHeight: number,
+  mapWidth: number,
+  mapHeight: number,
+): void {
+  const worldWidth = mapWidth * TILE_SIZE;
+  const worldHeight = mapHeight * TILE_SIZE;
   const visibleWidth = viewportWidth / camera.zoom;
   const visibleHeight = viewportHeight / camera.zoom;
   const maxX = Math.max(0, worldWidth - visibleWidth);

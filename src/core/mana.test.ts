@@ -9,8 +9,8 @@ import { CRYSTAL_PER_VEIN, RESOURCE_TYPES, STONE_PER_ROCK } from './constants';
 import { setDesignation } from './actions';
 import { isRock, tileIdOf } from './state';
 import { countStoredResource } from './storage';
-import { createHarness, recordLog, tilesWithTerrain } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, recordLog, tilesWithTerrain, testWorld } from './testUtils';
+
 import type { GameState, TileId } from './types';
 
 function veins(state: GameState): TileId[] {
@@ -77,7 +77,7 @@ describe('where mana comes from', () => {
     // few enough that it stays the thing the colony has to go and get
     const counts: number[] = [];
     for (let seed = 1; seed <= 10; seed++) {
-      counts.push(veins(generateWorld({ seed })).length);
+      counts.push(veins(testWorld({ seed })).length);
     }
     for (const count of counts) {
       expect(count).toBeGreaterThan(0);
@@ -90,7 +90,7 @@ describe('where mana comes from', () => {
     // 4 rock tiles deep and have to be quarried towards, but a few do touch
     // open ground (4 of 48 on one seed). What holds everywhere is that a vein
     // is part of a rock face rather than a nugget lying on the grass.
-    const state = generateWorld({ seed: 31 });
+    const state = testWorld({ seed: 31 });
     for (const id of veins(state)) {
       const tile = state.tiles[id];
       let rockNeighbours = 0;
@@ -108,7 +108,7 @@ describe('where mana comes from', () => {
   });
 
   it('is solid ground: a vein blocks movement exactly like stone', () => {
-    const state = generateWorld({ seed: 37 });
+    const state = testWorld({ seed: 37 });
     for (const id of veins(state)) expect(state.tiles[id].walkable).toBe(false);
     expect(isRock('crystal')).toBe(true);
     expect(isRock('stone')).toBe(true);

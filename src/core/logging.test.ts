@@ -50,7 +50,11 @@ describe('the event log', () => {
 
     expect(lines.length).toBeGreaterThan(10);
     expect(lines.length).toBeLessThan(200);
-    const ambient = lines.filter((line) => /killed by a/.test(line));
+    // Ambient predation only: an animal death reads "<name> the <species>
+    // killed by a wolf", where a colonist's reads "<name> was killed by a
+    // wolf". The second is the single most important line the log can carry,
+    // so the filter has to be able to tell them apart.
+    const ambient = lines.filter((line) => / the .+ killed by a /.test(line));
     expect(ambient).toEqual([]);
     // and what is there is about the colony: seasons, skills, arrivals, events
     const meaningful = lines.filter((line) =>

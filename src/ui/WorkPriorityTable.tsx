@@ -64,8 +64,7 @@ export function WorkPriorityTable(): React.JSX.Element {
   };
 
   return (
-    <section className="panel">
-      <h2>Work</h2>
+    <>
       <table className="work">
         <thead>
           <tr>
@@ -106,6 +105,6 @@ export function WorkPriorityTable(): React.JSX.Element {
         their speciality. The cost is that everything else drops behind it, including work you have
         just ordered. Nothing is switched off, and columns you have disabled stay disabled.
       </p>
-    </section>
+    </>
   );
 }

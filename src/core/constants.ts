@@ -8,8 +8,18 @@ import type {
   ResourceType,
 } from './types';
 
-export const MAP_WIDTH = 60;
-export const MAP_HEIGHT = 60;
+/**
+ * The size a *new* world is generated at (docs/design-phase6-space.md 3.1).
+ *
+ * These are defaults, not the map's dimensions: a loaded save carries its own
+ * `width` / `height`, so a 60x60 colony saved before the map grew keeps being a
+ * 60x60 colony. Everything that needs to know how big the map is reads it off
+ * the state - the rename from MAP_WIDTH/MAP_HEIGHT was deliberate, so that all
+ * seventy-odd call sites had to be looked at rather than silently keeping a
+ * module constant that had stopped being true.
+ */
+export const DEFAULT_MAP_WIDTH = 120;
+export const DEFAULT_MAP_HEIGHT = 120;
 export const TILE_SIZE = 32;
 
 /** 1 tick = 200ms => 5 ticks/second (section 5) */
@@ -67,6 +77,25 @@ export const DEFEND_RANGE = 14;
 export const TURRET_RANGE = 7;
 export const TURRET_DAMAGE = 9;
 export const TURRET_INTERVAL_TICKS = 40;
+
+/**
+ * Trade (11章 フェーズ5, design-phase5-trade.md 6). Base values, and the spread
+ * that stops trade being a machine for turning spare wood into mana: a trader
+ * buys at 0.7 and sells at 1.4, so 120 wood buys about five crystals against a
+ * vein's six.
+ */
+export const TRADE_BASE_VALUE: Record<ResourceType, number> = {
+  wood: 1,
+  stone: 1,
+  food: 2,
+  manaCrystal: 12,
+};
+export const TRADE_BUY_RATE = 0.7;
+export const TRADE_SELL_RATE = 1.4;
+/** Checked every five days: rarer than the three-day arrival roll. */
+export const TRADE_INTERVAL_TICKS = TICKS_PER_DAY * 5;
+/** One day at the post - long enough to ask whether the hauling keeps up. */
+export const TRADE_STAY_TICKS = TICKS_PER_DAY;
 export const SLEEP_WAKE_AT = 3;
 export const EAT_TICKS = 30;
 export const FOOD_PER_MEAL = 10;
@@ -173,6 +202,7 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   bed: [{ type: 'wood', quantity: 12 }],
   farmPlot: [],
   berryBush: [], // wild: nobody builds one
+  frostbloom: [], // likewise: it grows where the map put it (11章 フェーズ5)
   storageZoneMarker: [],
   // The mana layer (11章 フェーズ2). A furnace is the expensive one on purpose:
   // it is the decision the player commits to, and conduit runs are what they
@@ -203,6 +233,12 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'wood', quantity: 10 },
     { type: 'manaCrystal', quantity: 4 },
   ],
+  // cheap: the point of trade is to be reachable by a colony that is short of
+  // something, and a post nobody can afford defeats it
+  tradingPost: [
+    { type: 'wood', quantity: 20 },
+    { type: 'stone', quantity: 10 },
+  ],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -214,6 +250,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   bed: 60,
   farmPlot: 30,
   berryBush: 20,
+  frostbloom: 20,
   storageZoneMarker: 10,
   manaFurnace: 200,
   manaConduit: 40,
@@ -221,6 +258,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   manaExtractor: 180,
   hearth: 90,
   manaTurret: 150,
+  tradingPost: 100,
 };
 
 /** Structures that block movement once finished. */
@@ -235,6 +273,7 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   bed: false,
   farmPlot: false,
   berryBush: false,
+  frostbloom: false,
   storageZoneMarker: false,
   // A furnace is a solid installation you walk around; a conduit is laid into
   // the floor and a lamp stands out of the way, so both stay walkable - a power
@@ -247,6 +286,8 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   // you sit at it, so you have to be able to reach it
   hearth: false,
   manaTurret: true,
+  // a post is a counter you walk up to
+  tradingPost: false,
 };
 
 export const COLONIST_COLORS = [
@@ -292,13 +333,20 @@ export const ANIMAL_SPECIES: AnimalSpecies[] = [
   'chicken',
   'goat',
   'wolf',
+  'crystalElk',
+  'rockeater',
 ];
 
 export interface SpeciesProfile {
   label: string;
   /** English is not regular: deer stay deer and a wolf becomes wolves. */
   plural: string;
-  diet: 'herbivore' | 'omnivore' | 'carnivore';
+  /**
+   * `lithovore` eats the map itself (11章 フェーズ5). It is a diet rather than a
+   * flag because every place that asks "what does this animal eat" already
+   * switches on this field, and a third answer costs one branch each.
+   */
+  diet: 'herbivore' | 'omnivore' | 'carnivore' | 'lithovore';
   /** moves one tile every N ticks; colonists move every TICKS_PER_STEP (2) */
   ticksPerStep: number;
   maxHealth: number;
@@ -306,9 +354,15 @@ export interface SpeciesProfile {
   foodYield: number;
   /** 0 = cannot be tamed */
   tameChance: number;
-  /** tamed animals only: food produced periodically, 0 = produces nothing */
+  /** tamed animals only: resource produced periodically, 0 = produces nothing */
   produceAmount: number;
   produceIntervalTicks: number;
+  /**
+   * What that production is. Every animal in the base game gives `food`, and
+   * the whole of the crystal elk (11章 フェーズ5) is this one field being
+   * something else - which is why it is a field and not a second code path.
+   */
+  produceType: ResourceType;
   /** ticks before a newborn counts as an adult for breeding */
   adultAtTicks: number;
   initialCount: number;
@@ -325,6 +379,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     tameChance: 0.4,
     produceAmount: 0,
     produceIntervalTicks: 0,
+    produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
     initialCount: 6,
   },
@@ -338,6 +393,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     tameChance: 0.3,
     produceAmount: 0,
     produceIntervalTicks: 0,
+    produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
     initialCount: 4,
   },
@@ -351,6 +407,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     tameChance: 0.55,
     produceAmount: 0,
     produceIntervalTicks: 0,
+    produceType: 'food',
     adultAtTicks: TICKS_PER_DAY, // and quick to mature, so the herd rebuilds fast
     initialCount: 10,
   },
@@ -364,6 +421,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     tameChance: 0.6,
     produceAmount: 6, // eggs
     produceIntervalTicks: 1500,
+    produceType: 'food',
     adultAtTicks: TICKS_PER_DAY,
     initialCount: 8,
   },
@@ -389,6 +447,7 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     tameChance: 0.45,
     produceAmount: 12, // milk
     produceIntervalTicks: 1200,
+    produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
     initialCount: 5,
   },
@@ -402,10 +461,86 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     tameChance: 0, // predators cannot be tamed in this iteration
     produceAmount: 0,
     produceIntervalTicks: 0,
+    produceType: 'food',
+    adultAtTicks: TICKS_PER_DAY * 3,
+    initialCount: 2,
+  },
+  /**
+   * The one renewable source of mana (11章 フェーズ5). Everything about it is
+   * worse than a deer - slower, frailer, harder to tame, half the meat - and it
+   * is worth keeping anyway, because a tamed one grows crystal instead of milk.
+   *
+   * Deliberately **not** enough on its own. One elk yields 1 crystal every 2400
+   * ticks (1.25 a day) against a furnace burning one every 1980 (1.52 a day),
+   * so a single elk runs a furnace down slowly and two run it with a little
+   * spare. The mine stays the way you get mana in bulk; the herd is what stops
+   * a mined-out map from being a dead one.
+   */
+  crystalElk: {
+    label: 'Crystal elk',
+    plural: 'Crystal elk',
+    diet: 'herbivore',
+    ticksPerStep: 3,
+    maxHealth: 40,
+    foodYield: 18,
+    tameChance: 0.25,
+    produceAmount: 1,
+    produceIntervalTicks: 2400,
+    produceType: 'manaCrystal',
+    adultAtTicks: TICKS_PER_DAY * 3,
+    initialCount: 3,
+  },
+  /**
+   * Eats the map (11章 フェーズ5). Not a predator - it never touches a colonist
+   * or an animal - so it is not a threat but a piece of terrain that moves. It
+   * is worth no meat and cannot be tamed, which leaves exactly two attitudes to
+   * take: leave it alone, or hunt it because it is chewing towards a wall.
+   */
+  rockeater: {
+    label: 'Rockeater',
+    plural: 'Rockeaters',
+    diet: 'lithovore',
+    ticksPerStep: 4, // the slowest thing on the map
+    maxHealth: 90, // and the toughest short of a raid
+    foodYield: 0, // there is nothing on it worth eating
+    tameChance: 0,
+    produceAmount: 0,
+    produceIntervalTicks: 0,
+    produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 3,
     initialCount: 2,
   },
 };
+
+/**
+ * The fantasy layer (11章 フェーズ5, docs/design-phase5-trade.md 3).
+ *
+ * Frostbloom: wild, scattered like berries, and the only harvest a winter has.
+ * It yields less than a berry bush on purpose - the point is that the season
+ * has work in it, not that winter becomes the good season.
+ */
+export const FOOD_PER_FROSTBLOOM_HARVEST = 7;
+/** Ripe in a day and a half, so a five-day winter gives about three harvests. */
+export const FROSTBLOOM_REGROW_PER_TICK = 1 / 4500;
+export const FROSTBLOOM_COUNT = 14;
+
+/**
+ * Lightmoss: forage comes back under a lit lamp whatever the season, at this
+ * fraction of the summer rate. Slower than grass so a lamp is a way to keep a
+ * small herd through the winter rather than a better pasture than a meadow.
+ */
+export const LIGHTMOSS_REGROW_FACTOR = 0.6;
+
+/**
+ * Rockeater: ticks to work through one tile of stone, and how far it will look
+ * for the next one. The radius is small and squared off because the search runs
+ * on the animal's own step interval - a bounded box beats an A* call here, and
+ * stone comes in masses rather than single tiles, so a hungry rockeater that
+ * has just finished one is already standing next to the next.
+ */
+export const ROCKEATER_GNAW_TICKS = 900;
+export const ROCKEATER_SEARCH_RADIUS = 8;
+export const ROCKEATER_HUNGER_RESTORED = 35;
 
 /** Slower than colonists (100/2400): animals graze often but not constantly. */
 export const ANIMAL_HUNGER_PER_TICK = 100 / 3600;

@@ -1,18 +1,19 @@
 // Map generation: one 60x60 map with grass / forest / stone (section 9).
 import {
   BERRY_BUSH_COUNT,
+  DEFAULT_MAP_HEIGHT,
+  DEFAULT_MAP_WIDTH,
+  FROSTBLOOM_COUNT,
   BUILDING_HP,
   COLONIST_COLORS,
   COLONIST_MAX_HEALTH,
   COLONIST_NAMES,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   RESOURCE_TYPES,
   SPECIES,
   STACK_MAX,
 } from './constants';
 import { mulberry32, valueNoise2D } from './rng';
-import { DEFAULT_SCENARIO, SCENARIOS, scaledCount, scenarioOf } from './scenario';
+import { DEFAULT_SCENARIO, SCENARIOS, perArea, scaledCount, scenarioOf } from './scenario';
 import type { ScenarioName } from './scenario';
 import { rollStartingSkills } from './skills';
 import { rollTraits } from './traits';
@@ -38,6 +39,9 @@ export interface WorldOptions {
   startingResources?: Partial<Record<ResourceType, number>>;
   /** Which opening to generate (src/core/scenario.ts). Defaults to standard. */
   scenario?: ScenarioName;
+  /** [ext] How big a map to make (docs/design-phase6-space.md 3.1). */
+  width?: number;
+  height?: number;
 }
 
 function makeTile(x: number, y: number, terrain: Tile['terrain']): Tile {
@@ -129,7 +133,10 @@ export function addItem(
  */
 export function generateWorld(options: WorldOptions = {}): GameState {
   const seed = options.seed ?? 20260726;
-  const state = createEmptyState();
+  const state = createEmptyState(
+    options.width ?? DEFAULT_MAP_WIDTH,
+    options.height ?? DEFAULT_MAP_HEIGHT,
+  );
   state.scenario = options.scenario ?? DEFAULT_SCENARIO;
   state.worldSeed = seed;
   const scenario = SCENARIOS[state.scenario];
@@ -137,11 +144,11 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   const stoneNoise = valueNoise2D(seed + 977);
   const crystalNoise = valueNoise2D(seed + 4231);
 
-  const cx = Math.floor(MAP_WIDTH / 2);
-  const cy = Math.floor(MAP_HEIGHT / 2);
+  const cx = Math.floor(state.width / 2);
+  const cy = Math.floor(state.height / 2);
 
-  for (let y = 0; y < MAP_HEIGHT; y++) {
-    for (let x = 0; x < MAP_WIDTH; x++) {
+  for (let y = 0; y < state.height; y++) {
+    for (let x = 0; x < state.width; x++) {
       const f = forestNoise(x, y, 9);
       const s = stoneNoise(x, y, 7);
       // keep a clearing around the starting camp so the colony has room
@@ -219,6 +226,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   }
 
   scatterBerryBushes(state, seed, { x: cx, y: cy });
+  scatterFrostblooms(state, seed, { x: cx, y: cy });
   spawnInitialWildlife(state, seed, { x: cx, y: cy });
 
   return state;
@@ -287,15 +295,62 @@ export function createAnimal(
  */
 function scatterBerryBushes(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 8123);
+  // Both the target and the number of darts thrown at it scale with the map:
+  // a fixed 900 attempts finds 26 spots on 3,600 tiles and would fall short of
+  // 104 on 14,400 (docs/design-phase6-space.md 3.2).
+  const wanted = perArea(state, BERRY_BUSH_COUNT);
+  const attempts = perArea(state, 900);
   let placed = 0;
-  for (let attempt = 0; attempt < 900 && placed < BERRY_BUSH_COUNT; attempt++) {
-    const x = Math.floor(rnd() * MAP_WIDTH);
-    const y = Math.floor(rnd() * MAP_HEIGHT);
+  for (let attempt = 0; attempt < attempts && placed < wanted; attempt++) {
+    const x = Math.floor(rnd() * state.width);
+    const y = Math.floor(rnd() * state.height);
     const tile = state.tiles[tileIdOf(x, y)];
     if (!tile || tile.terrain !== 'forest' || tile.buildingId) continue;
     if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < 5) continue;
     const bush = addBuilding(state, 'berryBush', tile.id);
     state.buildings[bush.id] = { ...bush, growth: rnd() };
+    placed++;
+  }
+}
+
+/**
+ * Frostbloom (11章 フェーズ5), scattered the same way the berries are but into
+ * the open ground beside the rock rather than into the woods. Two reasons: the
+ * places a colony walks past in summer and ignores are exactly where it wants
+ * something to do in winter, and putting them against the stone means the
+ * winter harvest and the mine are in the same part of the map.
+ *
+ * They start bare rather than at a random ripeness. A bush the player finds
+ * half grown in spring is a bush that will sit at that value until the year
+ * turns, which reads as broken; starting at zero means the first bloom is
+ * always something winter did.
+ */
+function scatterFrostblooms(state: GameState, seed: number, camp: { x: number; y: number }): void {
+  const rnd = mulberry32(seed + 6421);
+  const wanted = perArea(state, FROSTBLOOM_COUNT);
+  const attempts = perArea(state, 1200);
+  let placed = 0;
+  for (let attempt = 0; attempt < attempts && placed < wanted; attempt++) {
+    const x = Math.floor(rnd() * state.width);
+    const y = Math.floor(rnd() * state.height);
+    const tile = state.tiles[tileIdOf(x, y)];
+    if (!tile || tile.terrain !== 'grass' || tile.buildingId) continue;
+    if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < 5) continue;
+    const nearRock = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+    ].some(([dx, dy]) => {
+      const neighbour = state.tiles[tileIdOf(x + dx, y + dy)];
+      return !!neighbour && isRock(neighbour.terrain);
+    });
+    if (!nearRock) continue;
+    addBuilding(state, 'frostbloom', tile.id);
     placed++;
   }
 }
@@ -339,8 +394,18 @@ export function addColonist(
  */
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
-  for (const species of ['deer', 'boar', 'rabbit', 'chicken', 'goat'] as AnimalSpecies[]) {
-    const wanted = scaledCount(SPECIES[species].initialCount, scenarioOf(state).wildlife);
+  for (const species of [
+    'deer',
+    'boar',
+    'rabbit',
+    'chicken',
+    'goat',
+    // the fantasy layer (11章 フェーズ5): both start on the map from day one,
+    // because neither is a threat that needs a grace period
+    'crystalElk',
+    'rockeater',
+  ] as AnimalSpecies[]) {
+    const wanted = perArea(state, scaledCount(SPECIES[species].initialCount, scenarioOf(state).wildlife));
     for (let i = 0; i < wanted; i++) {
       const spot = findSpawnTile(state, rnd, camp, species === 'chicken' || species === 'rabbit' ? 6 : 12);
       if (spot) createAnimal(state, species, spot.x, spot.y);
@@ -356,8 +421,8 @@ export function findSpawnTile(
   minDistance: number,
 ): { x: number; y: number } | null {
   for (let attempt = 0; attempt < 200; attempt++) {
-    const x = Math.floor(rnd() * MAP_WIDTH);
-    const y = Math.floor(rnd() * MAP_HEIGHT);
+    const x = Math.floor(rnd() * state.width);
+    const y = Math.floor(rnd() * state.height);
     const tile = state.tiles[tileIdOf(x, y)];
     if (!tile?.walkable || tile.buildingId) continue;
     if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < minDistance) continue;

@@ -25,8 +25,10 @@ const BUILDING_LABEL: Record<BuildingType, string> = {
   manaExtractor: 'Mana extractor',
   hearth: 'Hearth',
   manaTurret: 'Mana turret',
+  tradingPost: 'Trading post',
   farmPlot: 'Farm plot',
   berryBush: 'Berry bush',
+  frostbloom: 'Frostbloom',
   storageZoneMarker: 'Storage marker',
 };
 
@@ -100,6 +102,17 @@ export function describeTile(state: GameState, tileId: string | null): string[] 
       add('Condition', `${Math.round(building.hpCurrent)} / ${building.hpMax} hp`);
       if (building.type === 'berryBush') {
         add('Berries', building.growth >= 1 ? 'ripe' : `ripening (${Math.round(building.growth * 100)}%)`);
+      }
+      if (building.type === 'frostbloom') {
+        // the one plant whose dormancy is every season but one, so it says which
+        add(
+          'Bloom',
+          building.growth >= 1
+            ? 'in flower'
+            : seasonOf(state.tick) === 'winter'
+              ? `opening (${Math.round(building.growth * 100)}%)`
+              : `${Math.round(building.growth * 100)}% — dormant until winter`,
+        );
       }
       if (building.type === 'farmPlot') {
         add(

@@ -2,12 +2,12 @@
 // for seeds nobody has ever looked at - not just the handful the other tests
 // happen to use.
 import { describe, expect, it } from 'vitest';
-import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import { createSimContext } from './derived';
 import { tickMany } from './simulation';
 import { tileIdOf } from './state';
-import { generateWorld } from './worldgen';
+
 import type { GameState } from './types';
+import { testWorld } from './testUtils';
 
 const SEEDS = [1, 7, 12345, 98765, 424242, 2147483646];
 
@@ -27,7 +27,7 @@ function countTerrainWithin(state: GameState, terrain: string, from: { x: number
 
 describe('any seed makes a playable map', () => {
   it.each(SEEDS)('seed %i starts a working colony', (seed) => {
-    const state = generateWorld({ seed });
+    const state = testWorld({ seed });
 
     // the things the starting colony is made of
     expect(Object.keys(state.colonists)).toHaveLength(3);
@@ -53,7 +53,7 @@ describe('any seed makes a playable map', () => {
   });
 
   it.each(SEEDS)('seed %i runs a day without falling over', (seed) => {
-    const state = generateWorld({ seed });
+    const state = testWorld({ seed });
     const ctx = createSimContext(state);
     const after = tickMany(state, ctx, 1200);
     expect(after.tick).toBe(1200);
@@ -62,8 +62,8 @@ describe('any seed makes a playable map', () => {
       const at = after.colonists[id].position;
       expect(at.x).toBeGreaterThanOrEqual(0);
       expect(at.y).toBeGreaterThanOrEqual(0);
-      expect(at.x).toBeLessThan(MAP_WIDTH);
-      expect(at.y).toBeLessThan(MAP_HEIGHT);
+      expect(at.x).toBeLessThan(after.width);
+      expect(at.y).toBeLessThan(after.height);
       expect(after.tiles[tileIdOf(at.x, at.y)].walkable).toBe(true);
     }
     for (const id in after.animals) {

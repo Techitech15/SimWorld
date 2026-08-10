@@ -10,8 +10,8 @@ import { ANIMAL_SPECIES, PASTURE_TILES_PER_ANIMAL, SPECIES, TICKS_PER_DAY } from
 
 import { isPredator } from './animals';
 import { tileIdOf } from './state';
-import { createHarness, idleColony, placePastureNear } from './testUtils';
-import { createAnimal, generateWorld } from './worldgen';
+import { createHarness, idleColony, placePastureNear, testWorld } from './testUtils';
+import { createAnimal,  } from './worldgen';
 import type { AnimalSpecies, GameState } from './types';
 
 const tameable = ANIMAL_SPECIES.filter(
@@ -49,8 +49,11 @@ describe('the goat', () => {
   it('is harder to tame than what it replaces, or it is a free upgrade', () => {
     for (const species of tameable) {
       if (species === 'goat') continue;
-      // the trade: better to keep, harder to get
-      if (SPECIES[species].produceAmount > 0) {
+      // the trade: better to keep, harder to get. Only against the animals it
+      // is actually an alternative to - a crystal elk produces mana rather than
+      // food, so it is not on this ladder at all and is harder to tame for its
+      // own reasons (11章 フェーズ5).
+      if (SPECIES[species].produceAmount > 0 && SPECIES[species].produceType === 'food') {
         expect(SPECIES.goat.tameChance).toBeLessThan(SPECIES[species].tameChance);
       }
     }
@@ -76,7 +79,7 @@ describe('the goat', () => {
   });
 
   it('turns up on a new map without crowding the others out', () => {
-    const state = generateWorld({ seed: 9937 });
+    const state = testWorld({ seed: 9937 });
     const counts: Partial<Record<AnimalSpecies, number>> = {};
     for (const id in state.animals) {
       const species = state.animals[id].species;
