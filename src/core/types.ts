@@ -20,8 +20,10 @@
 // data, ID references, nothing that JSON cannot represent.
 
 import type { ScenarioName } from './scenario';
+import type { BiomeName } from './biome';
 
 export type { ScenarioName };
+export type { BiomeName };
 export type { Season } from './season';
 
 export type TileId = string; // `${x},${y}`
@@ -621,6 +623,16 @@ export interface GameState {
    * map sustains is a rule that runs every day, not a one-off decision.
    */
   scenario: ScenarioName;
+  /**
+   * [ext] Which biome this map was generated under (11章 フェーズ11 段階A,
+   * src/core/biome.ts). Stored directly rather than derived, because stage A
+   * has no world map yet to derive it from - stage B will keep this field but
+   * make it a cached derivation of a `worldCell` (design-phase11-worldmap.md
+   * 6章). Like `scenario`, it keeps mattering after generation: forage and
+   * forest regrowth rates, wildlife respawn and the lamp's mood bonus all read
+   * it every day.
+   */
+  biome: BiomeName;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
   /**

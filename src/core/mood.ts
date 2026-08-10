@@ -23,6 +23,7 @@ import {
   TABLE_THOUGHT_BONUS,
   TABLE_WITH_STOOL_THOUGHT_BONUS,
 } from './constants';
+import { biomeOf } from './biome';
 import { LAMP_RADIUS, isPowered } from './mana';
 import { friendNearby, griefOf, knowsAnyone } from './relationships';
 import type { ManaNetworks } from './mana';
@@ -252,7 +253,10 @@ export function thoughtsOf(
   }
 
   if (facts.inLight) {
-    thoughts.push({ key: 'manaLight', amount: 5 });
+    // manaheath's ground is soaked in mana, so its lamps carry a stronger
+    // thought (11章 フェーズ11 段階A, biome.ts: base 5, manaheath 6). Every
+    // other biome keeps the original value.
+    thoughts.push({ key: 'manaLight', amount: biomeOf(state).lampMoodBonus });
   }
 
   // Furniture (フェーズ10): a meal taken at a table, and a statue worth

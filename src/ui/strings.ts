@@ -19,6 +19,7 @@ import type { StatusKey } from '../store/gameStore';
 import type { BuildCategory } from './buildMenu';
 import type {
   AnimalSpecies,
+  BiomeName,
   BuildingType,
   JobFailReason,
   JobType,
@@ -79,6 +80,8 @@ export interface Strings {
   designationLabels: Record<DesignationName, string>;
   scenarioLabels: Record<ScenarioName, string>;
   scenarioDescriptions: Record<ScenarioName, string>;
+  biomeLabels: Record<BiomeName, string>;
+  biomeDescriptions: Record<BiomeName, string>;
   jobTypeLabels: Record<JobType, string>;
   /** the research tree (11章 フェーズ12) */
   techLabels: Record<TechName, string>;
@@ -520,6 +523,18 @@ const en: Strings = {
       'Four hands, eight plots broken, game everywhere and one wolf. Room to learn the controls.',
     standard: 'The colony as designed: enough to get started and no more.',
     harsh: 'Two hands, two plots, thin game and four wolves. The first winter is the test.',
+  },
+  biomeLabels: {
+    meadow: 'Meadow',
+    deepwood: 'Deepwood',
+    crag: 'Crag',
+    manaheath: 'Manaheath',
+  },
+  biomeDescriptions: {
+    meadow: 'The land as generated before biomes existed. Balanced ground, no lever pulled.',
+    deepwood: 'Wood without end and berries everywhere, but the farm has little room to grow.',
+    crag: 'Stone and ore run deep here. Forage is thin, so the food has to come from elsewhere.',
+    manaheath: "Mana bleeds into the ground. Crystal is abundant; the wildlife is not.",
   },
   jobTypeLabels: {
     chop: 'chop',
@@ -1155,6 +1170,18 @@ const ja: Strings = {
     gentle: '4人の入植者と8面の畑、豊富な獲物にオオカミは1頭。操作を覚えるのに向く。',
     standard: '設計どおりの植民地。始めるのに足るだけの物資、それ以上はない。',
     harsh: '2人と2面の畑、獲物は少なくオオカミは4頭。最初の冬が試練になる。',
+  },
+  biomeLabels: {
+    meadow: '草原',
+    deepwood: '深森',
+    crag: '岩尾根',
+    manaheath: '晶土',
+  },
+  biomeDescriptions: {
+    meadow: 'バイオーム導入前と同じ生成。どのレバーも曲げていない基準の土地。',
+    deepwood: '木もベリーも尽きない代わりに、農地を広げる余地が少ない。',
+    crag: '石と鉱石が深く眠る土地。forage は細く、食料は他の手段が要る。',
+    manaheath: 'マナが地表に滲む土地。結晶は豊富だが、野生動物は少ない。',
   },
   jobTypeLabels: {
     chop: '伐採',

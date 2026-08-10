@@ -15,6 +15,8 @@ import {
 import { mulberry32, valueNoise2D } from './rng';
 import { DEFAULT_SCENARIO, SCENARIOS, perArea, scaledCount, scenarioOf } from './scenario';
 import type { ScenarioName } from './scenario';
+import { BIOMES, DEFAULT_BIOME, biomeOf } from './biome';
+import type { BiomeName } from './biome';
 import { rollStartingSkills } from './skills';
 import { rollTraits } from './traits';
 import { createEmptyState, nextId, own, tileIdOf, updateTile, isRock } from './state';
@@ -39,6 +41,12 @@ export interface WorldOptions {
   startingResources?: Partial<Record<ResourceType, number>>;
   /** Which opening to generate (src/core/scenario.ts). Defaults to standard. */
   scenario?: ScenarioName;
+  /**
+   * Which land to generate (src/core/biome.ts, 11章 フェーズ11 段階A). Defaults
+   * to meadow, which reproduces the generator's pre-biome behaviour exactly
+   * (bar the crystal floor topping up a thin-tail world).
+   */
+  biome?: BiomeName;
   /** [ext] How big a map to make (docs/design-phase6-space.md 3.1). */
   width?: number;
   height?: number;
@@ -141,8 +149,10 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     options.height ?? DEFAULT_MAP_HEIGHT,
   );
   state.scenario = options.scenario ?? DEFAULT_SCENARIO;
+  state.biome = options.biome ?? DEFAULT_BIOME;
   state.worldSeed = seed;
   const scenario = SCENARIOS[state.scenario];
+  const biome = BIOMES[state.biome];
   const forestNoise = valueNoise2D(seed);
   const stoneNoise = valueNoise2D(seed + 977);
   const crystalNoise = valueNoise2D(seed + 4231);
@@ -150,6 +160,11 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   const cx = Math.floor(state.width / 2);
   const cy = Math.floor(state.height / 2);
+
+  // plain-rock tiles and the noise value that put them there, kept only long
+  // enough for the crystal floor below to pick candidates from - never stored
+  // on GameState, since it is scratch data for this one generation pass
+  const stoneNoiseByTile = new Map<string, number>();
 
   for (let y = 0; y < state.height; y++) {
     for (let x = 0; x < state.width; x++) {
@@ -159,15 +174,19 @@ export function generateWorld(options: WorldOptions = {}): GameState {
       const distToCamp = Math.max(Math.abs(x - cx), Math.abs(y - cy));
       let terrain: Tile['terrain'] = 'grass';
       if (distToCamp > 6) {
-        if (s > 0.72) terrain = 'stone';
-        else if (f > 0.58) terrain = 'forest';
+        if (s > biome.stoneThreshold) terrain = 'stone';
+        else if (f > biome.forestThreshold) terrain = 'forest';
       }
       // Mana crystal sits in the heart of a rock face, never at its edge: a
       // vein the player can reach on the first day would make the phase-2
-      // puzzle free, and quarrying towards one is the point (11章).
-      if (terrain === 'stone' && s > 0.86 && crystalNoise(x, y, 13) > 0.62) {
+      // puzzle free, and quarrying towards one is the point (11章). The two
+      // depth cutoffs (0.86 / 0.78) are not biome levers - only which of
+      // those deep tiles turn into ore is (biome.crystalNoiseThreshold /
+      // biome.ironNoiseThreshold), so "how much rock" and "how rich the rock
+      // is" stay separate knobs.
+      if (terrain === 'stone' && s > 0.86 && crystalNoise(x, y, 13) > biome.crystalNoiseThreshold) {
         terrain = 'crystal';
-      } else if (terrain === 'stone' && s > 0.78 && ironNoise(x, y, 11) > 0.57) {
+      } else if (terrain === 'stone' && s > 0.78 && ironNoise(x, y, 11) > biome.ironNoiseThreshold) {
         // Iron sits shallower than crystal and there is more of it, so it is
         // the ore a quarry meets on the way in - and because the crystal check
         // runs first, iron never takes a tile crystal would have had: the deep
@@ -176,8 +195,11 @@ export function generateWorld(options: WorldOptions = {}): GameState {
       }
       const tile = makeTile(x, y, terrain);
       state.tiles[tile.id] = tile;
+      if (terrain === 'stone') stoneNoiseByTile.set(tile.id, s);
     }
   }
+
+  enforceCrystalFloor(state, biome.minCrystalTiles, stoneNoiseByTile);
 
   // what this map supports in woodland: regrowth heals back towards it and no
   // further, so the forest can return but cannot take the grassland
@@ -240,6 +262,56 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   spawnInitialWildlife(state, seed, { x: cx, y: cy });
 
   return state;
+}
+
+/**
+ * The floor half of design-next.md 提案1(a), taken over by the biome table
+ * (design-phase11-worldmap.md 3.3): if a freshly generated world rolled under
+ * its biome's crystal floor, top it up from existing rock rather than leaving
+ * a colony that can never reach phase 2 at all.
+ *
+ * Deterministic and additive only - a world that already clears the floor is
+ * untouched, so this can only lift the thin tail of the distribution, never
+ * move the median or p90 (design-next.md a-1 / a-2). Candidates are plain
+ * `stone` tiles, ranked the same way the natural crystal placement favours
+ * deep rock: most rock-locked neighbours first, then the highest stone-noise
+ * value, then position for a stable tie-break - so a floor-added vein reads
+ * exactly like one the noise would have placed itself, just not at the edge
+ * of a rock face.
+ */
+function enforceCrystalFloor(
+  state: GameState,
+  floor: number,
+  stoneNoiseByTile: Map<string, number>,
+): void {
+  if (floor <= 0) return;
+  let current = 0;
+  for (const id in state.tiles) if (state.tiles[id].terrain === 'crystal') current++;
+  let needed = floor - current;
+  if (needed <= 0) return;
+
+  const candidates: { id: string; depth: number; s: number }[] = [];
+  for (const [id, s] of stoneNoiseByTile) {
+    const tile = state.tiles[id];
+    let depth = 0;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const neighbour = state.tiles[tileIdOf(tile.x + dx, tile.y + dy)];
+      if (neighbour && isRock(neighbour.terrain)) depth++;
+    }
+    candidates.push({ id, depth, s });
+  }
+  candidates.sort((a, b) => b.depth - a.depth || b.s - a.s || (a.id < b.id ? -1 : 1));
+
+  for (const candidate of candidates) {
+    if (needed <= 0) break;
+    updateTile(state, candidate.id, { terrain: 'crystal' });
+    needed--;
+  }
 }
 
 const ANIMAL_NAMES = [
@@ -307,9 +379,14 @@ function scatterBerryBushes(state: GameState, seed: number, camp: { x: number; y
   const rnd = mulberry32(seed + 8123);
   // Both the target and the number of darts thrown at it scale with the map:
   // a fixed 900 attempts finds 26 spots on 3,600 tiles and would fall short of
-  // 104 on 14,400 (docs/design-phase6-space.md 3.2).
-  const wanted = perArea(state, BERRY_BUSH_COUNT);
-  const attempts = perArea(state, 900);
+  // 104 on 14,400 (docs/design-phase6-space.md 3.2). The biome's density
+  // multiplier (11章 フェーズ11 段階A) rides on top of that: deepwood wants
+  // more bushes than meadow on the same map, crag fewer, so both the target
+  // and the dart count scale with it together, or a thin biome would burn
+  // through its attempts before finding enough forest tiles to land on.
+  const berryDensityMultiplier = biomeOf(state).berryDensityMultiplier;
+  const wanted = Math.max(1, Math.round(perArea(state, BERRY_BUSH_COUNT) * berryDensityMultiplier));
+  const attempts = Math.round(perArea(state, 900) * Math.max(1, berryDensityMultiplier) * 1.5);
   let placed = 0;
   for (let attempt = 0; attempt < attempts && placed < wanted; attempt++) {
     const x = Math.floor(rnd() * state.width);
@@ -404,6 +481,7 @@ export function addColonist(
  */
 function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number; y: number }): void {
   const rnd = mulberry32(seed + 4241);
+  const wildlifeMultiplier = biomeOf(state).wildlifeMultiplier;
   for (const species of [
     'deer',
     'boar',
@@ -415,7 +493,11 @@ function spawnInitialWildlife(state: GameState, seed: number, camp: { x: number;
     'crystalElk',
     'rockeater',
   ] as AnimalSpecies[]) {
-    const wanted = perArea(state, scaledCount(SPECIES[species].initialCount, scenarioOf(state).wildlife));
+    // the biome's per-species lever (11章 フェーズ11 段階A) rides on top of
+    // the scenario's flat wildlife multiplier; a species the biome does not
+    // name is untouched (defaults to 1)
+    const multiplier = scenarioOf(state).wildlife * (wildlifeMultiplier[species] ?? 1);
+    const wanted = perArea(state, scaledCount(SPECIES[species].initialCount, multiplier));
     for (let i = 0; i < wanted; i++) {
       const spot = findSpawnTile(state, rnd, camp, species === 'chicken' || species === 'rabbit' ? 6 : 12);
       if (spot) createAnimal(state, species, spot.x, spot.y);

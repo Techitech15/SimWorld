@@ -421,6 +421,28 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 20 save into biomes', () => {
+    // A real v20 save predates biomes entirely: no `biome` on state at all.
+    const harness = createHarness(113);
+    harness.run(100);
+    const v20 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { biome: _dropped, ...rest } = v20;
+
+    const migrated = migrateSave({
+      schemaVersion: 20,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // every existing save was generated under exactly the rules `meadow` now
+    // names - the migration writes down what was already true
+    expect(migrated.state.biome).toBe('meadow');
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

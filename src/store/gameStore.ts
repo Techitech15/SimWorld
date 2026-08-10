@@ -19,6 +19,7 @@ import type {
   AnimalDesignation,
   LogParams,
   AnimalId,
+  BiomeName,
   BuildingType,
   ColonistId,
   Designation,
@@ -149,7 +150,7 @@ export interface GameStore {
   applyProfession: (colonistId: ColonistId, primary: JobType) => void;
 
   // persistence
-  newGame: (scenario?: ScenarioName, seed?: number) => void;
+  newGame: (scenario?: ScenarioName, seed?: number, biome?: BiomeName) => void;
   save: () => Promise<void>;
   load: (slot?: string) => Promise<void>;
   autosave: () => Promise<void>;
@@ -315,9 +316,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   applyProfession: (colonistId, primary) =>
     set({ state: actions.applyProfession(get().state, colonistId, primary) }),
 
-  newGame: (scenario, seed) => {
+  newGame: (scenario, seed, biome) => {
     const chosen = scenario ?? DEFAULT_SCENARIO;
-    const state = generateWorld({ seed: seed ?? randomSeed(), scenario: chosen });
+    const state = generateWorld({ seed: seed ?? randomSeed(), scenario: chosen, biome });
     simContext = createSimContext(state);
     set({
       state,

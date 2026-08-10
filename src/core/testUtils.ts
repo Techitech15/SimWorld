@@ -7,7 +7,7 @@ import { placePastureZone } from './actions';
 import { isRock, tileIdOf } from './state';
 import { generateWorld } from './worldgen';
 import type { WorldOptions } from './worldgen';
-import type { GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
+import type { BiomeName, GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
 
 export interface Harness {
   state: GameState;
@@ -33,9 +33,9 @@ export interface Harness {
  * a year at 120x120, `chaos.test.ts` checks the invariants there, and
  * `roundtrip.test.ts` round-trips both sizes in one process.
  */
-export function createHarness(seed = 42, size = 60): Harness {
+export function createHarness(seed = 42, size = 60, biome?: BiomeName): Harness {
   const harness: Harness = {
-    state: generateWorld({ seed, width: size, height: size }),
+    state: generateWorld({ seed, width: size, height: size, biome }),
     ctx: undefined as unknown as SimContext,
     run(ticks, onTick) {
       for (let i = 0; i < ticks; i++) {

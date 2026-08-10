@@ -61,6 +61,7 @@ import { invalidateTile } from './derived';
 import { LAMP_RADIUS, invalidateNetworks, isManaBuilding, isPowered, refreshNetworks } from './mana';
 import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
+import { biomeOf } from './biome';
 import { perArea, perSpan, scaledCount, scenarioOf } from './scenario';
 import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
 import { mulberry32 } from './rng';
@@ -118,8 +119,13 @@ export function runAnimals(state: GameState, ctx: SimContext): void {
  * Grass regrows a full bar per day. Only tiles that were actually grazed are
  * touched (ctx.forageDepleted), so this stays far cheaper than sweeping all
  * 3,600 tiles every tick.
+ *
+ * Exported for biome.test.ts to call directly (regrowForest is exported from
+ * regrowth.ts for the same reason): the multiplier's effect is a matter of
+ * calling it twice on two otherwise-identical tiles, not of running the whole
+ * simulation.
  */
-function regrowForage(state: GameState, ctx: SimContext): void {
+export function regrowForage(state: GameState, ctx: SimContext): void {
   if (state.tick % FORAGE_REGROW_INTERVAL_TICKS !== 0) return;
   const lit = lightmossTiles(state, ctx);
   // Lightmoss grows on ground that has never been grazed, so unlike grass it
@@ -136,9 +142,13 @@ function regrowForage(state: GameState, ctx: SimContext): void {
   const grassStep =
     FORAGE_REGROW_PER_TICK *
     FORAGE_REGROW_INTERVAL_TICKS *
-    FORAGE_REGROW_BY_SEASON[seasonOf(state.tick)];
-  // The point of the lamp: this one does not read the season at all (11章
-  // フェーズ5). Slower than a summer meadow, faster than a winter one.
+    FORAGE_REGROW_BY_SEASON[seasonOf(state.tick)] *
+    // crag's ground is thin, manaheath's is starved of ordinary growth (11章
+    // フェーズ11 段階A); meadow and deepwood both keep the multiplier at 1
+    biomeOf(state).forageRegrowMultiplier;
+  // The point of the lamp: this one does not read the season - or the biome -
+  // at all (11章 フェーズ5). What grows under a lit lamp is the lamp's doing,
+  // not the ground's, so it stays a flat rate everywhere the lamp reaches.
   const mossStep = FORAGE_REGROW_PER_TICK * FORAGE_REGROW_INTERVAL_TICKS * LIGHTMOSS_REGROW_FACTOR;
 
   for (const tileId of [...ctx.forageDepleted]) {
@@ -1183,8 +1193,16 @@ function spawnPredators(state: GameState): void {
   let alive = 0;
   for (const id in state.animals) if (isPredator(state.animals[id])) alive++;
   // how many wolves the map sustains is the scenario's, not a global constant:
-  // it is a rule that runs every day rather than a decision made at generation
-  if (alive >= scenarioOf(state).predators) return;
+  // it is a rule that runs every day rather than a decision made at generation.
+  // The biome bends it further (11章 フェーズ11 段階A) through the same
+  // `wolf` key the daily herbivore respawn below reads - wolves never appear
+  // in the initial-spawn list, so this cap is the only place a biome's
+  // "wolves are up" lever has anything to multiply.
+  const cap = Math.max(
+    1,
+    Math.round(scenarioOf(state).predators * (biomeOf(state).wildlifeMultiplier.wolf ?? 1)),
+  );
+  if (alive >= cap) return;
 
   const camp = colonyCentre(state);
   const rnd = tickRandom(state, 991);
@@ -1210,13 +1228,12 @@ function spawnWildlife(state: GameState): void {
 
   const camp = colonyCentre(state);
   const rnd = tickRandom(state, 613);
+  const wildlifeMultiplier = biomeOf(state).wildlifeMultiplier;
   for (const species of ANIMAL_SPECIES) {
     const profile = SPECIES[species];
     if (profile.diet === 'carnivore') continue;
-    if (
-      (wild[species] ?? 0) >=
-      perArea(state, scaledCount(profile.initialCount, scenarioOf(state).wildlife))
-    ) {
+    const multiplier = scenarioOf(state).wildlife * (wildlifeMultiplier[species] ?? 1);
+    if ((wild[species] ?? 0) >= perArea(state, scaledCount(profile.initialCount, multiplier))) {
       continue;
     }
     const spot = findSpawnTile(state, rnd, camp, perSpan(state, WILDLIFE_MIN_SPAWN_DISTANCE));

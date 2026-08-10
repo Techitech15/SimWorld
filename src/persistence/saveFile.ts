@@ -5,13 +5,14 @@
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
 import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
+import { DEFAULT_BIOME } from '../core/biome';
 import { emptyResearch } from '../core/research';
 import { DEFAULT_SCENARIO } from '../core/scenario';
 import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -365,6 +366,20 @@ export const migrations: Record<number, Migration> = {
       };
     }
     return { ...state, colonists, research: state.research ?? emptyResearch() };
+  },
+
+  /**
+   * 20 -> 21: biomes (11章 フェーズ11 段階A, docs/design-phase11-worldmap.md).
+   * Every existing save was generated before biomes existed, which means it
+   * was generated under exactly the rules `meadow` now names - the migration
+   * writes down what was already true rather than changing anything about the
+   * map the player has been playing on. `DEFAULT_BIOME` keeps this in step
+   * with `generateWorld`'s own default, the same relationship version 7's
+   * migration has with `DEFAULT_SCENARIO`.
+   */
+  20: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, biome: state.biome ?? DEFAULT_BIOME };
   },
 };
 

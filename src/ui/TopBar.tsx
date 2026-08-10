@@ -4,6 +4,8 @@ import { colonyMood, moodLabel } from '../core/mood';
 import type { GameState } from '../core/types';
 import { DEFAULT_SCENARIO, SCENARIO_NAMES } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
+import { BIOME_NAMES, DEFAULT_BIOME } from '../core/biome';
+import type { BiomeName } from '../core/biome';
 import { DAYS_PER_SEASON, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { getNetworks, useGameStore } from '../store/gameStore';
@@ -16,6 +18,7 @@ const LANGUAGES: Language[] = ['en', 'ja'];
 
 export function TopBar(): React.JSX.Element {
   const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
+  const [biome, setBiome] = useState<BiomeName>(DEFAULT_BIOME);
   const tick = useTick();
   const speed = useSpeed();
   const setSpeed = useGameStore((s) => s.setSpeed);
@@ -108,6 +111,22 @@ export function TopBar(): React.JSX.Element {
             </option>
           ))}
         </select>
+        {/* the biome select (11章 フェーズ11 段階A): a second, orthogonal lever
+            beside the scenario one. Stage B replaces this with the world map
+            screen (design-phase11-worldmap.md 5章); this is deliberately the
+            simplest thing that lets a player choose a biome today. */}
+        <select
+          className="topbar__scenario"
+          value={biome}
+          onChange={(event) => setBiome(event.target.value as BiomeName)}
+          title={strings.biomeDescriptions[biome]}
+        >
+          {BIOME_NAMES.map((name) => (
+            <option key={name} value={name} title={strings.biomeDescriptions[name]}>
+              {strings.biomeLabels[name]}
+            </option>
+          ))}
+        </select>
         {/* the language toggle lives beside the scenario select (phase 9). The
             option shows each language in its own name, so the menu is readable
             from either side of the switch. */}
@@ -125,7 +144,7 @@ export function TopBar(): React.JSX.Element {
         </select>
         <button
           type="button"
-          onClick={() => newGame(scenario)}
+          onClick={() => newGame(scenario, undefined, biome)}
           title={strings.scenarioDescriptions[scenario]}
         >
           {strings.newMapButton}
