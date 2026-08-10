@@ -5,8 +5,8 @@ import { COLONIST_MAX_HEALTH, HUNGER_PER_TICK, TICKS_PER_DAY } from './constants
 import { setDesignation } from './actions';
 import { levelOf } from './skills';
 import { TRAITS, TRAIT_NAMES, rollTraits, traitMultiplier } from './traits';
-import { createHarness, idleColony, nearestTilesWithTerrain } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, idleColony, nearestTilesWithTerrain, testWorld } from './testUtils';
+
 import type { GameState, TraitName } from './types';
 
 function everyoneHas(state: GameState, ...traits: TraitName[]): void {
@@ -141,7 +141,7 @@ describe('traits', () => {
 
   it('deal the founders traits from the world seed, and mostly not the same ones', () => {
     const founders = (seed: number) =>
-      Object.values(generateWorld({ seed }).colonists).map((c) => c.traits.join('+'));
+      Object.values(testWorld({ seed }).colonists).map((c) => c.traits.join('+'));
     expect(founders(6131)).toEqual(founders(6131)); // deterministic
     const across = new Set([...founders(6131), ...founders(6137), ...founders(6143)]);
     expect(across.size).toBeGreaterThan(2);

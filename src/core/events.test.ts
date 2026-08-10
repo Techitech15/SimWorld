@@ -13,8 +13,8 @@ import {
 } from './events';
 import { SEASONS, TICKS_PER_SEASON, seasonOf } from './season';
 import { tickMany } from './simulation';
-import { createHarness, recordLogEntries } from './testUtils';
-import { generateWorld } from './worldgen';
+import { createHarness, recordLogEntries, testWorld } from './testUtils';
+
 import type { GameState, Season } from './types';
 
 /** Run whole days of incident rolls without simulating anything else. */
@@ -181,7 +181,7 @@ describe('incidents', () => {
     const firsts: number[] = [];
     const kinds = new Set<string>();
     for (let seed = 0; seed < 60; seed++) {
-      const state = generateWorld({ seed: seed * 7919 + 13 });
+      const state = testWorld({ seed: seed * 7919 + 13 });
       for (const id in state.buildings) {
         if (state.buildings[id].type === 'farmPlot') {
           state.buildings[id] = { ...state.buildings[id], sown: true, growth: 0.5 };

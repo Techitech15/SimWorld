@@ -6,6 +6,7 @@ import { tickOnce } from './simulation';
 import { placePastureZone } from './actions';
 import { tileIdOf } from './state';
 import { generateWorld } from './worldgen';
+import type { WorldOptions } from './worldgen';
 import type { GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
 
 export interface Harness {
@@ -235,4 +236,22 @@ export function idleColony(state: GameState): void {
     }
     state.colonists[id] = { ...colonist, workPriorities };
   }
+}
+
+/**
+ * A world for a test to make assertions about.
+ *
+ * Fixed at 60x60 like `createHarness`, and for the same two reasons - the
+ * second of which is the one that matters: **every measurement in
+ * design-notes.md was taken at 60x60**. When the shipped default grew to
+ * 120x120 (docs/design-phase6-space.md), the tests that built their own world
+ * silently moved with it, and the ones calibrated against the terrain around
+ * the camp started failing - the camp centre had moved from (30,30) to (60,60),
+ * so they were looking at a different part of a different map.
+ *
+ * Tests that are *about* the shipped size ask for it explicitly instead
+ * (`longrun`, `chaos`, `roundtrip`).
+ */
+export function testWorld(options: WorldOptions = {}): GameState {
+  return generateWorld({ width: 60, height: 60, ...options });
 }

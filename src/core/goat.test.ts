@@ -10,8 +10,8 @@ import { ANIMAL_SPECIES, PASTURE_TILES_PER_ANIMAL, SPECIES, TICKS_PER_DAY } from
 
 import { isPredator } from './animals';
 import { tileIdOf } from './state';
-import { createHarness, idleColony, placePastureNear } from './testUtils';
-import { createAnimal, generateWorld } from './worldgen';
+import { createHarness, idleColony, placePastureNear, testWorld } from './testUtils';
+import { createAnimal,  } from './worldgen';
 import type { AnimalSpecies, GameState } from './types';
 
 const tameable = ANIMAL_SPECIES.filter(
@@ -79,7 +79,7 @@ describe('the goat', () => {
   });
 
   it('turns up on a new map without crowding the others out', () => {
-    const state = generateWorld({ seed: 9937 });
+    const state = testWorld({ seed: 9937 });
     const counts: Partial<Record<AnimalSpecies, number>> = {};
     for (const id in state.animals) {
       const species = state.animals[id].species;
