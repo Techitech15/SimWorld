@@ -3,11 +3,14 @@
 // actually good at, and why is she slow - so what matters is that everything
 // about a colonist is reachable from it and that it is honest about the numbers.
 import { describe, expect, it } from 'vitest';
-import { SKILL_LABELS, SKILL_MAX_LEVEL, SKILL_NAMES, emptySkills, xpForLevel } from '../core/skills';
-import { TRAITS } from '../core/traits';
+import { SKILL_MAX_LEVEL, SKILL_NAMES, emptySkills, xpForLevel } from '../core/skills';
 import { createHarness } from '../core/testUtils';
 import type { GameState, TraitName } from '../core/types';
 import { describeColonist } from './ColonistDetail';
+import { STRINGS } from './strings';
+
+const en = STRINGS.en;
+const SKILL_LABELS = en.skillLabels;
 
 function value(rows: string[], label: string): string | undefined {
   const row = rows.find((r) => r.startsWith(`${label}: `));
@@ -21,14 +24,14 @@ function only(state: GameState): string {
 describe('the colonist sheet', () => {
   it('says nothing at all when nobody is selected', () => {
     const harness = createHarness(9201);
-    expect(describeColonist(harness.state, null)).toEqual([]);
-    expect(describeColonist(harness.state, 'c99')).toEqual([]);
+    expect(describeColonist(harness.state, null, en)).toEqual([]);
+    expect(describeColonist(harness.state, 'c99', en)).toEqual([]);
   });
 
   it('lists every skill, not just the ones worth bragging about', () => {
     const harness = createHarness(9203);
     const id = only(harness.state);
-    const rows = describeColonist(harness.state, id);
+    const rows = describeColonist(harness.state, id, en);
     for (const name of SKILL_NAMES) {
       expect(value(rows, SKILL_LABELS[name])).toBeDefined();
     }
@@ -43,14 +46,14 @@ describe('the colonist sheet', () => {
       ...harness.state.colonists[id],
       skills: { ...emptySkills(), chop: half },
     };
-    expect(value(describeColonist(harness.state, id), SKILL_LABELS.chop)).toBe('3 (50% to 4)');
+    expect(value(describeColonist(harness.state, id, en), SKILL_LABELS.chop)).toBe('3 (50% to 4)');
 
     harness.state.colonists[id] = {
       ...harness.state.colonists[id],
       skills: { ...emptySkills(), chop: xpForLevel(SKILL_MAX_LEVEL) },
     };
     // and stops promising a next level once there is not one
-    expect(value(describeColonist(harness.state, id), SKILL_LABELS.chop)).toBe(
+    expect(value(describeColonist(harness.state, id, en), SKILL_LABELS.chop)).toBe(
       `${SKILL_MAX_LEVEL} — mastered`,
     );
   });
@@ -62,11 +65,11 @@ describe('the colonist sheet', () => {
       ...harness.state.colonists[id],
       traits: ['tough', 'bigEater'] as TraitName[],
     };
-    const rows = describeColonist(harness.state, id);
+    const rows = describeColonist(harness.state, id, en);
     const traits = rows.filter((r) => r.startsWith('Trait: '));
     expect(traits.length).toBe(2);
-    expect(traits.join(' ')).toContain(TRAITS.tough.description);
-    expect(traits.join(' ')).toContain(TRAITS.bigEater.label);
+    expect(traits.join(' ')).toContain(en.traitDescriptions.tough);
+    expect(traits.join(' ')).toContain(en.traitLabels.bigEater);
   });
 
   it('folds skill and traits into one number the player can feel', () => {
@@ -77,7 +80,7 @@ describe('the colonist sheet', () => {
       skills: { ...emptySkills(), build: xpForLevel(5) },
       traits: ['industrious'] as TraitName[],
     };
-    const pace = value(describeColonist(harness.state, id), 'Pace');
+    const pace = value(describeColonist(harness.state, id, en), 'Pace');
     // 1 + 5 * 0.08 = 1.4, times the industrious 1.15
     expect(pace).toBe('1.61x at construction (level 5)');
 
@@ -87,7 +90,7 @@ describe('the colonist sheet', () => {
       skills: emptySkills(),
       traits: [],
     };
-    expect(value(describeColonist(harness.state, id), 'Pace')).toBeUndefined();
+    expect(value(describeColonist(harness.state, id, en), 'Pace')).toBeUndefined();
   });
 
   it('reports what the colonist is doing right now, carried load included', () => {
@@ -97,7 +100,7 @@ describe('the colonist sheet', () => {
       ...harness.state.colonists[id],
       activity: { kind: 'sleeping', bedId: null },
     };
-    expect(value(describeColonist(harness.state, id), 'Doing')).toBe('sleeping');
+    expect(value(describeColonist(harness.state, id, en), 'Doing')).toBe('sleeping');
 
     harness.state.colonists[id] = {
       ...harness.state.colonists[id],
@@ -113,15 +116,15 @@ describe('the colonist sheet', () => {
         workType: 'haul',
       },
     } as GameState['jobs'];
-    expect(value(describeColonist(harness.state, id), 'Doing')).toBe('haul (carrying 25 wood)');
+    expect(value(describeColonist(harness.state, id, en), 'Doing')).toBe('haul (carrying 25 wood)');
   });
 
   it('returns flat strings, so the selector stays shallow-comparable', () => {
     const harness = createHarness(9223);
     const id = only(harness.state);
-    const rows = describeColonist(harness.state, id);
+    const rows = describeColonist(harness.state, id, en);
     for (const row of rows) expect(typeof row).toBe('string');
     // the same state twice is the same rows: nothing rebuilt per call
-    expect(describeColonist(harness.state, id)).toEqual(rows);
+    expect(describeColonist(harness.state, id, en)).toEqual(rows);
   });
 });

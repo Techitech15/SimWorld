@@ -53,7 +53,7 @@ describe('damage and repair', () => {
     for (const part of chewed) {
       expect((part.hpMax - part.hpCurrent) % PREDATOR_STRUCTURE_DAMAGE).toBe(0);
     }
-    expect(harness.state.log.some((e) => e.message.includes('tearing at'))).toBe(true);
+    expect(harness.state.log.some((e) => e.key === 'animalTearing')).toBe(true);
   });
 
   it('leaves a fence alone when there is nothing behind it worth having', () => {
@@ -87,7 +87,7 @@ describe('damage and repair', () => {
     harness.run(900);
 
     expect(harness.state.buildings[wall.id].hpCurrent).toBe(wall.hpMax);
-    expect(harness.state.log.some((e) => e.message.includes('was repaired'))).toBe(true);
+    expect(harness.state.log.some((e) => e.key === 'buildingRepaired')).toBe(true);
   });
 
   it('runs repair under the construction column, not a column of its own', () => {
@@ -136,14 +136,16 @@ describe('damage and repair', () => {
     const at = Object.values(harness.state.colonists)[0].position;
     const tileId = tileIdOf(at.x + 3, at.y - 3);
     const wall = addBuilding(harness.state, 'wall', tileId);
-    expect(collectAlerts(harness.state).some((a) => a.message.includes('damaged'))).toBe(false);
+    const damaged = (a: { key: string }) =>
+      a.key === 'buildingDamaged' || a.key === 'buildingsDamaged';
+    expect(collectAlerts(harness.state).some(damaged)).toBe(false);
 
     harness.state.buildings[wall.id] = { ...wall, hpCurrent: wall.hpMax * 0.8 };
-    const warned = collectAlerts(harness.state).find((a) => a.message.includes('damaged'));
+    const warned = collectAlerts(harness.state).find(damaged);
     expect(warned?.level).toBe('warning');
 
     harness.state.buildings[wall.id] = { ...wall, hpCurrent: wall.hpMax * 0.2 };
-    const urgent = collectAlerts(harness.state).find((a) => a.message.includes('damaged'));
+    const urgent = collectAlerts(harness.state).find(damaged);
     expect(urgent?.level).toBe('critical');
     expect(urgent?.at).toEqual({ x: at.x + 3, y: at.y - 3 });
   });

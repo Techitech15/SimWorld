@@ -19,7 +19,7 @@ import {
   TICKS_PER_STEP,
 } from './constants';
 import { invalidateTile, rebuildRegions } from './derived';
-import { CROP_GROWTH_BY_SEASON, SEASON_LABEL, isSeasonBoundary, seasonOf } from './season';
+import { CROP_GROWTH_BY_SEASON, isSeasonBoundary, seasonOf } from './season';
 import type { SimContext } from './derived';
 import { runAssignment } from './jobs/assign';
 import { runExecution } from './jobs/execute';
@@ -36,7 +36,7 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   if (ctx.regionsDirty) rebuildRegions(ctx, next);
 
   if (isSeasonBoundary(next.tick)) {
-    addLog(next, `${SEASON_LABEL[seasonOf(next.tick)]} has arrived`);
+    addLog(next, 'seasonArrived', { season: seasonOf(next.tick) });
   }
   growCrops(next);
   regrowForest(next);

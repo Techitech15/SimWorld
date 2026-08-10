@@ -44,7 +44,7 @@ describe('losing a colonist', () => {
     const at = { ...harness.state.colonists[colonistId].position };
     expect(reservationsOf(harness.state, colonistId).length).toBeGreaterThan(0);
 
-    killColonist(harness.state, colonistId, 'was killed');
+    killColonist(harness.state, colonistId, { key: 'colonistKilled' });
 
     expect(harness.state.colonists[colonistId]).toBeUndefined();
     expect(reservationsOf(harness.state, colonistId)).toEqual([]);
@@ -55,7 +55,7 @@ describe('losing a colonist', () => {
       (item) => item.type === 'wood' && item.position.x === at.x && item.position.y === at.y,
     );
     expect(dropped.reduce((sum, item) => sum + item.quantity, 0)).toBeGreaterThanOrEqual(20);
-    expect(harness.state.log.some((entry) => entry.message.includes('was killed'))).toBe(true);
+    expect(harness.state.log.some((entry) => entry.key === 'colonistKilled')).toBe(true);
   });
 
   it('leaves the survivors able to take over the work', () => {
@@ -63,7 +63,7 @@ describe('losing a colonist', () => {
     const colonistId = colonistMidJob(harness);
     const tileId = harness.state.jobs[harness.state.colonists[colonistId].currentJobId!].targetTileId!;
 
-    killColonist(harness.state, colonistId, 'was killed');
+    killColonist(harness.state, colonistId, { key: 'colonistKilled' });
     harness.run(400);
 
     // the tree the dead colonist had reserved is either felled or reserved by
@@ -76,11 +76,9 @@ describe('losing a colonist', () => {
   it('notes it in the log when the last colonist dies', () => {
     const harness = createHarness(227);
     for (const id of Object.keys(harness.state.colonists)) {
-      killColonist(harness.state, id, 'was killed');
+      killColonist(harness.state, id, { key: 'colonistKilled' });
     }
-    expect(harness.state.log.some((entry) => entry.message === 'The colony has died out.')).toBe(
-      true,
-    );
+    expect(harness.state.log.some((entry) => entry.key === 'colonyDiedOut')).toBe(true);
     // and the world keeps ticking rather than throwing
     expect(() => harness.run(50)).not.toThrow();
   });

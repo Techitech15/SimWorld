@@ -2,19 +2,17 @@ import { useState } from 'react';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
 import { colonyMood, moodLabel } from '../core/mood';
 import type { GameState } from '../core/types';
-import { DEFAULT_SCENARIO, SCENARIOS, SCENARIO_NAMES } from '../core/scenario';
+import { DEFAULT_SCENARIO, SCENARIO_NAMES } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
-import { DAYS_PER_SEASON, SEASON_LABEL, dayOfSeason, seasonOf, yearOf } from '../core/season';
+import { DAYS_PER_SEASON, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { getNetworks, useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
+import { useLanguageStore, useStrings } from './language';
+import { STRINGS } from './strings';
+import type { Language } from './strings';
 
-const SPEEDS: { value: GameState['speed']; label: string; hint: string }[] = [
-  { value: 0, label: '⏸', hint: 'Pause' },
-  { value: 1, label: '▶', hint: '1x' },
-  { value: 3, label: '▶▶▶', hint: '3x' },
-  { value: 10, label: '▶▶▶▶', hint: '10x — a day a minute' },
-];
+const LANGUAGES: Language[] = ['en', 'ja'];
 
 export function TopBar(): React.JSX.Element {
   const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
@@ -30,27 +28,37 @@ export function TopBar(): React.JSX.Element {
   const population = useGameStore((s) => Object.keys(s.state.colonists).length);
   // a number, not an object: the selector has to stay shallow-comparable
   const mood = useGameStore((s) => colonyMood(s.state, getNetworks(s.state)));
+  const strings = useStrings();
+  const language = useLanguageStore((s) => s.language);
+  const setLanguage = useLanguageStore((s) => s.setLanguage);
 
   const day = Math.floor(tick / TICKS_PER_DAY) + 1;
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);
   const minute = Math.floor(((tick % TICKS_PER_DAY) % TICKS_PER_HOUR) * (60 / TICKS_PER_HOUR));
 
+  const speeds: { value: GameState['speed']; label: string; hint: string }[] = [
+    { value: 0, label: '⏸', hint: strings.pauseHint },
+    { value: 1, label: '▶', hint: strings.speedHint(1) },
+    { value: 3, label: '▶▶▶', hint: strings.speedHint(3) },
+    { value: 10, label: '▶▶▶▶', hint: strings.speedFastHint },
+  ];
+
   return (
     <header className="topbar">
       <div className="topbar__clock">
-        <strong>Day {day}</strong>
-        <span title={`day ${dayOfSeason(tick)} of ${DAYS_PER_SEASON}`}>
-          {SEASON_LABEL[seasonOf(tick)]} {dayOfSeason(tick)}/{DAYS_PER_SEASON}
+        <strong>{strings.dayLabel(day)}</strong>
+        <span title={strings.seasonDayTitle(dayOfSeason(tick), DAYS_PER_SEASON)}>
+          {strings.seasonDay(seasonOf(tick), dayOfSeason(tick), DAYS_PER_SEASON)}
         </span>
-        <span className="muted">Year {yearOf(tick)}</span>
+        <span className="muted">{strings.yearLabel(yearOf(tick))}</span>
         <span>
           {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
         </span>
-        <span className="muted">tick {tick}</span>
+        <span className="muted">{strings.tickLabel(tick)}</span>
       </div>
 
       <div className="topbar__speed">
-        {SPEEDS.map((option) => (
+        {speeds.map((option) => (
           <button
             key={option.value}
             type="button"
@@ -64,30 +72,26 @@ export function TopBar(): React.JSX.Element {
       </div>
 
       <div className="topbar__jobs muted">
-        {population} {population === 1 ? 'colonist' : 'colonists'} · jobs: {jobs.active} active /{' '}
-        {jobs.pending} queued
-        {jobs.failed > 0 ? ` / ${jobs.failed} failed` : ''}
+        {strings.populationCount(population)} · {strings.jobsSummary(jobs.active, jobs.pending)}
+        {jobs.failed > 0 ? ` / ${strings.jobsFailed(jobs.failed)}` : ''}
         {/* one number for how the colony is bearing it; the panel has the detail */}
-        <span title="average mood — hover a colonist's mood bar for the reasons">
-          {' '}
-          · mood {mood} ({moodLabel(mood)})
-        </span>
+        <span title={strings.moodTitle}> · {strings.moodSummary(mood, moodLabel(mood))}</span>
       </div>
 
       <div className="topbar__actions">
         <button type="button" onClick={() => void save()}>
-          Save
+          {strings.saveButton}
         </button>
         <button type="button" onClick={() => void load()}>
-          Load
+          {strings.loadButton}
         </button>
         {hasAutosave ? (
           <button
             type="button"
-            title="the game saves once per in-game day, into its own slot"
+            title={strings.autosaveTitle}
             onClick={() => void load(AUTOSAVE_SLOT)}
           >
-            Load autosave
+            {strings.loadAutosaveButton}
           </button>
         ) : null}
         {/* the scenario picks itself when the player just wants a new map, and
@@ -96,24 +100,43 @@ export function TopBar(): React.JSX.Element {
           className="topbar__scenario"
           value={scenario}
           onChange={(event) => setScenario(event.target.value as ScenarioName)}
-          title={SCENARIOS[scenario].description}
+          title={strings.scenarioDescriptions[scenario]}
         >
           {SCENARIO_NAMES.map((name) => (
             <option key={name} value={name}>
-              {SCENARIOS[name].label}
+              {strings.scenarioLabels[name]}
+            </option>
+          ))}
+        </select>
+        {/* the language toggle lives beside the scenario select (phase 9). The
+            option shows each language in its own name, so the menu is readable
+            from either side of the switch. */}
+        <select
+          className="topbar__scenario"
+          value={language}
+          onChange={(event) => setLanguage(event.target.value as Language)}
+          title={strings.languageToggleTitle}
+        >
+          {LANGUAGES.map((code) => (
+            <option key={code} value={code}>
+              {STRINGS[code].languageName}
             </option>
           ))}
         </select>
         <button
           type="button"
           onClick={() => newGame(scenario)}
-          title={SCENARIOS[scenario].description}
+          title={strings.scenarioDescriptions[scenario]}
         >
-          New map
+          {strings.newMapButton}
         </button>
       </div>
 
-      {statusMessage ? <div className="topbar__status">{statusMessage}</div> : null}
+      {statusMessage ? (
+        <div className="topbar__status">
+          {strings.status[statusMessage.key](statusMessage.params ?? {})}
+        </div>
+      ) : null}
     </header>
   );
 }

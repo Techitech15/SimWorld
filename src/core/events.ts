@@ -15,7 +15,6 @@
 import {
   FOOD_PER_HARVEST,
   RAID_FIRST_DAY,
-  SPECIES,
   TICKS_PER_DAY,
   WOOD_PER_TREE,
 } from './constants';
@@ -25,7 +24,7 @@ import { seasonOf } from './season';
 import type { Season } from './season';
 import { addLog, updateBuilding } from './state';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
-import type { AnimalSpecies, GameState, Vector2 } from './types';
+import type { AnimalSpecies, GameState, LogKey, LogParams, Vector2 } from './types';
 
 /** One roll a day, and most days nothing happens. */
 export const EVENT_INTERVAL_TICKS = TICKS_PER_DAY;
@@ -42,11 +41,17 @@ export type IncidentName =
   | 'raid'
   | 'berryGlut';
 
+/** What an incident did, as a log key plus its parameters (11章 フェーズ9). */
+export interface IncidentReport {
+  key: LogKey;
+  params?: LogParams;
+}
+
 export interface Incident {
   name: IncidentName;
   /** relative likelihood per season; 0 means it cannot happen then */
   weight: Record<Season, number>;
-  apply: (state: GameState, rnd: () => number) => string | null;
+  apply: (state: GameState, rnd: () => number) => IncidentReport | null;
 }
 
 function colonyCentre(state: GameState): Vector2 {
@@ -79,7 +84,7 @@ export const INCIDENTS: Incident[] = [
       const plots = sownPlots(state).filter((id) => state.buildings[id].growth < 1);
       if (plots.length === 0) return null;
       for (const id of plots) updateBuilding(state, id, { growth: 1 });
-      return `A warm spell ripened ${plots.length} ${plots.length === 1 ? 'plot' : 'plots'} at once`;
+      return { key: 'incidentBumperCrop', params: { plots: plots.length } };
     },
   },
   {
@@ -96,7 +101,7 @@ export const INCIDENTS: Incident[] = [
       const hit = plots.filter(() => rnd() < 0.5).slice(0, most);
       if (hit.length === 0) return null;
       for (const id of hit) updateBuilding(state, id, { growth: 0 });
-      return `Blight struck ${hit.length} ${hit.length === 1 ? 'plot' : 'plots'}; the crop is a loss`;
+      return { key: 'incidentBlight', params: { plots: hit.length } };
     },
   },
   {
@@ -110,7 +115,7 @@ export const INCIDENTS: Incident[] = [
       }
       if (bushes.length < 4) return null;
       for (const id of bushes) updateBuilding(state, id, { growth: 1 });
-      return `The woods came into berry all at once (${bushes.length} bushes)`;
+      return { key: 'incidentBerryGlut', params: { bushes: bushes.length } };
     },
   },
   {
@@ -127,7 +132,7 @@ export const INCIDENTS: Incident[] = [
         arrived++;
       }
       if (arrived === 0) return null;
-      return `A pack of ${arrived} wolves came down out of the trees`;
+      return { key: 'incidentWolfPack', params: { count: arrived } };
     },
   },
   {
@@ -144,9 +149,7 @@ export const INCIDENTS: Incident[] = [
         arrived++;
       }
       if (arrived === 0) return null;
-      const profile = SPECIES[species];
-      const beast = (arrived === 1 ? profile.label : profile.plural).toLowerCase();
-      return `A herd of ${arrived} ${beast} moved through`;
+      return { key: 'incidentHerd', params: { count: arrived, species } };
     },
   },
   {
@@ -159,7 +162,7 @@ export const INCIDENTS: Incident[] = [
       const wood = rnd() < 0.5;
       const quantity = wood ? WOOD_PER_TREE : FOOD_PER_HARVEST * 2;
       addItem(state, wood ? 'wood' : 'food', quantity, spot.x, spot.y);
-      return `Someone abandoned ${quantity} ${wood ? 'wood' : 'food'} on the road nearby`;
+      return { key: 'incidentLostSupplies', params: { quantity, resource: wood ? 'wood' : 'food' } };
     },
   },
 
@@ -180,9 +183,7 @@ export const INCIDENTS: Incident[] = [
       if (isUnderAttack(state)) return null;
       const spawned = spawnRaid(state, raidSize(state, rnd), rnd);
       if (spawned.length === 0) return null;
-      return spawned.length === 1
-        ? 'A raider is coming out of the trees'
-        : `${spawned.length} raiders are coming out of the trees`;
+      return { key: 'incidentRaid', params: { count: spawned.length } };
     },
   },
 ];
@@ -220,6 +221,6 @@ export function runIncidents(state: GameState): void {
 
   const incident = chooseIncident(seasonOf(state.tick), rnd());
   if (!incident) return;
-  const message = incident.apply(state, rnd);
-  if (message) addLog(state, message, 'incident');
+  const report = incident.apply(state, rnd);
+  if (report) addLog(state, report.key, report.params, 'incident');
 }

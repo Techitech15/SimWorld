@@ -74,5 +74,5 @@ export function runArrivals(state: GameState): void {
   if (!spot) return;
 
   const arrival = addColonist(state, spot);
-  addLog(state, `${arrival.name} arrived, drawn by the colony's stores`);
+  addLog(state, 'colonistArrived', { name: arrival.name });
 }

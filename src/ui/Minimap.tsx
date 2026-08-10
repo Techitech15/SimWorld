@@ -13,6 +13,7 @@ import { MAP_HEIGHT, MAP_WIDTH } from '../core/constants';
 import { isPredator } from '../core/animals';
 import type { GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
+import { useStrings } from './language';
 
 type Rgb = [number, number, number];
 
@@ -106,6 +107,7 @@ export function paintMinimap(state: GameState, data: Uint8ClampedArray): void {
 }
 
 export function Minimap(): React.JSX.Element {
+  const strings = useStrings();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<ImageData | null>(null);
   const state = useGameStore((s) => s.state);
@@ -133,13 +135,13 @@ export function Minimap(): React.JSX.Element {
 
   return (
     <section className="panel">
-      <h2>Map</h2>
+      <h2>{strings.panelMap}</h2>
       <canvas
         ref={canvasRef}
         className="minimap"
         width={MAP_WIDTH}
         height={MAP_HEIGHT}
-        title="click to jump the camera"
+        title={strings.minimapTitle}
         onClick={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
           const x = Math.floor(((event.clientX - box.left) / box.width) * MAP_WIDTH);
@@ -150,10 +152,10 @@ export function Minimap(): React.JSX.Element {
         }}
       />
       <div className="minimap__key">
-        <span className="minimap__dot" style={{ background: 'rgb(255,255,255)' }} /> colonist
-        <span className="minimap__dot" style={{ background: 'rgb(214,74,74)' }} /> predator
-        <span className="minimap__dot" style={{ background: 'rgb(232,196,76)' }} /> tame
-        <span className="minimap__dot" style={{ background: 'rgb(176,132,84)' }} /> wild
+        <span className="minimap__dot" style={{ background: 'rgb(255,255,255)' }} /> {strings.keyColonist}
+        <span className="minimap__dot" style={{ background: 'rgb(214,74,74)' }} /> {strings.keyPredator}
+        <span className="minimap__dot" style={{ background: 'rgb(232,196,76)' }} /> {strings.keyTame}
+        <span className="minimap__dot" style={{ background: 'rgb(176,132,84)' }} /> {strings.keyWild}
       </div>
     </section>
   );

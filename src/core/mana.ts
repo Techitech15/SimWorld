@@ -259,7 +259,7 @@ export function runMana(state: GameState, ctx: SimContext): TileId[] {
       const manaFuel = building.manaFuel - 1;
       updateBuilding(state, id, { manaFuel });
       if (manaFuel === 0) {
-        addLog(state, `the mana furnace at ${building.tileId} has burned out`);
+        addLog(state, 'furnaceBurnedOut', { tile: building.tileId });
         // its supply just left the grid
         invalidateNetworks(ctx);
       }
@@ -320,7 +320,7 @@ function runExtractors(state: GameState, networks: ManaNetworks): TileId[] {
       // notice that a building they paid for is quietly drawing mana for nothing
       if (building.manaProgress !== -1) {
         updateBuilding(state, id, { manaProgress: -1 });
-        addLog(state, `the extractor at ${building.tileId} has run out of rock`);
+        addLog(state, 'extractorOutOfRock', { tile: building.tileId });
       }
       continue;
     }
@@ -338,7 +338,7 @@ function runExtractors(state: GameState, networks: ManaNetworks): TileId[] {
     const at = state.tiles[building.tileId];
     if (vein) {
       addItem(state, 'manaCrystal', CRYSTAL_PER_VEIN, at.x, at.y);
-      addLog(state, `the extractor at ${building.tileId} cut into a mana crystal vein`);
+      addLog(state, 'extractorCutVein', { tile: building.tileId });
     } else {
       addItem(state, 'stone', STONE_PER_ROCK, at.x, at.y);
     }

@@ -171,7 +171,8 @@ export function damageRaider(
   state: GameState,
   raiderId: RaiderId,
   amount: number,
-  by: string,
+  /** the colonist who struck the blow, or null when the turret did */
+  by: string | null,
 ): void {
   const raider = state.raiders[raiderId];
   if (!raider) return;
@@ -181,7 +182,12 @@ export function damageRaider(
     return;
   }
   removeRaider(state, raiderId);
-  addLog(state, `${raider.name} the raider was cut down by ${by}`, 'incident');
+  addLog(
+    state,
+    by === null ? 'raiderCutDownByTurret' : 'raiderCutDownBy',
+    by === null ? { raider: raider.name } : { raider: raider.name, colonist: by },
+    'incident',
+  );
   // anybody who was swinging at them has nothing to swing at
   for (const id in state.colonists) {
     const activity = state.colonists[id].activity;
@@ -189,7 +195,7 @@ export function damageRaider(
       updateColonist(state, id, { activity: { kind: 'none' } });
     }
   }
-  if (!isUnderAttack(state)) addLog(state, 'the raid is over', 'incident');
+  if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
 }
 
 /** One tick of every raider on the map. */
@@ -199,7 +205,7 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
 
     if (state.tick >= raider.leavesAtTick && raider.activity.kind !== 'leaving') {
       updateRaider(state, id, { activity: { kind: 'leaving' } });
-      addLog(state, `${raider.name} the raider gives up and turns back`, 'incident');
+      addLog(state, 'raiderRetreats', { raider: raider.name }, 'incident');
       // Re-read: the local copy still says 'advancing', and the branch below
       // tests it. Without this they announced giving up on every tick for the
       // rest of the raid - measured at 1,891 announcements in one year - while
@@ -227,7 +233,7 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
         state.tick > raider.leavesAtTick + RAID_LEAVE_GRACE_TICKS;
       if (gone) {
         removeRaider(state, id);
-        if (!isUnderAttack(state)) addLog(state, 'the raid is over', 'incident');
+        if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
       }
       continue;
     }
@@ -275,7 +281,7 @@ function strikeColonist(
   if (!colonist) return;
   const health = colonist.health - amount;
   if (health <= 0) {
-    killColonist(state, colonistId, `was killed by ${raider.name} the raider`);
+    killColonist(state, colonistId, { key: 'colonistKilledByRaider', params: { raider: raider.name } });
     return;
   }
   // A defender keeps their feet. Anyone else runs, exactly as they would from a
@@ -301,7 +307,7 @@ function breakStructure(
   if (hpCurrent > 0) {
     updateBuilding(state, buildingId, { hpCurrent });
     if (building.hpCurrent === building.hpMax) {
-      addLog(state, `${raider.name} the raider is breaking through the ${building.type}`);
+      addLog(state, 'raiderBreaking', { raider: raider.name, building: building.type });
     }
     return;
   }
@@ -310,7 +316,7 @@ function breakStructure(
   state.buildings = rest;
   updateTile(state, tile.id, { buildingId: null, designation: null, walkable: true });
   ctx.regionsDirty = true;
-  addLog(state, `the ${building.type} at ${tile.id} was smashed open`, 'incident');
+  addLog(state, 'buildingSmashed', { building: building.type, tile: tile.id }, 'incident');
 }
 
 /** Is this colonist one of the ones who goes to meet a raider? */
@@ -393,7 +399,7 @@ export function runTurrets(state: GameState, ctx: SimContext): void {
         target = raider;
       }
     }
-    if (target) damageRaider(state, target.id, TURRET_DAMAGE, 'the turret');
+    if (target) damageRaider(state, target.id, TURRET_DAMAGE, null);
   }
 }
 

@@ -141,7 +141,7 @@ describe('cutting a vein open', () => {
     expect(itemsOf(harness.state, 'manaCrystal')).toBe(quarry.veins * CRYSTAL_PER_VEIN);
     expect(harness.state.tiles[vein].terrain).toBe('grass');
     expect(harness.state.tiles[vein].walkable).toBe(true);
-    expect(lines.some((line) => line.includes('mana crystal vein'))).toBe(true);
+    expect(lines).toContain('veinCutOpen');
   });
 
   it('cannot be reached without cutting the rock in front of it', () => {

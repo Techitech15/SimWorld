@@ -473,7 +473,7 @@ export function orderMove(
     activity: { kind: 'moving', targetTileId: tile.id },
   });
   void ctx;
-  addLog(next, `${colonist.name} ordered to ${tile.id}`);
+  addLog(next, 'orderedToMove', { name: colonist.name, x: tile.x, y: tile.y });
   return next;
 }
 

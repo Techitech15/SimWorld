@@ -153,7 +153,7 @@ describe('keeping it lit', () => {
 
     const lines = recordLog(harness, 60);
     expect(harness.state.buildings[furnace].manaFuel).toBe(0);
-    expect(lines.some((line) => line.includes('burned out'))).toBe(true);
+    expect(lines).toContain('furnaceBurnedOut');
     expect(isPowered(buildNetworks(harness.state), lamp)).toBe(false);
   });
 
@@ -187,9 +187,7 @@ describe('what the light is for', () => {
     const lit = buildNetworks(harness.state);
     const after = moodOf(harness.state, colonist, lit);
     expect(after).toBeGreaterThan(before);
-    expect(thoughtsOf(harness.state, colonist, lit).some((t) => t.label.includes('light'))).toBe(
-      true,
-    );
+    expect(thoughtsOf(harness.state, colonist, lit).some((t) => t.key === 'manaLight')).toBe(true);
   });
 
   it('does not reach across the map', () => {
@@ -204,7 +202,7 @@ describe('what the light is for', () => {
       manaFuel: BURN_TICKS_PER_CRYSTAL,
     };
     const networks = buildNetworks(harness.state);
-    expect(thoughtsOf(harness.state, colonist, networks).some((t) => t.label.includes('light'))).toBe(
+    expect(thoughtsOf(harness.state, colonist, networks).some((t) => t.key === 'manaLight')).toBe(
       false,
     );
   });
@@ -213,7 +211,7 @@ describe('what the light is for', () => {
     // the pre-phase-2 colony has to read exactly as it did
     const harness = createHarness(3041);
     const colonist = Object.values(harness.state.colonists)[0];
-    expect(thoughtsOf(harness.state, colonist).some((t) => t.label.includes('light'))).toBe(false);
+    expect(thoughtsOf(harness.state, colonist).some((t) => t.key === 'manaLight')).toBe(false);
   });
 });
 
@@ -234,7 +232,7 @@ describe('the loop closes', () => {
 
     expect(harness.state.buildings[furnace].manaFuel).toBeGreaterThan(0);
     expect(isPowered(buildNetworks(harness.state), lamp)).toBe(true);
-    expect(lines.some((line) => line.includes('was stoked'))).toBe(true);
+    expect(lines).toContain('furnaceStoked');
   });
 
   it('keeps it lit for as long as there is crystal, and no longer', () => {

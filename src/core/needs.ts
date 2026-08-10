@@ -27,12 +27,13 @@ import type { SimContext } from './derived';
 import { refreshNetworks } from './mana';
 import { friendNearby } from './relationships';
 import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
+import type { ThoughtKey } from './mood';
 import { advanceTowards } from './movement';
 import { mulberry32 } from './rng';
 import { addLog, removeItem, tileIdOf, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
 import { traitMultiplier } from './traits';
-import type { Colonist, GameState } from './types';
+import type { Colonist, GameState, LogKey } from './types';
 import {
   NEED_EAT_JOB_ID,
   NEED_SLEEP_JOB_ID,
@@ -85,12 +86,12 @@ function decayNeeds(state: GameState, colonistId: string): void {
   if (hunger < 100) return;
   const health = colonist.health - STARVATION_DAMAGE_PER_TICK;
   if (health <= 0) {
-    killColonist(state, colonistId, 'starved to death');
+    killColonist(state, colonistId, { key: 'colonistStarvedToDeath' });
     return;
   }
   updateColonist(state, colonistId, { health });
   if (state.tick % STARVATION_WARNING_INTERVAL_TICKS === 0) {
-    addLog(state, `${colonist.name} is starving`);
+    addLog(state, 'colonistStarving', { name: colonist.name });
   }
 }
 
@@ -171,7 +172,7 @@ function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: strin
     });
     if (!meal) {
       if (colonist.needs.hunger > 95 && state.tick % 250 === 0) {
-        addLog(state, `${colonist.name} cannot find food`);
+        addLog(state, 'colonistCannotFindFood', { name: colonist.name });
       }
       return;
     }
@@ -218,7 +219,7 @@ function releaseCurrentJob(state: GameState, ctx: SimContext, colonistId: string
     depositCarried(state, colonistId, colonist.position.x, colonist.position.y);
   }
   if (!jobId) return;
-  failJob(state, ctx, jobId, colonistId, 'interrupted by a need');
+  failJob(state, ctx, jobId, colonistId, 'interrupted');
   // an interruption is not the job's fault: refund the retry and the cooldown
   const job = state.jobs[jobId];
   if (job && job.state === 'pending') {
@@ -252,24 +253,24 @@ function isBreak(kind: string): boolean {
  * hungry raids the larder; everyone else stands and broods. A random pick would
  * have made three animations out of one event.
  */
-function breakKind(worst: string | undefined): 'brooding' | 'wandering' | 'binge' {
+function breakKind(worst: ThoughtKey | undefined): 'brooding' | 'wandering' | 'binge' {
   if (!worst) return 'brooding';
-  if (worst.startsWith('Hungry') || worst.startsWith('Starving')) return 'binge';
+  if (worst === 'hungry' || worst === 'starving') return 'binge';
   if (
-    worst.startsWith('Tired') ||
-    worst.startsWith('Dead on their feet') ||
-    worst.startsWith('Nobody here') ||
-    worst.startsWith('Grieving')
+    worst === 'tired' ||
+    worst === 'exhausted' ||
+    worst === 'knowsNobody' ||
+    worst === 'grieving'
   ) {
     return 'wandering';
   }
   return 'brooding';
 }
 
-const BREAK_WORDS: Record<string, string> = {
-  brooding: 'has had enough',
-  wandering: 'walks off in a daze',
-  binge: 'is eating their way through the stores',
+const BREAK_LOG: Record<'brooding' | 'wandering' | 'binge', LogKey> = {
+  brooding: 'breakBrooding',
+  wandering: 'breakWandering',
+  binge: 'breakBinge',
 };
 
 function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): void {
@@ -284,7 +285,7 @@ function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): vo
 
   releaseCurrentJob(state, ctx, colonistId);
   const worst = thoughtsOf(state, colonist, networks)[0];
-  const kind = breakKind(worst?.label);
+  const kind = breakKind(worst?.key);
   const untilTick = state.tick + MOOD_BREAK_TICKS;
   updateColonist(state, colonistId, {
     activity:
@@ -296,9 +297,8 @@ function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): vo
   });
   addLog(
     state,
-    worst
-      ? `${colonist.name} ${BREAK_WORDS[kind]}: ${worst.label.toLowerCase()}`
-      : `${colonist.name} ${BREAK_WORDS[kind]}`,
+    BREAK_LOG[kind],
+    worst ? { name: colonist.name, thought: worst.key } : { name: colonist.name },
     'incident',
   );
 }
@@ -316,7 +316,7 @@ function runBreak(state: GameState, colonistId: string): void {
 
   if (state.tick >= untilTick) {
     updateColonist(state, colonistId, { activity: { kind: 'none' } });
-    addLog(state, `${colonist.name} goes back to work`);
+    addLog(state, 'backToWork', { name: colonist.name });
     return;
   }
 

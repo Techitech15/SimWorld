@@ -6,24 +6,36 @@ import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { colonyGoals, goalSummary } from '../core/goals';
 import { useGameStore } from '../store/gameStore';
+import { useStrings } from './language';
 
 /** Nothing in a label or hint contains this, and it is visible if it leaks. */
 const FIELD = ' :: ';
 
 export function GoalPanel(): React.JSX.Element | null {
+  const strings = useStrings();
   // flat strings again: this runs every tick, and useShallow only compares one
-  // level deep, so a selector rebuilding objects would re-render for ever
+  // level deep, so a selector rebuilding objects would re-render for ever.
+  // Goals are derived, so the label is rendered here in the active language.
   const rows = useGameStore(
     useShallow((s) =>
-      colonyGoals(s.state).map(
-        (goal) =>
-          [goal.done ? 'done' : 'todo', Math.round(goal.progress * 100), goal.label, goal.hint].join(
-            FIELD,
-          ),
+      colonyGoals(s.state).map((goal) =>
+        [
+          goal.done ? 'done' : 'todo',
+          Math.round(goal.progress * 100),
+          strings.goalLabels[goal.id](goal.params),
+          strings.goalHints[goal.id],
+        ].join(FIELD),
       ),
     ),
   );
-  const summary = useGameStore((s) => goalSummary(s.state));
+  const summary = useGameStore(
+    useShallow((s) => {
+      const parts = goalSummary(s.state);
+      return parts
+        ? strings.goalSummaryLine(parts.done, parts.total, parts.season)
+        : strings.goalsDead;
+    }),
+  );
   const [open, setOpen] = useState(true);
   if (rows.length === 0) return null;
 
@@ -36,12 +48,12 @@ export function GoalPanel(): React.JSX.Element | null {
   return (
     <section className="panel">
       <h2>
-        Next steps
+        {strings.panelGoals}
         <button
           type="button"
           className="panel__clear"
           onClick={() => setOpen(!open)}
-          title={open ? 'collapse' : 'expand'}
+          title={open ? strings.collapseTitle : strings.expandTitle}
         >
           {open ? '−' : '+'}
         </button>
@@ -49,7 +61,7 @@ export function GoalPanel(): React.JSX.Element | null {
       {!open ? (
         <div className="muted small">
           {summary}
-          {pending.length > 0 ? ` · next: ${pending[0].label}` : ' · all done'}
+          {pending.length > 0 ? strings.goalNext(pending[0].label) : strings.goalsAllDone}
         </div>
       ) : (
         <ul className="goals">

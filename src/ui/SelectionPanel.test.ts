@@ -6,6 +6,9 @@ import { createHarness } from '../core/testUtils';
 import { tileIdOf } from '../core/state';
 import { createAnimal } from '../core/worldgen';
 import { describeTile } from './SelectionPanel';
+import { STRINGS } from './strings';
+
+const en = STRINGS.en;
 
 /** Rows are packed as `label: value`; this reads one back out. */
 const value = (rows: string[], label: string): string | undefined =>
@@ -19,7 +22,7 @@ describe('tile inspection', () => {
     )!;
     const tileId = harness.state.zones[storageId].tileIds[0];
 
-    const rows = describeTile(harness.state, tileId);
+    const rows = describeTile(harness.state, tileId, en);
     expect(value(rows, 'Terrain')).toBe('Grass');
     // a store now says what it takes, because that is a thing the player sets
     expect(value(rows, 'Zone')).toBe('Storage — takes everything, 20 tiles');
@@ -33,7 +36,7 @@ describe('tile inspection', () => {
     const tileId = tileIdOf(at.x + 2, at.y - 6);
     harness.state = placeBuildingBlueprint(harness.state, 'stoneWall', [tileId]);
 
-    const rows = describeTile(harness.state, tileId);
+    const rows = describeTile(harness.state, tileId, en);
     expect(value(rows, 'Building')).toBe('Stone wall');
     expect(value(rows, 'Status')).toContain('8 stone');
     expect(value(rows, 'Cost')).toBe('8 stone');
@@ -47,7 +50,7 @@ describe('tile inspection', () => {
     const deer = createAnimal(harness.state, 'deer', spot.x, spot.y);
     harness.state.animals[deer.id] = { ...deer, hunger: 42, health: 51 };
 
-    const rows = describeTile(harness.state, tileIdOf(spot.x, spot.y));
+    const rows = describeTile(harness.state, tileIdOf(spot.x, spot.y), en);
     expect(value(rows, 'Animal')).toContain('Deer (wild)');
     expect(value(rows, 'Condition')).toBe('51 / 60 hp');
     expect(value(rows, 'Hunger')).toBe('42 / 100');
@@ -59,12 +62,12 @@ describe('tile inspection', () => {
     const at = Object.values(harness.state.colonists)[0].position;
     const forest = Object.values(harness.state.tiles).find((t) => t.terrain === 'forest')!;
     harness.state = setDesignation(harness.state, [forest.id], 'chop');
-    expect(value(describeTile(harness.state, forest.id), 'Order')).toBe('marked for chopping');
+    expect(value(describeTile(harness.state, forest.id, en), 'Order')).toBe('marked for chopping');
 
     harness.state.animals = {};
     const wolf = createAnimal(harness.state, 'wolf', at.x + 6, at.y + 1);
     harness.state.animals[wolf.id] = { ...wolf, designation: 'hunt' };
-    const rows = describeTile(harness.state, tileIdOf(at.x + 6, at.y + 1));
+    const rows = describeTile(harness.state, tileIdOf(at.x + 6, at.y + 1), en);
     expect(value(rows, 'Animal')).toContain('(predator)');
     expect(value(rows, 'Order')).toBe('marked for hunting');
   });
@@ -86,13 +89,13 @@ describe('tile inspection', () => {
     const first = harness.state.tiles[harness.state.zones[zoneId].tileIds[0]];
     createAnimal(harness.state, 'deer', first.x, first.y, { tame: true, pastureZoneId: zoneId });
 
-    const rows = describeTile(harness.state, first.id);
+    const rows = describeTile(harness.state, first.id, en);
     expect(value(rows, 'Zone')).toMatch(/^Pasture — 1\/\d+ animals on \d+ tiles$/);
   });
 
   it('says nothing at all when no tile is selected', () => {
     const harness = createHarness(619);
-    expect(describeTile(harness.state, null)).toEqual([]);
-    expect(describeTile(harness.state, 'nope')).toEqual([]);
+    expect(describeTile(harness.state, null, en)).toEqual([]);
+    expect(describeTile(harness.state, 'nope', en)).toEqual([]);
   });
 });

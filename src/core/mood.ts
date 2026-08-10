@@ -35,11 +35,42 @@ export const MOOD_WORST_WORK = 0.6;
 /** The most a good one can speed it up. */
 export const MOOD_BEST_WORK = 1.1;
 
+/**
+ * What is on a colonist's mind, as a key. The sentence is derived at display
+ * time in the player's language (11章 フェーズ9); the key is also what the
+ * break logic switches on, so a rewording can never change behaviour.
+ */
+export type ThoughtKey =
+  | 'starving'
+  | 'hungry'
+  | 'wellFed'
+  | 'exhausted'
+  | 'tired'
+  | 'wellRested'
+  | 'badlyHurt'
+  | 'inPain'
+  | 'sickOfPlace'
+  | 'bored'
+  | 'hadTimeOff'
+  | 'beingHunted'
+  | 'sleepingOnGround'
+  | 'noBed'
+  | 'larderEmpty'
+  | 'larderFull'
+  | 'properFloor'
+  | 'manaLight'
+  | 'friendNearby'
+  | 'knowsNobody'
+  | 'grieving'
+  | 'winterDrags';
+
 export interface Thought {
-  /** what the colonist would say, in their own terms */
-  label: string;
+  /** what the colonist would say, rendered per language by the UI dictionary */
+  key: ThoughtKey;
   /** mood points, before traits */
   amount: number;
+  /** `grieving` only: the name of the dead (proper nouns are never translated) */
+  name?: string;
 }
 
 /**
@@ -48,14 +79,16 @@ export interface Thought {
  * actually slowing their work. A label that shifted somewhere else would be
  * telling the player about a change that had not happened.
  */
-const MOOD_LABELS: [number, string][] = [
+export type MoodWord = 'happy' | 'content' | 'unsettled' | 'miserable';
+
+const MOOD_LABELS: [number, MoodWord][] = [
   [80, 'happy'],
   [MOOD_LOW, 'content'],
   [MOOD_BREAK, 'unsettled'],
   [0, 'miserable'],
 ];
 
-export function moodLabel(mood: number): string {
+export function moodLabel(mood: number): MoodWord {
   for (const [floor, label] of MOOD_LABELS) if (mood >= floor) return label;
   return 'miserable';
 }
@@ -133,54 +166,54 @@ export function thoughtsOf(
   const facts = factsFor(state, colonist, networks);
   const { hunger, sleep } = colonist.needs;
 
-  if (hunger >= 90) thoughts.push({ label: 'Starving', amount: -30 });
-  else if (hunger >= 60) thoughts.push({ label: 'Hungry', amount: -10 });
-  else if (hunger <= 25) thoughts.push({ label: 'Well fed', amount: 6 });
+  if (hunger >= 90) thoughts.push({ key: 'starving', amount: -30 });
+  else if (hunger >= 60) thoughts.push({ key: 'hungry', amount: -10 });
+  else if (hunger <= 25) thoughts.push({ key: 'wellFed', amount: 6 });
 
-  if (sleep >= 90) thoughts.push({ label: 'Dead on their feet', amount: -18 });
-  else if (sleep >= 65) thoughts.push({ label: 'Tired', amount: -8 });
-  else if (sleep <= 25) thoughts.push({ label: 'Well rested', amount: 6 });
+  if (sleep >= 90) thoughts.push({ key: 'exhausted', amount: -18 });
+  else if (sleep >= 65) thoughts.push({ key: 'tired', amount: -8 });
+  else if (sleep <= 25) thoughts.push({ key: 'wellRested', amount: 6 });
 
   if (colonist.health < 100) {
     // a scratch is a grumble, a mauling is all they can think about
     thoughts.push({
-      label: colonist.health < 50 ? 'Badly hurt' : 'In pain',
+      key: colonist.health < 50 ? 'badlyHurt' : 'inPain',
       amount: -Math.round((100 - colonist.health) * 0.25),
     });
   }
 
   const recreation = colonist.needs.recreation ?? 0;
-  if (recreation >= 90) thoughts.push({ label: 'Sick of the sight of this place', amount: -12 });
-  else if (recreation >= RECREATION_THRESHOLD) thoughts.push({ label: 'Bored', amount: -6 });
-  else if (recreation <= 20) thoughts.push({ label: 'Had some time off', amount: 5 });
+  if (recreation >= 90) thoughts.push({ key: 'sickOfPlace', amount: -12 });
+  else if (recreation >= RECREATION_THRESHOLD) thoughts.push({ key: 'bored', amount: -6 });
+  else if (recreation <= 20) thoughts.push({ key: 'hadTimeOff', amount: 5 });
 
   if (colonist.activity.kind === 'fleeing') {
-    thoughts.push({ label: 'Being hunted', amount: -20 });
+    thoughts.push({ key: 'beingHunted', amount: -20 });
   }
 
   if (colonist.activity.kind === 'sleeping' && colonist.activity.bedId === null) {
-    thoughts.push({ label: 'Sleeping on the ground', amount: -8 });
+    thoughts.push({ key: 'sleepingOnGround', amount: -8 });
   } else if (facts.beds < facts.mouths) {
-    thoughts.push({ label: 'No bed of their own', amount: -5 });
+    thoughts.push({ key: 'noBed', amount: -5 });
   }
 
-  if (facts.foodDays < 1) thoughts.push({ label: 'The larder is empty', amount: -12 });
-  else if (facts.foodDays >= 5) thoughts.push({ label: 'The larder is full', amount: 8 });
+  if (facts.foodDays < 1) thoughts.push({ key: 'larderEmpty', amount: -12 });
+  else if (facts.foodDays >= 5) thoughts.push({ key: 'larderFull', amount: 8 });
 
   if (facts.onFloor) {
-    thoughts.push({ label: 'A proper floor underfoot', amount: 4 });
+    thoughts.push({ key: 'properFloor', amount: 4 });
   }
 
   if (facts.inLight) {
-    thoughts.push({ label: 'Mana light to work by', amount: 5 });
+    thoughts.push({ key: 'manaLight', amount: 5 });
   }
 
   // company, and its absence. A colony of strangers is a worse place to live
   // than one where somebody is glad you are there.
   if (friendNearby(state, colonist)) {
-    thoughts.push({ label: 'A friend close by', amount: 5 });
+    thoughts.push({ key: 'friendNearby', amount: 5 });
   } else if (facts.mouths > 1 && !knowsAnyone(state, colonist.id)) {
-    thoughts.push({ label: 'Nobody here they are close to', amount: -4 });
+    thoughts.push({ key: 'knowsNobody', amount: -4 });
   }
 
   // The heaviest grief only. Losing three people is worse than losing one, but
@@ -189,13 +222,14 @@ export function thoughtsOf(
   const grief = griefOf(state, colonist.id)[0];
   if (grief) {
     thoughts.push({
-      label: `Grieving for ${grief.name}`,
+      key: 'grieving',
+      name: grief.name,
       amount: -Math.max(1, Math.round(18 * grief.weight)),
     });
   }
 
   if (seasonOf(state.tick) === 'winter') {
-    thoughts.push({ label: 'Winter drags on', amount: -6 });
+    thoughts.push({ key: 'winterDrags', amount: -6 });
   }
 
   return thoughts.sort((a, b) => a.amount - b.amount);

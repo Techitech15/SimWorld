@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { placePastureZone, placeStorageZone, setZoneAccepts } from './actions';
 import { RESOURCE_TYPES } from './constants';
 import { WINTER_STORE_PER_COLONIST, colonyGoals, goalSummary, nextGoal } from './goals';
+import { STRINGS } from '../ui/strings';
 import { tileIdOf } from './state';
 import { createHarness } from './testUtils';
 import { addBuilding, addItem, createAnimal } from './worldgen';
@@ -17,20 +18,25 @@ describe('what to do next', () => {
     const harness = createHarness(9601);
     const first = nextGoal(harness.state);
     expect(first).not.toBeNull();
-    expect(first!.hint.length).toBeGreaterThan(20); // a hint that says how, not just what
+    // a hint that says how, not just what - in both languages
+    expect(STRINGS.en.goalHints[first!.id].length).toBeGreaterThan(20);
+    expect(STRINGS.ja.goalHints[first!.id].length).toBeGreaterThan(10);
 
     harness.state.colonists = {};
     expect(colonyGoals(harness.state)).toEqual([]);
-    expect(goalSummary(harness.state)).toContain('died out');
+    expect(goalSummary(harness.state)).toBeNull();
   });
 
   it('gives every goal a way to do it that names a real tool', () => {
     const harness = createHarness(9603);
     const tools = ['Build', 'Orders', 'Animals', 'Accepts', 'winter'];
+    const toolsJa = ['建設', '指示', '動物', '受け入れ', '冬'];
     for (const each of colonyGoals(harness.state)) {
       expect(each.id).toBeTruthy();
-      expect(each.label).toBeTruthy();
-      expect(tools.some((tool) => each.hint.includes(tool))).toBe(true);
+      expect(STRINGS.en.goalLabels[each.id](each.params)).toBeTruthy();
+      expect(STRINGS.ja.goalLabels[each.id](each.params)).toBeTruthy();
+      expect(tools.some((tool) => STRINGS.en.goalHints[each.id].includes(tool))).toBe(true);
+      expect(toolsJa.some((tool) => STRINGS.ja.goalHints[each.id].includes(tool))).toBe(true);
       expect(each.progress).toBeGreaterThanOrEqual(0);
       expect(each.progress).toBeLessThanOrEqual(1);
     }
@@ -50,7 +56,8 @@ describe('what to do next', () => {
     const now = goal(harness.state, 'beds');
     expect(now.done).toBe(false);
     expect(now.progress).toBeCloseTo(colonists / (colonists + 1));
-    expect(now.label).toContain(`/${colonists + 1}`);
+    expect(now.params.want).toBe(colonists + 1);
+    expect(STRINGS.en.goalLabels.beds(now.params)).toContain(`/${colonists + 1}`);
     void at;
   });
 
@@ -133,9 +140,7 @@ describe('what to do next', () => {
   it('scales the winter store with the number of mouths', () => {
     const harness = createHarness(9629);
     const colonists = Object.keys(harness.state.colonists).length;
-    expect(goal(harness.state, 'winter').label).toContain(
-      `${colonists * WINTER_STORE_PER_COLONIST}`,
-    );
+    expect(goal(harness.state, 'winter').params.want).toBe(colonists * WINTER_STORE_PER_COLONIST);
     const at = Object.values(harness.state.colonists)[0].position;
     addItem(harness.state, 'food', colonists * WINTER_STORE_PER_COLONIST, at.x + 2, at.y + 2);
     expect(goal(harness.state, 'winter').done).toBe(true);
@@ -144,7 +149,11 @@ describe('what to do next', () => {
   it('summarises how much is behind the colony', () => {
     const harness = createHarness(9631);
     const total = colonyGoals(harness.state).length;
-    expect(goalSummary(harness.state)).toMatch(new RegExp(`^\\d+/${total} — \\w+$`));
+    const summary = goalSummary(harness.state);
+    expect(summary?.total).toBe(total);
+    expect(summary!.done).toBeGreaterThanOrEqual(0);
+    expect(summary!.done).toBeLessThanOrEqual(total);
+    expect(['spring', 'summer', 'autumn', 'winter']).toContain(summary!.season);
   });
 
   it('is cheap enough to compute on every frame', () => {

@@ -31,16 +31,6 @@ export const SKILL_XP_PER_LEVEL_BASE = 50;
 export const SKILL_SPEED_PER_LEVEL = 0.08;
 export const SKILL_XP_PER_WORK_TICK = 1;
 
-export const SKILL_LABELS: Record<SkillName, string> = {
-  chop: 'Woodcutting',
-  mine: 'Mining',
-  farm: 'Growing',
-  build: 'Construction',
-  haul: 'Hauling',
-  hunt: 'Hunting',
-  handle: 'Animals',
-};
-
 /**
  * Which skill governs a job. `deconstruct` and `repair` run under the
  * construction column, so tearing a wall down or patching it up trains the same
@@ -123,6 +113,6 @@ export function grantWorkExperience(
   updateColonist(state, colonistId, { skills: { ...colonist.skills, [name]: after } });
   const gained = levelOf(after);
   if (gained > levelOf(before)) {
-    addLog(state, `${colonist.name} reached ${SKILL_LABELS[name]} level ${gained}`);
+    addLog(state, 'skillLevelUp', { name: colonist.name, skill: name, level: gained });
   }
 }

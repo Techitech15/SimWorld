@@ -333,6 +333,40 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 15 save into the structured log', () => {
+    const harness = createHarness(103);
+    harness.run(100);
+    const v15 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    // a v15 log as it was actually written: finished English sentences
+    (v15 as unknown as { log: unknown }).log = [
+      { tick: 10, message: 'Aria reached Woodcutting level 2' },
+      { tick: 20, message: 'A pack of 2 wolves came down out of the trees', kind: 'incident' },
+    ];
+
+    const migrated = migrateSave({
+      schemaVersion: 15,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: v15,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // old sentences are wrapped, not parsed: guessing the event back out of the
+    // wording would necessarily miss, so they display verbatim as `legacy`
+    expect(migrated.state.log).toEqual([
+      { tick: 10, key: 'legacy', params: { text: 'Aria reached Woodcutting level 2' } },
+      {
+        tick: 20,
+        key: 'legacy',
+        params: { text: 'A pack of 2 wolves came down out of the trees' },
+        kind: 'incident',
+      },
+    ]);
+    // and it keeps ticking, writing structured entries after the legacy ones
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 200).tick).toBe(harness.state.tick + 200);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

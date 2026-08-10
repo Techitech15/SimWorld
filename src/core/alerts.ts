@@ -5,24 +5,45 @@
 // question of what is wrong *right now*, which a scrolling log is bad at - a
 // starvation warning from four hundred ticks ago looks identical to a current
 // one once it has scrolled.
-import { COLONIST_MAX_HEALTH, RESOURCE_TYPES, SPECIES } from './constants';
+import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from './constants';
 import { herdSize, isPredator, pastureCapacity } from './animals';
 import { manhattan, tileIdOf } from './state';
 import { freeCapacity } from './storage';
-import {
-  CROP_GROWTH_BY_SEASON,
-  DAYS_PER_SEASON,
-  SEASON_LABEL,
-  dayOfSeason,
-  seasonOf,
-} from './season';
-import type { GameState, ResourceType, Vector2 } from './types';
+import { CROP_GROWTH_BY_SEASON, DAYS_PER_SEASON, dayOfSeason, seasonOf } from './season';
+import type { GameState, LogParams, ResourceType, Vector2 } from './types';
 
 export type AlertLevel = 'critical' | 'warning' | 'info';
 
+/**
+ * What is wrong, as a key. Alerts are derived on every read, so the sentence is
+ * composed at display time - which is also what lets a language switch
+ * retranslate an alert that is already on screen (11章 フェーズ9).
+ * List parameters (species, resources) are comma-joined ids; the dictionary
+ * renders each id in its own language.
+ */
+export type AlertKey =
+  | 'colonyDied'
+  | 'colonistsStarving' // { count }
+  | 'noFood'
+  | 'foodLow' // { food }
+  | 'colonistsHurt' // { count }
+  | 'predatorNear' // { species }
+  | 'nowhereToStore' // { resources }
+  | 'storageFull'
+  | 'buildingDamaged' // { building, percent }
+  | 'buildingsDamaged' // { count, percent }
+  | 'buildingStalled' // { resources }
+  | 'bedsShort' // { count }
+  | 'livestockStarving' // { count }
+  | 'pastureOverCapacity' // { herd, capacity }
+  | 'jobsAbandoned' // { count }
+  | 'nothingGrows' // { season }
+  | 'winterClose';
+
 export interface Alert {
   level: AlertLevel;
-  message: string;
+  key: AlertKey;
+  params?: LogParams;
   /** where on the map the problem is, when there is a single place to look */
   at?: Vector2;
 }
@@ -44,16 +65,12 @@ function colonyCentre(state: GameState): Vector2 | null {
   return { x: Math.round(sumX / count), y: Math.round(sumY / count) };
 }
 
-function plural(count: number, one: string, many: string): string {
-  return count === 1 ? one : many;
-}
-
 export function collectAlerts(state: GameState): Alert[] {
   const alerts: Alert[] = [];
   const colonists = Object.values(state.colonists);
 
   if (colonists.length === 0) {
-    return [{ level: 'critical', message: 'The colony has died out.' }];
+    return [{ level: 'critical', key: 'colonyDied' }];
   }
 
   const starvingColonists = colonists.filter((c) => c.needs.hunger >= 100);
@@ -61,7 +78,8 @@ export function collectAlerts(state: GameState): Alert[] {
     const count = starvingColonists.length;
     alerts.push({
       level: 'critical',
-      message: `${count} ${plural(count, 'colonist is', 'colonists are')} starving`,
+      key: 'colonistsStarving',
+      params: { count },
       at: { ...starvingColonists[0].position },
     });
   }
@@ -89,16 +107,17 @@ export function collectAlerts(state: GameState): Alert[] {
 
   const food = stock.food ?? 0;
   if (food === 0) {
-    alerts.push({ level: 'critical', message: 'No food anywhere in the colony' });
+    alerts.push({ level: 'critical', key: 'noFood' });
   } else if (food < colonists.length * 30) {
-    alerts.push({ level: 'warning', message: `Food is running low (${food})` });
+    alerts.push({ level: 'warning', key: 'foodLow', params: { food } });
   }
 
   const hurt = colonists.filter((c) => c.health < HURT_THRESHOLD);
   if (hurt.length > 0) {
     alerts.push({
       level: 'warning',
-      message: `${hurt.length} ${plural(hurt.length, 'colonist is', 'colonists are')} badly hurt`,
+      key: 'colonistsHurt',
+      params: { count: hurt.length },
       at: { ...hurt[0].position },
     });
   }
@@ -109,10 +128,11 @@ export function collectAlerts(state: GameState): Alert[] {
       (a) => isPredator(a) && manhattan(a.position, centre) <= PREDATOR_ALERT_DISTANCE,
     );
     if (near.length > 0) {
-      const what = near.map((a) => SPECIES[a.species].label.toLowerCase()).join(', ');
+      const what = near.map((a) => a.species).join(',');
       alerts.push({
         level: 'warning',
-        message: `Predator near the camp (${what})`,
+        key: 'predatorNear',
+        params: { species: what },
         at: { ...near[0].position },
       });
     }
@@ -145,13 +165,11 @@ export function collectAlerts(state: GameState): Alert[] {
   if (homeless.length > 0) {
     alerts.push({
       level: 'warning',
-      message: `Nowhere to store ${homeless.sort().join(' or ')} — the stacks are lying where they fell`,
+      key: 'nowhereToStore',
+      params: { resources: homeless.sort().join(',') },
     });
   } else if (zoneTiles > 0 && freeTiles === 0) {
-    alerts.push({
-      level: 'info',
-      message: 'Every storage tile is full — the next harvest will have nowhere to go',
-    });
+    alerts.push({ level: 'info', key: 'storageFull' });
   }
 
   // Something is chewing on the fence. A repair job is generated automatically,
@@ -169,12 +187,14 @@ export function collectAlerts(state: GameState): Alert[] {
   if (worst) {
     const building = state.buildings[worst.id];
     const tile = state.tiles[building.tileId];
+    const percent = Math.round(worst.fraction * 100);
     alerts.push({
       level: worst.fraction < 0.4 ? 'critical' : 'warning',
-      message:
+      key: damagedCount === 1 ? 'buildingDamaged' : 'buildingsDamaged',
+      params:
         damagedCount === 1
-          ? `The ${building.type} is damaged (${Math.round(worst.fraction * 100)}%)`
-          : `${damagedCount} structures are damaged (worst ${Math.round(worst.fraction * 100)}%)`,
+          ? { building: building.type, percent }
+          : { count: damagedCount, percent },
       at: tile ? { x: tile.x, y: tile.y } : undefined,
     });
   }
@@ -193,7 +213,8 @@ export function collectAlerts(state: GameState): Alert[] {
   if (stalled.size > 0) {
     alerts.push({
       level: 'warning',
-      message: `Building work is stalled: no ${[...stalled].sort().join(' or ')} left`,
+      key: 'buildingStalled',
+      params: { resources: [...stalled].sort().join(',') },
     });
   }
 
@@ -204,10 +225,7 @@ export function collectAlerts(state: GameState): Alert[] {
   }
   if (beds < colonists.length) {
     const short = colonists.length - beds;
-    alerts.push({
-      level: 'info',
-      message: `${short} ${plural(short, 'colonist has', 'colonists have')} no bed — they rest poorly`,
-    });
+    alerts.push({ level: 'info', key: 'bedsShort', params: { count: short } });
   }
 
   const hungryLivestock = Object.values(state.animals).filter((a) => a.tame && a.hunger >= 95);
@@ -215,7 +233,8 @@ export function collectAlerts(state: GameState): Alert[] {
     const count = hungryLivestock.length;
     alerts.push({
       level: 'warning',
-      message: `${count} ${plural(count, 'animal is', 'animals are')} starving — the pasture has nothing left`,
+      key: 'livestockStarving',
+      params: { count },
       at: { ...hungryLivestock[0].position },
     });
   }
@@ -228,7 +247,8 @@ export function collectAlerts(state: GameState): Alert[] {
       const firstTile = state.tiles[state.zones[zoneId].tileIds[0]];
       alerts.push({
         level: 'warning',
-        message: `Pasture is over capacity (${herd}/${capacity}) — the grass cannot keep up`,
+        key: 'pastureOverCapacity',
+        params: { herd, capacity },
         at: firstTile ? { x: firstTile.x, y: firstTile.y } : undefined,
       });
     }
@@ -241,16 +261,17 @@ export function collectAlerts(state: GameState): Alert[] {
     const where = abandoned[0].targetTileId ? state.tiles[abandoned[0].targetTileId] : undefined;
     alerts.push({
       level: 'warning',
-      message: `${abandoned.length} ${plural(abandoned.length, 'job was', 'jobs were')} given up on — unreachable`,
+      key: 'jobsAbandoned',
+      params: { count: abandoned.length },
       at: where ? { x: where.x, y: where.y } : undefined,
     });
   }
 
   const season = seasonOf(state.tick);
   if (CROP_GROWTH_BY_SEASON[season] <= 0) {
-    alerts.push({ level: 'info', message: `${SEASON_LABEL[season]}: nothing is growing` });
+    alerts.push({ level: 'info', key: 'nothingGrows', params: { season } });
   } else if (season === 'autumn' && dayOfSeason(state.tick) >= DAYS_PER_SEASON - 1) {
-    alerts.push({ level: 'info', message: 'Winter is close — stock up on food' });
+    alerts.push({ level: 'info', key: 'winterClose' });
   }
 
   return alerts;

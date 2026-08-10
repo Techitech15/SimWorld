@@ -88,7 +88,7 @@ describe('mood', () => {
     const colonist = comfortable(harness.state);
     harness.state.colonists[colonist.id] = { ...colonist, needs: { hunger: 95, sleep: 10 , recreation: 0 } };
     const thoughts = thoughtsOf(harness.state, harness.state.colonists[colonist.id]);
-    expect(thoughts[0].label).toBe('Starving');
+    expect(thoughts[0].key).toBe('starving');
     for (let i = 1; i < thoughts.length; i++) {
       expect(thoughts[i].amount).toBeGreaterThanOrEqual(thoughts[i - 1].amount);
     }
@@ -146,7 +146,7 @@ describe('a colonist who has had enough', () => {
       const current = harness.state.colonists[colonist.id];
       if (current) harness.state.colonists[colonist.id] = { ...current, ...miserable };
     });
-    expect(log.some((line) => line.includes('has had enough'))).toBe(true);
+    expect(log).toContain('breakBrooding');
     expect(harness.state.colonists[colonist.id].activity.kind).toBe('brooding');
 
     // feeding them one meal does not cancel the break
@@ -160,7 +160,7 @@ describe('a colonist who has had enough', () => {
 
     const back = recordLog(harness, MOOD_BREAK_TICKS + 10);
     expect(harness.state.colonists[colonist.id].activity.kind).not.toBe('brooding');
-    expect(back.some((line) => line.includes('goes back to work'))).toBe(true);
+    expect(back).toContain('backToWork');
   });
 
   it('takes no jobs while it lasts', () => {
@@ -218,7 +218,7 @@ describe('temperament', () => {
 describe('the log', () => {
   it('marks a break as an incident, so the alert panel can see it', () => {
     const harness = createHarness(2129);
-    addLog(harness.state, 'test', 'incident');
+    addLog(harness.state, 'raidOver', undefined, 'incident');
     expect(harness.state.log[harness.state.log.length - 1].kind).toBe('incident');
   });
 });

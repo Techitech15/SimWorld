@@ -12,7 +12,7 @@
 | [design-phase6-space.md](design-phase6-space.md) | **フェーズ6** マップ拡張と画面の再配置の設計案（未着手） |
 | [design-phase7-time.md](design-phase7-time.md) | **フェーズ7** 昼夜の表現・なめらかな移動の設計案（未着手） |
 | [design-phase8-equipment.md](design-phase8-equipment.md) | **フェーズ8** 服と武器の設計案（未着手） |
-| [design-phase9-language.md](design-phase9-language.md) | **フェーズ9** 日本語表示と言語切り替えの設計案（未着手） |
+| [design-phase9-language.md](design-phase9-language.md) | **フェーズ9** 日本語表示と言語切り替えの設計案（**実装済み**。提案時のまま。現況は 11 章） |
 | [design-phase10-ores.md](design-phase10-ores.md) | **フェーズ10** 鉱石と家具・建築メニュー階層化の設計案（未着手） |
 | [design-phase11-worldmap.md](design-phase11-worldmap.md) | **フェーズ11** ワールドマップ・バイオーム・部族の設計案（未着手） |
 | [design-phase12-research.md](design-phase12-research.md) | **フェーズ12** 研究ツリーと職業の設計案（未着手） |
@@ -520,19 +520,20 @@ MVP 当時の 60×60 の地図と、幅 300px に11個のパネルを縦積み�
 
 `GameState` に増えるのは `equipment` の1レコードのみ。参照は `wornBy` の一方向だけにして、「誰が何を着ているか」は導出する。
 
-### フェーズ9: 言語（日本語表示と言語切り替え） — 未着手
+### フェーズ9: 言語（日本語表示と言語切り替え） — 実装済み
 
 当初のロードマップに無い追加。設計案は [design-phase9-language.md](design-phase9-language.md)。
 **ゲーム内容を1つも増やさない**（フェーズ6と同じ質の、見え方だけのフェーズ）。前提となるフェーズは無い。
 
-| 項目 | 状態 | 内容 |
+| 項目 | 状態 | 実装 |
 | --- | --- | --- |
-| 辞書機構と言語切り替え | 未 | 型で完全性を強制する2言語辞書（en / ja）。ライブラリは入れない。言語設定は `localStorage`（`GameState` に入れない） |
-| 静的UI文言の辞書化 | 未 | JSX 直書きと散在する12個のラベル表を統合。建物名の二重定義（Toolbar / SelectionPanel）がここで消える |
-| 導出文言の構造化 | 未 | アラート・目標・状態メッセージを `{key, params}` に。導出値なので**既に出ている文言も切り替えで即座に翻訳される** |
-| ログの構造化 | 未 | `LogEntry` を `{key, params}` に。**唯一保存される文章**を「導出できるものは保存しない」の側へ寄せる。`schemaVersion` +1 |
+| 辞書機構と言語切り替え | 済 | `src/ui/strings.ts`（`Strings` インターフェースが全キーを型で強制、`Record<Language, Strings>`）と `src/ui/language.ts`（zustand の小ストア）。ライブラリなし。言語設定は `localStorage`（`GameState` に入れない）。切替は TopBar のシナリオ選択の隣 |
+| 静的UI文言の辞書化 | 済 | JSX 直書きと散在していたラベル表を辞書に統合。建物名の二重定義（Toolbar / SelectionPanel）は消えた |
+| 導出文言の構造化 | 済 | アラート・目標・状態メッセージは `{key, params}` を返し、文章は表示の瞬間に辞書から導出。既に出ている文言も切り替えで即座に翻訳される |
+| ログの構造化 | 済 | `LogEntry` は `{tick, kind?, key, params}`。移行（v15→v16）は旧エントリを `legacy` に包んで原文のまま表示する |
 
-実装時に CLAUDE.md の言語方針「UI 文言は英語」を「UI 文言は辞書キー経由」に改定する。
+CLAUDE.md の言語方針は「UI 文言は辞書キー経由（辞書に en / ja）」に改定済み。
+コード・コメント・識別子・キー名は英語のまま。
 
 ### フェーズ10: 鉱石と家具 — 未着手
 

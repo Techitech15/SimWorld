@@ -8,37 +8,39 @@
 import { describe, expect, it } from 'vitest';
 import { TICKS_PER_SEASON } from './season';
 import { addLog } from './state';
-import { createHarness, recordLog } from './testUtils';
+import { createHarness, recordLog, recordLogEntries } from './testUtils';
 
 describe('the event log', () => {
   it('keeps a bounded buffer, whatever happens', () => {
     const harness = createHarness(9911);
-    for (let i = 0; i < 500; i++) addLog(harness.state, `line ${i}`);
+    for (let i = 0; i < 500; i++) addLog(harness.state, 'legacy', { text: `line ${i}` });
     expect(harness.state.log.length).toBeLessThanOrEqual(100);
-    expect(harness.state.log[harness.state.log.length - 1].message).toBe('line 499');
+    expect(harness.state.log[harness.state.log.length - 1].params?.text).toBe('line 499');
   });
 
   it('is recorded exactly by recordLog, truncation and all', () => {
     const harness = createHarness(9913);
-    // more lines than the buffer holds, written one per tick
+    // more entries than the buffer holds, written one per tick; recordLog
+    // returns keys, so the payload is checked through recordLogEntries' params
     const written: string[] = [];
     let n = 0;
-    const lines = recordLog(harness, 300, (state) => {
-      const message = `written ${n++}`;
-      written.push(message);
-      addLog(state, message);
+    const entries = recordLogEntries(harness, 300, (state) => {
+      const text = `written ${n++}`;
+      written.push(text);
+      addLog(state, 'legacy', { text });
     });
-    for (const message of written) expect(lines).toContain(message);
+    const texts = entries.map((entry) => String(entry.params?.text ?? ''));
+    for (const text of written) expect(texts).toContain(text);
     expect(harness.state.log.length).toBe(100); // the buffer did truncate
-    expect(lines.length).toBeGreaterThanOrEqual(written.length);
+    expect(entries.length).toBeGreaterThanOrEqual(written.length);
   });
 
   it('does not count the same entry twice when nothing new happens', () => {
     // the trap: reading the tail every tick counts one entry thousands of times
     const harness = createHarness(9917);
-    addLog(harness.state, 'the only line');
+    addLog(harness.state, 'legacy', { text: 'the only line' });
     const lines = recordLog(harness, 400);
-    expect(lines.filter((line) => line === 'the only line').length).toBe(0);
+    expect(lines.filter((line) => line === 'legacy').length).toBe(0);
   });
 
   it('spends a year of lines on things a player can act on', () => {
@@ -50,11 +52,23 @@ describe('the event log', () => {
 
     expect(lines.length).toBeGreaterThan(10);
     expect(lines.length).toBeLessThan(200);
-    const ambient = lines.filter((line) => /killed by a/.test(line));
+    const ambient = lines.filter((key) => key === 'animalKilledByPredator');
     expect(ambient).toEqual([]);
     // and what is there is about the colony: seasons, skills, arrivals, events
-    const meaningful = lines.filter((line) =>
-      /has arrived|reached|wolf was spotted|herd|berry|Blight|ripened|abandoned|pack/.test(line),
+    const meaningful = lines.filter((key) =>
+      [
+        'seasonArrived',
+        'skillLevelUp',
+        'wolfSpotted',
+        'colonistArrived',
+        'incidentHerd',
+        'incidentBerryGlut',
+        'incidentBlight',
+        'incidentBumperCrop',
+        'incidentLostSupplies',
+        'incidentWolfPack',
+        'incidentRaid',
+      ].includes(key),
     );
     expect(meaningful.length).toBeGreaterThan(lines.length / 2);
   }, 180000);

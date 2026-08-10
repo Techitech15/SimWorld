@@ -12,13 +12,28 @@
 // that is answering "what now".
 import { RESOURCE_TYPES } from './constants';
 import { seasonOf } from './season';
-import type { GameState } from './types';
+import type { Season } from './season';
+import type { GameState, LogParams } from './types';
+
+/**
+ * The fixed list of goals. The id is the key the UI dictionary renders a label
+ * and a hint from, in the player's language (11章 フェーズ9); the numbers a
+ * label needs travel in `params`.
+ */
+export type GoalId =
+  | 'beds'
+  | 'winter'
+  | 'farm'
+  | 'stone'
+  | 'wall'
+  | 'pasture'
+  | 'tame'
+  | 'filter';
 
 export interface Goal {
-  id: string;
-  label: string;
-  /** what to do about it, named after the tool that does it */
-  hint: string;
+  id: GoalId;
+  /** what the label interpolates: counts and targets, derived like `done` */
+  params: LogParams;
   done: boolean;
   /** how far along, 0..1, for the ones that are a count rather than a yes/no */
   progress: number;
@@ -70,57 +85,49 @@ export function colonyGoals(state: GameState): Goal[] {
   const goals: Goal[] = [
     {
       id: 'beds',
-      label: `A bed for everyone (${Math.min(beds, colonists)}/${colonists})`,
-      hint: 'Build > Bed. Sleeping on the ground recovers rest at little more than half the rate.',
+      params: { have: Math.min(beds, colonists), want: colonists },
       done: beds >= colonists,
       progress: ratio(beds, colonists),
     },
     {
       id: 'winter',
-      label: `Stores for the winter (${Math.min(food, winterStore)}/${winterStore} food)`,
-      hint: 'Nothing grows in winter, so the buffer has to be earned in the other three seasons.',
+      params: { have: Math.min(food, winterStore), want: winterStore },
       done: food >= winterStore,
       progress: ratio(food, winterStore),
     },
     {
       id: 'farm',
-      label: `Ground under the plough (${plots} plots)`,
-      hint: 'Build > Farm. One plot per colonist is a working colony; fewer is a shrinking one.',
+      params: { plots },
       done: plots >= colonists,
       progress: ratio(plots, colonists),
     },
     {
       id: 'stone',
-      label: 'Quarry some stone',
-      hint: 'Orders > Mine a rock face. Stone walls take longer to build and twice as much to break.',
+      params: {},
       done: (stock.stone ?? 0) > 0,
       progress: (stock.stone ?? 0) > 0 ? 1 : 0,
     },
     {
       id: 'wall',
-      label: 'Something worth fencing',
-      hint: 'Build > Wall, with a Door in it. Animals cannot work a handle, so walls and a door make a pen.',
+      params: {},
       done: walls > 0,
       progress: walls > 0 ? 1 : 0,
     },
     {
       id: 'pasture',
-      label: 'A pasture to keep them in',
-      hint: 'Build > Pasture on grass. Its area is what caps the herd, and the grass is what feeds them.',
+      params: {},
       done: pastures > 0,
       progress: pastures > 0 ? 1 : 0,
     },
     {
       id: 'tame',
-      label: `Livestock of your own (${tame})`,
-      hint: 'Animals > Tame, on a deer, boar, rabbit or chicken. Wolves cannot be tamed.',
+      params: { tame },
       done: tame > 0,
       progress: tame > 0 ? 1 : 0,
     },
     {
       id: 'filter',
-      label: 'Tell a store what it takes',
-      hint: 'Click a storage tile and use the Accepts chips - a wood yard by the wall, a larder by the beds.',
+      params: {},
       done: filtered,
       progress: filtered ? 1 : 0,
     },
@@ -136,11 +143,14 @@ export function nextGoal(state: GameState): Goal | null {
 
 /**
  * A line of context for the panel header: where in the year the colony is, and
- * how much of the list is behind it.
+ * how much of the list is behind it. `null` means the colony has died out; the
+ * sentence for either case is the display layer's to compose.
  */
-export function goalSummary(state: GameState): string {
+export function goalSummary(
+  state: GameState,
+): { done: number; total: number; season: Season } | null {
   const goals = colonyGoals(state);
-  if (goals.length === 0) return 'The colony has died out.';
+  if (goals.length === 0) return null;
   const done = goals.filter((goal) => goal.done).length;
-  return `${done}/${goals.length} — ${seasonOf(state.tick)}`;
+  return { done, total: goals.length, season: seasonOf(state.tick) };
 }

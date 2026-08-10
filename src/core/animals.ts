@@ -54,6 +54,7 @@ import {
   BLOCKS_MOVEMENT,
 } from './constants';
 import { killColonist } from './death';
+import type { DeathCause } from './death';
 import { invalidateTile } from './derived';
 import { invalidateNetworks, isManaBuilding } from './mana';
 import type { SimContext } from './derived';
@@ -141,7 +142,7 @@ function decayAnimalNeeds(state: GameState, id: AnimalId): void {
   let health = animal.health;
   if (hunger >= 100) health -= ANIMAL_STARVATION_DAMAGE_PER_TICK;
   updateAnimal(state, id, { hunger, health });
-  if (health <= 0) killAnimal(state, id, 'starved', false);
+  if (health <= 0) killAnimal(state, id, { key: 'animalStarvedToDeath' }, false);
 }
 
 // --- behaviour --------------------------------------------------------------
@@ -226,7 +227,7 @@ function startBoarCharge(state: GameState, id: AnimalId): boolean {
     activity: { kind: 'stalking', targetKind: 'colonist', targetId: hunterId },
     pursuitUntilTick: state.tick + PREDATOR_PURSUIT_TICKS,
   });
-  addLog(state, `${animal.name} the boar turned on ${hunter.name}`);
+  addLog(state, 'boarTurnedOn', { name: animal.name, hunter: hunter.name });
   return true;
 }
 
@@ -526,7 +527,7 @@ function runAttack(state: GameState, ctx: SimContext, id: AnimalId): void {
       activity: { kind: 'fleeing', fromId: id, untilTick: state.tick + FLEE_DURATION_TICKS },
     });
     if (health <= 0) {
-      killAnimal(state, targetId, `killed by a ${SPECIES[animal.species].label.toLowerCase()}`, false);
+      killAnimal(state, targetId, { key: 'animalKilledByPredator', params: { predator: animal.species } }, false);
       updateAnimal(state, id, {
         hunger: Math.max(0, animal.hunger - PREDATOR_HUNGER_PER_KILL),
         activity: { kind: 'idle' },
@@ -567,10 +568,11 @@ function gnawStructure(
   if (hpCurrent > 0) {
     updateBuilding(state, buildingId, { hpCurrent });
     if (building.hpCurrent === building.hpMax) {
-      addLog(
-        state,
-        `${animal.name} the ${SPECIES[animal.species].label.toLowerCase()} is tearing at the ${building.type}`,
-      );
+      addLog(state, 'animalTearing', {
+        name: animal.name,
+        species: animal.species,
+        building: building.type,
+      });
     }
     return;
   }
@@ -586,7 +588,7 @@ function gnawStructure(
     updateTile(state, tile.id, { walkable: true });
     invalidateTile(ctx, state, tile.id);
   }
-  addLog(state, `the ${building.type} at ${tile.id} was broken open`);
+  addLog(state, 'buildingBrokenOpen', { building: building.type, tile: tile.id });
   // whatever it was after is on the other side; go and look again
   updateAnimal(state, id, { activity: { kind: 'idle' }, path: null, pathExpiresAtTick: null });
 }
@@ -735,7 +737,7 @@ function runBreeding(state: GameState, id: AnimalId): void {
       pastureZoneId: animal.pastureZoneId,
       bornAtTick: state.tick,
     });
-    addLog(state, `${animal.name} the ${SPECIES[animal.species].label.toLowerCase()} had ${calf.name}`);
+    addLog(state, 'animalBorn', { name: animal.name, species: animal.species, calf: calf.name });
     return;
   }
 
@@ -887,7 +889,7 @@ export function nearestPredator(state: GameState, from: Vector2, range: number):
 export function killAnimal(
   state: GameState,
   id: AnimalId,
-  reason: string,
+  cause: DeathCause,
   dropFood: boolean,
 ): void {
   const animal = state.animals[id];
@@ -903,7 +905,7 @@ export function killAnimal(
   // livestock lost, a wall coming down - out of a hundred-line buffer. Losing
   // an animal you own, or one you had marked, is still worth a line.
   if (!animal.tame && animal.designation === null) return;
-  addLog(state, `${animal.name} the ${SPECIES[animal.species].label.toLowerCase()} ${reason}`);
+  addLog(state, cause.key, { ...cause.params, name: animal.name, species: animal.species });
 }
 
 /** Colonists never fight back; they take the hit and run (design doc 5). */
@@ -921,7 +923,9 @@ export function damageColonist(
     killColonist(
       state,
       colonistId,
-      killer ? `was killed by a ${SPECIES[killer.species].label.toLowerCase()}` : 'was killed',
+      killer
+        ? { key: 'colonistKilledByAnimal', params: { species: killer.species } }
+        : { key: 'colonistKilled' },
     );
     return;
   }
@@ -967,7 +971,7 @@ function spawnPredators(state: GameState): void {
   const spot = findSpawnTile(state, rnd, camp, PREDATOR_MIN_SPAWN_DISTANCE);
   if (!spot) return;
   const wolf = createAnimal(state, 'wolf', spot.x, spot.y);
-  addLog(state, `A wolf was spotted near the treeline (${wolf.name})`);
+  addLog(state, 'wolfSpotted', { name: wolf.name });
 }
 
 /**

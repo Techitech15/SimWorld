@@ -504,9 +504,83 @@ export interface GameState {
   log: LogEntry[];
 }
 
+/**
+ * [ext] What happened, as a key (11章 フェーズ9). The log stores the event -
+ * who, what, where - and the sentence is derived at display time in whichever
+ * language the player is reading (src/ui/strings.ts renders every key).
+ * `legacy` wraps entries written before this existed; they carry their original
+ * English sentence in `params.text` and are shown verbatim.
+ */
+export type LogKey =
+  | 'legacy'
+  | 'colonistArrived' // { name }
+  | 'skillLevelUp' // { name, skill, level }
+  | 'seasonArrived' // { season }
+  | 'colonistStarving' // { name }
+  | 'colonistCannotFindFood' // { name }
+  | 'breakBrooding' // { name, thought? }
+  | 'breakWandering' // { name, thought? }
+  | 'breakBinge' // { name, thought? }
+  | 'backToWork' // { name }
+  | 'orderedToMove' // { name, x, y }
+  | 'incidentBumperCrop' // { plots }
+  | 'incidentBlight' // { plots }
+  | 'incidentBerryGlut' // { bushes }
+  | 'incidentWolfPack' // { count }
+  | 'incidentHerd' // { count, species }
+  | 'incidentLostSupplies' // { quantity, resource }
+  | 'incidentRaid' // { count }
+  | 'raiderCutDownBy' // { raider, colonist }
+  | 'raiderCutDownByTurret' // { raider }
+  | 'raidOver'
+  | 'raiderRetreats' // { raider }
+  | 'raiderBreaking' // { raider, building }
+  | 'buildingSmashed' // { building, tile }
+  | 'furnaceBurnedOut' // { tile }
+  | 'furnaceStoked' // { tile }
+  | 'extractorOutOfRock' // { tile }
+  | 'extractorCutVein' // { tile }
+  | 'veinCutOpen' // { x, y }
+  | 'buildingRepaired' // { building, tile }
+  | 'buildingDismantled' // { building, tile }
+  | 'animalTamed' // { name, species }
+  | 'animalTameFailed' // { name, species }
+  | 'jobFailed' // { job, jobType, reason }
+  | 'colonistStarvedToDeath' // { name }
+  | 'colonistKilledByRaider' // { name, raider }
+  | 'colonistKilledByAnimal' // { name, species }
+  | 'colonistKilled' // { name }
+  | 'colonyDiedOut'
+  | 'boarTurnedOn' // { name, hunter }
+  | 'animalTearing' // { name, species, building }
+  | 'buildingBrokenOpen' // { building, tile }
+  | 'animalBorn' // { name, species, calf }
+  | 'animalHunted' // { name, species }
+  | 'animalSlaughtered' // { name, species }
+  | 'animalStarvedToDeath' // { name, species }
+  | 'animalKilledByPredator' // { name, species, predator }
+  | 'wolfSpotted'; // { name }
+
+/**
+ * [ext] Why a job was given up on; rendered per language like everything else.
+ * These sit on `jobFailed` log entries as `params.reason`.
+ */
+export type JobFailReason =
+  | 'interrupted'
+  | 'noWorkSite'
+  | 'unreachable'
+  | 'animalUnreachable'
+  | 'itemUnreachable'
+  | 'noDestination'
+  | 'blueprintUnreachable'
+  | 'destinationGone'
+  | 'storageUnreachable';
+
+/** Parameters are primitives only: IDs and names as strings, counts as numbers. */
+export type LogParams = Record<string, string | number>;
+
 export interface LogEntry {
   tick: number;
-  message: string;
   /**
    * [ext] What sort of line this is, so the log can show a wolf pack arriving
    * differently from a colonist reaching Hauling level 2. Optional on purpose:
@@ -514,4 +588,6 @@ export interface LogEntry {
    * ordinary line and needs no migration.
    */
   kind?: 'incident';
+  key: LogKey;
+  params?: LogParams;
 }

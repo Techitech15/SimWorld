@@ -14,7 +14,13 @@ import { recordDeath } from './relationships';
 import { addLog, removeColonist, updateColonist, updateJob } from './state';
 import { releaseByColonist, releaseJobTarget } from './jobs/reservations';
 import { addItem } from './worldgen';
-import type { ColonistId, GameState } from './types';
+import type { ColonistId, GameState, LogKey, LogParams } from './types';
+
+/** How they died, as a log key; the sentence is derived per language. */
+export interface DeathCause {
+  key: LogKey;
+  params?: LogParams;
+}
 
 /** Put a carried stack on the ground: resources are never destroyed. */
 export function depositCarried(
@@ -35,7 +41,7 @@ export function depositCarried(
   }
 }
 
-export function killColonist(state: GameState, colonistId: ColonistId, reason: string): void {
+export function killColonist(state: GameState, colonistId: ColonistId, cause: DeathCause): void {
   const colonist = state.colonists[colonistId];
   if (!colonist) return;
 
@@ -55,8 +61,8 @@ export function killColonist(state: GameState, colonistId: ColonistId, reason: s
 
   recordDeath(state, colonist);
   removeColonist(state, colonistId);
-  addLog(state, `${colonist.name} ${reason}`);
+  addLog(state, cause.key, { ...cause.params, name: colonist.name });
   if (Object.keys(state.colonists).length === 0) {
-    addLog(state, 'The colony has died out.');
+    addLog(state, 'colonyDiedOut');
   }
 }

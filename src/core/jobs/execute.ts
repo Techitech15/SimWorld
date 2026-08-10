@@ -48,7 +48,7 @@ import {
 } from '../state';
 import { addItem } from '../worldgen';
 import { depositCarried } from '../death';
-import type { GameState, JobType } from '../types';
+import type { GameState, JobType, JobFailReason } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
 import { releaseByJob, releaseEntity, releaseJobTarget } from './reservations';
@@ -92,7 +92,7 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
 
   const site = jobWorkSite(state, job);
   if (!site) {
-    failJob(state, ctx, jobId, colonistId, 'no work site');
+    failJob(state, ctx, jobId, colonistId, 'noWorkSite');
     return;
   }
   const move = advanceTowards(state, ctx, colonistId, site.position, site.adjacent);
@@ -153,7 +153,7 @@ function applyJobEffect(
       });
       if (vein) {
         addItem(state, 'manaCrystal', CRYSTAL_PER_VEIN, tile.x, tile.y);
-        addLog(state, `A mana crystal vein was cut open at ${tile.x}, ${tile.y}`);
+        addLog(state, 'veinCutOpen', { x: tile.x, y: tile.y });
       } else {
         addItem(state, 'stone', STONE_PER_ROCK, tile.x, tile.y);
       }
@@ -200,7 +200,7 @@ function applyJobEffect(
     case 'repair': {
       const building = state.buildings[job.targetEntityId!];
       updateBuilding(state, building.id, { hpCurrent: building.hpMax });
-      addLog(state, `the ${building.type} at ${building.tileId} was repaired`);
+      addLog(state, 'buildingRepaired', { building: building.type, tile: building.tileId });
       break;
     }
     case 'deconstruct': {
@@ -228,7 +228,7 @@ function applyJobEffect(
         updateTile(state, tile.id, { walkable: true });
         invalidateTile(ctx, state, tile.id);
       }
-      addLog(state, `${building.type} at ${tile.id} was dismantled`);
+      addLog(state, 'buildingDismantled', { building: building.type, tile: tile.id });
       break;
     }
     default:
@@ -294,7 +294,7 @@ function executeAnimalJob(
   const range = job.type === 'hunt' ? HUNT_RANGE : 1;
   const move = chase(state, ctx, colonistId, animal.position, range);
   if (move === 'blocked') {
-    failJob(state, ctx, jobId, colonistId, 'animal unreachable');
+    failJob(state, ctx, jobId, colonistId, 'animalUnreachable');
     return;
   }
   if (move !== 'arrived') return;
@@ -306,7 +306,7 @@ function executeAnimalJob(
   }
 
   if (job.type === 'hunt' || animal.designation === 'slaughter') {
-    killAnimal(state, animal.id, job.type === 'hunt' ? 'was hunted' : 'was slaughtered', true);
+    killAnimal(state, animal.id, { key: job.type === 'hunt' ? 'animalHunted' : 'animalSlaughtered' }, true);
     completeJob(state, jobId, colonistId);
     return;
   }
@@ -323,7 +323,7 @@ function executeAnimalJob(
       activity: { kind: 'idle' },
       nextProduceTick: state.tick + profile.produceIntervalTicks,
     });
-    addLog(state, `${animal.name} the ${profile.label.toLowerCase()} was tamed`);
+    addLog(state, 'animalTamed', { name: animal.name, species: animal.species });
   } else {
     updateAnimal(state, animal.id, {
       designation: null,
@@ -333,7 +333,7 @@ function executeAnimalJob(
         untilTick: state.tick + TAME_FAIL_FLEE_TICKS,
       },
     });
-    addLog(state, `${animal.name} the ${profile.label.toLowerCase()} would not be tamed`);
+    addLog(state, 'animalTameFailed', { name: animal.name, species: animal.species });
   }
   completeJob(state, jobId, colonistId);
 }
@@ -376,7 +376,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     }
     const move = advanceTowards(state, ctx, colonistId, item.position, false);
     if (move === 'blocked') {
-      failJob(state, ctx, jobId, colonistId, 'item unreachable');
+      failJob(state, ctx, jobId, colonistId, 'itemUnreachable');
       return;
     }
     if (move !== 'arrived') return;
@@ -421,7 +421,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
   const destinationId = job.destinationId;
   if (!destinationId) {
     dropCarried(state, colonistId);
-    failJob(state, ctx, jobId, colonistId, 'no destination');
+    failJob(state, ctx, jobId, colonistId, 'noDestination');
     return;
   }
 
@@ -431,7 +431,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     const move = advanceTowards(state, ctx, colonistId, { x: tile.x, y: tile.y }, !tile.walkable);
     if (move === 'blocked') {
       dropCarried(state, colonistId);
-      failJob(state, ctx, jobId, colonistId, 'blueprint unreachable');
+      failJob(state, ctx, jobId, colonistId, 'blueprintUnreachable');
       return;
     }
     if (move !== 'arrived') return;
@@ -441,7 +441,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
       if (carrying.type === 'manaCrystal') {
         const leftover = refuel(state, destinationBuilding.id, carrying.quantity);
         if (leftover < carrying.quantity) {
-          addLog(state, `the mana furnace at ${destinationBuilding.tileId} was stoked`);
+          addLog(state, 'furnaceStoked', { tile: destinationBuilding.tileId });
           invalidateNetworks(ctx); // a cold furnace just became a supply
         }
         updateColonist(state, colonistId, { carrying: null });
@@ -483,7 +483,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
   const destinationTile = state.tiles[destinationId];
   if (!destinationTile) {
     dropCarried(state, colonistId);
-    failJob(state, ctx, jobId, colonistId, 'destination gone');
+    failJob(state, ctx, jobId, colonistId, 'destinationGone');
     return;
   }
   const move = advanceTowards(
@@ -495,7 +495,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
   );
   if (move === 'blocked') {
     dropCarried(state, colonistId);
-    failJob(state, ctx, jobId, colonistId, 'storage unreachable');
+    failJob(state, ctx, jobId, colonistId, 'storageUnreachable');
     return;
   }
   if (move !== 'arrived') return;
@@ -528,7 +528,7 @@ export function failJob(
   ctx: SimContext,
   jobId: string,
   colonistId: string,
-  reason: string,
+  reason: JobFailReason,
 ): void {
   void ctx;
   const job = state.jobs[jobId];
@@ -543,7 +543,7 @@ export function failJob(
       retryCount,
       cooldownUntilTick: state.tick + FAILED_JOB_RETENTION_TICKS,
     });
-    addLog(state, `job ${jobId} (${job.type}) failed: ${reason}`);
+    addLog(state, 'jobFailed', { job: jobId, jobType: job.type, reason });
   } else {
     updateJob(state, jobId, {
       state: 'pending',

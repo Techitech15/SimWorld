@@ -148,15 +148,15 @@ describe('cutting rock without a colonist', () => {
     const { harness } = rig(4011, { crystal: true });
     const lines = recordLog(harness, EXTRACTOR_TICKS_PER_ROCK + 5);
     expect(stockOf(harness.state, 'manaCrystal')).toBe(CRYSTAL_PER_VEIN);
-    expect(lines.some((line) => line.includes('mana crystal vein'))).toBe(true);
+    expect(lines).toContain('extractorCutVein');
   });
 
   it('says so when the face is worked out, rather than drawing mana in silence', () => {
     const { harness } = rig(4013, { rocks: 1 });
     const lines = recordLog(harness, EXTRACTOR_TICKS_PER_ROCK + 60);
-    expect(lines.some((line) => line.includes('run out of rock'))).toBe(true);
+    expect(lines).toContain('extractorOutOfRock');
     // and it does not repeat the complaint every tick
-    expect(lines.filter((line) => line.includes('run out of rock')).length).toBe(1);
+    expect(lines.filter((line) => line === 'extractorOutOfRock').length).toBe(1);
   });
 });
 

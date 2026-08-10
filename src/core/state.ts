@@ -19,6 +19,8 @@ import type {
   Job,
   JobId,
   LogEntry,
+  LogKey,
+  LogParams,
   TerrainType,
   Tile,
   TileId,
@@ -190,8 +192,15 @@ export function updateItem(state: GameState, id: ItemId, patch: Partial<Item>): 
   return updated;
 }
 
-export function addLog(state: GameState, message: string, kind?: LogEntry['kind']): void {
-  const entry: LogEntry = kind ? { tick: state.tick, message, kind } : { tick: state.tick, message };
+export function addLog(
+  state: GameState,
+  key: LogKey,
+  params?: LogParams,
+  kind?: LogEntry['kind'],
+): void {
+  const entry: LogEntry = { tick: state.tick, key };
+  if (params) entry.params = params;
+  if (kind) entry.kind = kind;
   state.log = [...state.log.slice(-99), entry];
 }
 

@@ -137,9 +137,7 @@ describe('what the hearth is for', () => {
   it('shows up as a thought either way round', () => {
     const { harness, id } = rested(6017, 95);
     expect(
-      thoughtsOf(harness.state, harness.state.colonists[id]).some((t) =>
-        t.label.startsWith('Sick of'),
-      ),
+      thoughtsOf(harness.state, harness.state.colonists[id]).some((t) => t.key === 'sickOfPlace'),
     ).toBe(true);
 
     harness.state.colonists[id] = {
@@ -147,9 +145,7 @@ describe('what the hearth is for', () => {
       needs: { hunger: 10, sleep: 10, recreation: 5 },
     };
     expect(
-      thoughtsOf(harness.state, harness.state.colonists[id]).some((t) =>
-        t.label.includes('time off'),
-      ),
+      thoughtsOf(harness.state, harness.state.colonists[id]).some((t) => t.key === 'hadTimeOff'),
     ).toBe(true);
   });
 });
@@ -180,7 +176,7 @@ describe('three ways to come apart', () => {
     shape(harness.state, id);
     const hold = { needs, health: harness.state.colonists[id].health };
     harness.state.colonists[id] = { ...harness.state.colonists[id], ...hold };
-    const worst = thoughtsOf(harness.state, harness.state.colonists[id])[0]?.label;
+    const worst = thoughtsOf(harness.state, harness.state.colonists[id])[0]?.key;
     const lines = recordLog(harness, 5, (state) => {
       if (state.colonists[id]) state.colonists[id] = { ...state.colonists[id], ...hold };
     });
@@ -196,9 +192,9 @@ describe('three ways to come apart', () => {
         state.colonists[id] = { ...state.colonists[id], health: 100 };
       },
     );
-    expect(worst).toBe('Starving');
+    expect(worst).toBe('starving');
     expect(kind).toBe('binge');
-    expect(lines.some((l) => l.includes('eating their way'))).toBe(true);
+    expect(lines).toContain('breakBinge');
   });
 
   it('sends a grieving one walking', () => {
@@ -213,9 +209,9 @@ describe('three ways to come apart', () => {
         state.deaths = [{ colonistId: 'zz', name: 'Wren', tick: state.tick }];
       },
     );
-    expect(worst).toBe('Grieving for Wren');
+    expect(worst).toBe('grieving');
     expect(kind).toBe('wandering');
-    expect(lines.some((l) => l.includes('walks off'))).toBe(true);
+    expect(lines).toContain('breakWandering');
   });
 
   it('leaves the rest standing and brooding', () => {
@@ -227,7 +223,7 @@ describe('three ways to come apart', () => {
         state.colonists[id] = { ...state.colonists[id], health: 25 };
       },
     );
-    expect(worst).toBe('Badly hurt');
+    expect(worst).toBe('badlyHurt');
     expect(kind).toBe('brooding');
   });
 
@@ -271,7 +267,7 @@ describe('three ways to come apart', () => {
     });
     expect(wandered).toBeGreaterThan(2);
     expect(harness.state.colonists[id].activity.kind).toBe('none');
-    expect(lines.some((l) => l.includes('goes back to work'))).toBe(true);
+    expect(lines).toContain('backToWork');
   });
 
   it('takes no jobs whichever way it shows', () => {

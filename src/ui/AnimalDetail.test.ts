@@ -13,6 +13,9 @@ import { tileIdOf } from '../core/state';
 import { createHarness, idleColony } from '../core/testUtils';
 import { createAnimal } from '../core/worldgen';
 import { describeAnimal } from './AnimalDetail';
+import { STRINGS } from './strings';
+
+const en = STRINGS.en;
 
 function value(rows: string[], label: string): string | undefined {
   return rows.find((row) => row.startsWith(`${label}: `))?.slice(label.length + 2);
@@ -21,8 +24,8 @@ function value(rows: string[], label: string): string | undefined {
 describe('the animal sheet', () => {
   it('says nothing when nothing is selected', () => {
     const harness = createHarness(1501);
-    expect(describeAnimal(harness.state, null)).toEqual([]);
-    expect(describeAnimal(harness.state, 'a999')).toEqual([]);
+    expect(describeAnimal(harness.state, null, en)).toEqual([]);
+    expect(describeAnimal(harness.state, 'a999', en)).toEqual([]);
   });
 
   it('keeps up with an animal as it walks', () => {
@@ -32,11 +35,11 @@ describe('the animal sheet', () => {
     harness.state.animals = {};
     const at = Object.values(harness.state.colonists)[0].position;
     const deer = createAnimal(harness.state, 'deer', at.x + 6, at.y);
-    const startedAt = value(describeAnimal(harness.state, deer.id), 'Where');
+    const startedAt = value(describeAnimal(harness.state, deer.id, en), 'Where');
 
     let moved = false;
     harness.run(900, (state) => {
-      const rows = describeAnimal(state, deer.id);
+      const rows = describeAnimal(state, deer.id, en);
       if (rows.length === 0) return; // eaten by something; not this test's subject
       const where = value(rows, 'Where');
       expect(where).toBe(
@@ -53,7 +56,7 @@ describe('the animal sheet', () => {
     const at = Object.values(harness.state.colonists)[0].position;
     const goat = createAnimal(harness.state, 'goat', at.x + 4, at.y, { tame: true });
 
-    const rows = describeAnimal(harness.state, goat.id);
+    const rows = describeAnimal(harness.state, goat.id, en);
     expect(value(rows, 'Name')).toBe(`${goat.name} the goat`);
     expect(value(rows, 'Kind')).toBe('tame');
     expect(value(rows, 'Butchers for')).toBe(`${SPECIES.goat.foodYield} food`);
@@ -67,10 +70,10 @@ describe('the animal sheet', () => {
     const at = Object.values(harness.state.colonists)[0].position;
     const wolf = createAnimal(harness.state, 'wolf', at.x + 8, at.y);
     const deer = createAnimal(harness.state, 'deer', at.x + 9, at.y);
-    expect(value(describeAnimal(harness.state, wolf.id), 'Kind')).toBe('predator');
-    expect(value(describeAnimal(harness.state, deer.id), 'Kind')).toBe('wild');
+    expect(value(describeAnimal(harness.state, wolf.id, en), 'Kind')).toBe('predator');
+    expect(value(describeAnimal(harness.state, deer.id, en), 'Kind')).toBe('wild');
     // a wolf gives nothing while it lives, so it says nothing about giving
-    expect(value(describeAnimal(harness.state, wolf.id), 'Gives')).toBeUndefined();
+    expect(value(describeAnimal(harness.state, wolf.id, en), 'Gives')).toBeUndefined();
   });
 
   it('shows an order the player has given it', () => {
@@ -78,17 +81,17 @@ describe('the animal sheet', () => {
     harness.state.animals = {};
     const at = Object.values(harness.state.colonists)[0].position;
     const boar = createAnimal(harness.state, 'boar', at.x + 5, at.y);
-    expect(value(describeAnimal(harness.state, boar.id), 'Order')).toBeUndefined();
+    expect(value(describeAnimal(harness.state, boar.id, en), 'Order')).toBeUndefined();
 
     harness.state = designateAnimals(harness.state, [tileIdOf(at.x + 5, at.y)], 'hunt');
-    expect(value(describeAnimal(harness.state, boar.id), 'Order')).toBe('marked for hunt');
+    expect(value(describeAnimal(harness.state, boar.id, en), 'Order')).toBe('marked for hunting');
   });
 
   it('returns flat strings, so the selector stays shallow-comparable', () => {
     const harness = createHarness(1517);
     const id = Object.keys(harness.state.animals)[0];
-    const rows = describeAnimal(harness.state, id);
+    const rows = describeAnimal(harness.state, id, en);
     for (const row of rows) expect(typeof row).toBe('string');
-    expect(describeAnimal(harness.state, id)).toEqual(rows);
+    expect(describeAnimal(harness.state, id, en)).toEqual(rows);
   });
 });

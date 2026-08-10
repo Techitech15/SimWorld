@@ -31,7 +31,7 @@ export function createHarness(seed = 42): Harness {
 }
 
 /**
- * Every line the log emits during a run, truncation included.
+ * Every key the log emits during a run, truncation included.
  *
  * `state.log` keeps only its last hundred entries, so anything that reads the
  * log after a long run is measuring the buffer rather than the run - a year of
@@ -42,14 +42,15 @@ export function createHarness(seed = 42): Harness {
  *
  * This records every entry written since the last one it saw, which is exact
  * whether a tick writes one line or several, and the reason it lives here
- * rather than being written out again at each call site.
+ * rather than being written out again at each call site. Since phase 9 the log
+ * stores keys, so tests assert the event rather than the wording.
  */
 export function recordLog(
   harness: Harness,
   ticks: number,
   onTick?: (state: GameState) => void,
 ): string[] {
-  return recordLogEntries(harness, ticks, onTick).map((entry) => entry.message);
+  return recordLogEntries(harness, ticks, onTick).map((entry) => entry.key);
 }
 
 /**
@@ -66,7 +67,7 @@ export function recordLogEntries(
   onTick?: (state: GameState) => void,
 ): LogEntry[] {
   const entries: LogEntry[] = [];
-  const keyOf = (entry: LogEntry) => `${entry.tick}:${entry.message}`;
+  const keyOf = (entry: LogEntry) => `${entry.tick}:${entry.key}:${JSON.stringify(entry.params ?? {})}`;
   let lastKey = '';
   const seed = harness.state.log[harness.state.log.length - 1];
   if (seed) lastKey = keyOf(seed);

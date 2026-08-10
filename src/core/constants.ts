@@ -154,14 +154,6 @@ export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
 export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal'];
 
-/** What each resource is called in the UI, so no panel prints a camelCase key. */
-export const RESOURCE_LABELS: Record<ResourceType, string> = {
-  wood: 'wood',
-  stone: 'stone',
-  food: 'food',
-  manaCrystal: 'mana crystal',
-};
-
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   wall: [{ type: 'wood', quantity: 5 }],
@@ -295,9 +287,8 @@ export const ANIMAL_SPECIES: AnimalSpecies[] = [
 ];
 
 export interface SpeciesProfile {
-  label: string;
-  /** English is not regular: deer stay deer and a wolf becomes wolves. */
-  plural: string;
+  // what a species is called (singular and plural, per language) lives in the
+  // UI dictionary (src/ui/strings.ts); the profile is numbers only
   diet: 'herbivore' | 'omnivore' | 'carnivore';
   /** moves one tile every N ticks; colonists move every TICKS_PER_STEP (2) */
   ticksPerStep: number;
@@ -316,8 +307,6 @@ export interface SpeciesProfile {
 
 export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   deer: {
-    label: 'Deer',
-    plural: 'Deer',
     diet: 'herbivore',
     ticksPerStep: 3,
     maxHealth: 60,
@@ -329,8 +318,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 6,
   },
   boar: {
-    label: 'Boar',
-    plural: 'Boars',
     diet: 'omnivore',
     ticksPerStep: 3,
     maxHealth: 80,
@@ -342,8 +329,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 4,
   },
   rabbit: {
-    label: 'Rabbit',
-    plural: 'Rabbits',
     diet: 'herbivore',
     ticksPerStep: 2, // as quick as a wolf: catching one is a real chase
     maxHealth: 20,
@@ -355,8 +340,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 10,
   },
   chicken: {
-    label: 'Chicken',
-    plural: 'Chickens',
     diet: 'herbivore',
     ticksPerStep: 4,
     maxHealth: 25,
@@ -380,8 +363,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
    * hunting one and keeping the other stays a choice.
    */
   goat: {
-    label: 'Goat',
-    plural: 'Goats',
     diet: 'herbivore',
     ticksPerStep: 3,
     maxHealth: 45,
@@ -393,8 +374,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 5,
   },
   wolf: {
-    label: 'Wolf',
-    plural: 'Wolves',
     diet: 'carnivore',
     ticksPerStep: 2, // as fast as a colonist: fleeing buys time, not safety
     maxHealth: 70,

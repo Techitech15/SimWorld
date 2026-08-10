@@ -95,9 +95,11 @@ describe('growth follows the season', () => {
     const harness = createHarness(719);
     harness.state.tick = TICKS_PER_SEASON - 2;
     harness.run(4);
-    expect(harness.state.log.some((entry) => entry.message.includes('Summer has arrived'))).toBe(
-      true,
-    );
+    expect(
+      harness.state.log.some(
+        (entry) => entry.key === 'seasonArrived' && entry.params?.season === 'summer',
+      ),
+    ).toBe(true);
   });
 
   it('carries the colony through a winter it stocked up for', () => {

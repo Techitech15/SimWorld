@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
 import { useGameStore } from '../store/gameStore';
+import { useStrings } from './language';
 
 /** Raw tick numbers mean nothing to a player; the clock they are watching does. */
 export function stampOf(tick: number): string {
@@ -17,18 +18,23 @@ export function stampOf(tick: number): string {
  * a scrollable run of them.
  */
 export function EventLog(): React.JSX.Element | null {
+  const strings = useStrings();
   const entries = useGameStore(useShallow((s) => s.state.log.slice(-40).reverse()));
   if (entries.length === 0) return null;
   return (
     <section className="panel">
-      <h2>Log</h2>
+      <h2>{strings.panelLog}</h2>
       <ul className="log log--scroll">
         {entries.map((entry, index) => (
           <li
             key={`${entry.tick}-${index}`}
             className={entry.kind === 'incident' ? 'log__incident' : undefined}
           >
-            <span className="muted small">{stampOf(entry.tick)}</span> {entry.message}
+            {/* the entry stores the event; the sentence is derived here, so a
+                new line switches language with the page. `legacy` entries are
+                pre-phase-9 sentences and stay exactly as written. */}
+            <span className="muted small">{stampOf(entry.tick)}</span>{' '}
+            {strings.log[entry.key](entry.params ?? {})}
           </li>
         ))}
       </ul>

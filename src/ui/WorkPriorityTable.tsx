@@ -3,6 +3,7 @@ import type { JobType } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
 import { icons } from './icons';
+import { useStrings } from './language';
 
 const JOB_ICON: Record<JobType, string> = {
   chop: icons.chop,
@@ -23,6 +24,7 @@ const JOB_ICON: Record<JobType, string> = {
  * case the candidate filter checks.
  */
 function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: JobType }) {
+  const strings = useStrings();
   const colonist = useColonist(colonistId);
   const setJobPriority = useGameStore((s) => s.setJobPriority);
   if (!colonist) return null;
@@ -33,7 +35,7 @@ function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: Jo
       <button
         type="button"
         className={`priority priority--${value}`}
-        title={value === 0 ? 'disabled' : `priority ${value}`}
+        title={value === 0 ? strings.priorityDisabled : strings.priorityTitle(value)}
         onClick={() => setJobPriority(colonistId, jobType, value >= 3 ? 0 : value + 1)}
       >
         {value === 0 ? '–' : value}
@@ -43,6 +45,7 @@ function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: Jo
 }
 
 export function WorkPriorityTable(): React.JSX.Element {
+  const strings = useStrings();
   const ids = useColonistIds();
   const colonists = useGameStore((s) => s.state.colonists);
   const setJobPriority = useGameStore((s) => s.setJobPriority);
@@ -65,7 +68,7 @@ export function WorkPriorityTable(): React.JSX.Element {
 
   return (
     <section className="panel">
-      <h2>Work</h2>
+      <h2>{strings.panelWork}</h2>
       <table className="work">
         <thead>
           <tr>
@@ -75,10 +78,10 @@ export function WorkPriorityTable(): React.JSX.Element {
                 <button
                   type="button"
                   className="work__column"
-                  title={`${jobType} — click to set this column for everyone`}
+                  title={strings.workColumnTitle(jobType)}
                   onClick={() => cycleColumn(jobType)}
                 >
-                  <img src={JOB_ICON[jobType]} alt={jobType} width={20} height={20} />
+                  <img src={JOB_ICON[jobType]} alt={strings.jobTypeLabels[jobType]} width={20} height={20} />
                 </button>
               </th>
             ))}
@@ -95,17 +98,11 @@ export function WorkPriorityTable(): React.JSX.Element {
           ))}
         </tbody>
       </table>
-      <p className="muted small">
-        1 = highest, 3 = lowest, – = will not do this work. Click an icon to set the whole column.
-      </p>
+      <p className="muted small">{strings.workFootnote}</p>
       <button type="button" className="work__auto" onClick={() => assignWorkBySkill()}>
-        Assign by skill
+        {strings.assignBySkill}
       </button>
-      <p className="muted small">
-        Puts each colonist first in line for the two things they are best at, so specialists do
-        their speciality. The cost is that everything else drops behind it, including work you have
-        just ordered. Nothing is switched off, and columns you have disabled stay disabled.
-      </p>
+      <p className="muted small">{strings.assignFootnote}</p>
     </section>
   );
 }

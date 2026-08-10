@@ -119,7 +119,9 @@ describe('skills', () => {
 
     const levels = Object.values(harness.state.colonists).map((c) => levelOf(c.skills.chop));
     expect(Math.max(...levels)).toBeGreaterThanOrEqual(1);
-    expect(harness.state.log.some((e) => e.message.includes('Woodcutting level'))).toBe(true);
+    expect(
+      harness.state.log.some((e) => e.key === 'skillLevelUp' && e.params?.skill === 'chop'),
+    ).toBe(true);
     // and nobody got better at things they never touched
     for (const colonist of Object.values(harness.state.colonists)) {
       expect(colonist.skills.mine).toBe(0);

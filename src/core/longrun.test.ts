@@ -53,12 +53,9 @@ describe('a year unattended', () => {
     expect(lowestPopulation).toBe(founders);
     expect(population).toBeGreaterThanOrEqual(founders);
     expect(population).toBeLessThanOrEqual(ARRIVAL_MAX_COLONISTS);
-    // "X starved" is also what a wolf that ran out of prey logs, so this has to
-    // be about people specifically rather than about the word
-    const names = new Set(Object.values(state.colonists).map((c) => c.name));
-    const humanDeaths = state.log.filter(
-      (e) => e.message.includes('starved to death') && names.has(e.message.split(' ')[0]),
-    );
+    // the key already says who starved: colonists and animals log different
+    // events now, so no name matching is needed to tell them apart
+    const humanDeaths = state.log.filter((e) => e.key === 'colonistStarvedToDeath');
     expect(humanDeaths).toEqual([]);
     expect(worstHealth).toBeGreaterThan(0);
 

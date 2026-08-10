@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -266,6 +266,25 @@ export const migrations: Record<number, Migration> = {
   14: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, raiders: state.raiders ?? {} };
+  },
+
+  /**
+   * 15 -> 16: the log stores events, not sentences (11章 フェーズ9). An old
+   * entry is a finished English sentence; parsing it back into an event would
+   * be guesswork that necessarily misses, so it is wrapped as `legacy` and
+   * shown verbatim in whatever language it was written. The ring buffer holds
+   * 100 entries, so a few days of play push the old lines out naturally.
+   */
+  15: (old) => {
+    const state = old as Omit<Partial<GameState>, 'log'> & {
+      log?: { tick: number; message?: string; kind?: 'incident'; key?: string }[];
+    };
+    const log = (state.log ?? []).map((entry) => {
+      if (entry.key !== undefined) return entry; // already structured
+      const { message, ...rest } = entry;
+      return { ...rest, key: 'legacy', params: { text: message ?? '' } };
+    });
+    return { ...state, log };
   },
 };
 
