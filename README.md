@@ -10,6 +10,8 @@ RimWorld 風の 2D ブラウザ入植地シミュレーション。TypeScript + 
 | [docs/design-phase2.5-animals.md](docs/design-phase2.5-animals.md) | **フェーズ2.5** 生物レイヤーの設計案（提案時のまま） |
 | [docs/design-phase5-trade.md](docs/design-phase5-trade.md) | **フェーズ5** 交易とファンタジー層の設計案（未着手） |
 | [docs/design-phase6-space.md](docs/design-phase6-space.md) | **フェーズ6** マップ拡張と画面の再配置の設計案（未着手） |
+| [docs/design-phase7-time.md](docs/design-phase7-time.md) | **フェーズ7** 昼夜の表現・なめらかな移動の設計案（未着手） |
+| [docs/design-phase8-equipment.md](docs/design-phase8-equipment.md) | **フェーズ8** 服と武器の設計案（未着手） |
 | [docs/design-next.md](docs/design-next.md) | **次の検討**。まだ実装していないものと、その優先順位 |
 | この README | 動かし方・操作・実装との対応・テスト一覧 |
 
