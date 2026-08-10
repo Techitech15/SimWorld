@@ -16,6 +16,7 @@ import type { GoalId } from '../core/goals';
 import type { MoodWord, ThoughtKey } from '../core/mood';
 import type { Season } from '../core/season';
 import type { StatusKey } from '../store/gameStore';
+import type { BuildCategory } from './buildMenu';
 import type {
   AnimalSpecies,
   BuildingType,
@@ -108,6 +109,7 @@ export interface Strings {
   // --- toolbar --------------------------------------------------------------
   ordersGroup: string;
   buildGroup: string;
+  buildCategoryLabels: Record<BuildCategory, string>;
   animalsGroup: string;
   toolSelect: string;
   toolSelectHint: string;
@@ -661,6 +663,12 @@ const en: Strings = {
 
   ordersGroup: 'Orders',
   buildGroup: 'Build',
+  buildCategoryLabels: {
+    structure: 'Structure',
+    furniture: 'Furniture',
+    mana: 'Mana',
+    zones: 'Zones',
+  },
   animalsGroup: 'Animals',
   toolSelect: 'Select',
   toolSelectHint: 'Select a colonist, then click to move',
@@ -691,7 +699,7 @@ const en: Strings = {
   toolbarHintDrag:
     'Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms; WASD or the arrow keys pan too.',
   toolbarHintKeys:
-    'Keys: space pauses, 1/2/3/4 set speed, Esc selects. c chop, m mine, x deconstruct, q clear, b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame, k slaughter.',
+    'Keys: space pauses, 1/2/3/4 set speed, Esc selects. c chop, m mine, x deconstruct, q clear, b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame, k slaughter. A build key also opens its category.',
 
   panelSelection: 'Selection',
   panelColonist: 'Colonist',
@@ -1181,6 +1189,12 @@ const ja: Strings = {
 
   ordersGroup: '指示',
   buildGroup: '建設',
+  buildCategoryLabels: {
+    structure: '構造',
+    furniture: '家具',
+    mana: '魔力',
+    zones: '区域',
+  },
   animalsGroup: '動物',
   toolSelect: '選択',
   toolSelectHint: '入植者を選び、クリックで移動させる',
@@ -1210,7 +1224,7 @@ const ja: Strings = {
   toolbarHintDrag:
     'ドラッグで範囲にツールを適用。右ドラッグか Shift ドラッグで画面移動、ホイールで拡縮。WASD と矢印キーでも動く。',
   toolbarHintKeys:
-    'キー：スペースで一時停止、1/2/3/4 で速度、Esc で選択。c 伐採、m 採掘、x 解体、q 指定解除、b 壁、f 床、r ドア、n ベッド、v 畑、z 備蓄、p 牧草地、e 取り消し、h 狩猟、t 飼い慣らし、k 屠殺。',
+    'キー：スペースで一時停止、1/2/3/4 で速度、Esc で選択。c 伐採、m 採掘、x 解体、q 指定解除、b 壁、f 床、r ドア、n ベッド、v 畑、z 備蓄、p 牧草地、e 取り消し、h 狩猟、t 飼い慣らし、k 屠殺。建設のキーはそのカテゴリも開く。',
 
   panelSelection: '選択中',
   panelColonist: '入植者',
