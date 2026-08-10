@@ -199,13 +199,12 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
 export function ColonistPanel(): React.JSX.Element {
   const ids = useColonistIds();
   return (
-    <section className="panel">
-      <h2>Colonists</h2>
+    <>
       <div className="colonists">
         {ids.map((id) => (
           <ColonistRow key={id} id={id} />
         ))}
       </div>
-    </section>
+    </>
   );
 }

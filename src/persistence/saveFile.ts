@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -276,6 +276,20 @@ export const migrations: Record<number, Migration> = {
   15: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, traders: state.traders ?? {} };
+  },
+
+  /**
+   * 16 -> 17: the map carries its own size (11章 フェーズ6, design-phase6-space.md 3.1).
+   *
+   * Every save before this was 60x60, because that was the only size there was.
+   * Writing it down is what lets the *default* grow without those colonies
+   * becoming unreadable - the alternative was a version bump that could only
+   * refuse them, and a change that makes the player throw their colony away is
+   * not one worth making.
+   */
+  16: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, width: state.width ?? 60, height: state.height ?? 60 };
   },
 };
 

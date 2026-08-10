@@ -13,8 +13,8 @@
 | [design.md](design.md) | 仕様。**何がどこまで進んでいるかの表は 11 章**にある（ここには置かない） |
 | [design-notes.md](design-notes.md) | 実装したものの理由と実測値 |
 | [design-phase2.5-animals.md](design-phase2.5-animals.md) | 生物レイヤーの設計案（提案時のまま） |
-| [design-phase5-trade.md](design-phase5-trade.md) | 交易とファンタジー層の設計案（未着手。行商・幻想生物・幻想植生） |
-| [design-phase6-space.md](design-phase6-space.md) | マップ拡張と画面の再配置の設計案（未着手） |
+| [design-phase5-trade.md](design-phase5-trade.md) | 交易とファンタジー層の設計案（実装済み。行商・幻想生物・幻想植生） |
+| [design-phase6-space.md](design-phase6-space.md) | マップ拡張と画面の再配置の設計案（A-1〜A-3・B-1〜B-3 実装済み。マップサイズの選択のみ未着手） |
 | [design-phase7-time.md](design-phase7-time.md) | 昼夜の表現・なめらかな移動の設計案（未着手） |
 | [design-phase8-equipment.md](design-phase8-equipment.md) | 服と武器の設計案（未着手） |
 | **このファイル** | 未実装のものの検討。実装されたら上の2つへ移して消す |
@@ -236,6 +236,15 @@ design-notes.md は鉱脈を「8世界を実測すると1世界あたり 4〜57 
   対策を当てるのは筋が悪い
 
 ---
+
+## 実装済みになった項目
+
+**フェーズ6 は A-1〜A-3・B-1〜B-3 実装済み**（地図は既定 120×120、寸法は `GameState` が持つ、
+画面は左上／右上のオーバーレイと折り畳めるサイドバー）。残るのは
+「マップサイズの選択」だけで、寸法が state に入った今は表と UI を足すだけになっている。
+
+**フェーズ5 は全段階（交易 T-A・T-B とファンタジー層 F-A〜F-D）実装済み**。
+現況は [design.md](design.md) 11章、決め手と実測は [design-notes.md](design-notes.md)。
 
 ## 6. 提案しないものとその理由
 

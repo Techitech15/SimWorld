@@ -4,13 +4,24 @@
 // terrain change invalidates O(affected colonists) paths instead of O(all).
 // RegionIndex labels connected walkable components so the candidate filter can
 // reject unreachable jobs in O(1) instead of running A* per candidate.
-import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import { EMPTY_NETWORKS } from './mana';
 import type { ManaNetworks } from './mana';
 import { tileIdOf } from './state';
 import type { ColonistId, GameState, TileId } from './types';
 
 export interface SimContext {
+  /**
+   * The map size the caches below were built for (design-phase6-space.md 3.1).
+   *
+   * Held here rather than read from the state on every lookup because
+   * `regionAt` is called from the candidate filter for every job and every
+   * colonist, and because a context built for one map must never be handed a
+   * different one - two saves of different sizes can be open in the same
+   * process, and a region array indexed at the wrong stride is silently wrong
+   * rather than loudly broken.
+   */
+  width: number;
+  height: number;
   /** tileId -> colonists whose cached path crosses that tile */
   pathIndex: Record<TileId, ColonistId[]>;
   /** flat grid of connected-walkable-region labels, -1 when unwalkable */
@@ -48,8 +59,10 @@ export interface SimContext {
 
 export function createSimContext(state: GameState): SimContext {
   const ctx: SimContext = {
+    width: state.width,
+    height: state.height,
     pathIndex: {},
-    regions: new Int32Array(MAP_WIDTH * MAP_HEIGHT).fill(-1),
+    regions: new Int32Array(state.width * state.height).fill(-1),
     regionsDirty: true,
     networks: EMPTY_NETWORKS,
     networksDirty: true,
@@ -131,11 +144,11 @@ export function rebuildRegions(ctx: SimContext, state: GameState): void {
   const regions = ctx.regions;
   regions.fill(-1);
   let label = 0;
-  const queue = new Int32Array(MAP_WIDTH * MAP_HEIGHT);
+  const queue = new Int32Array(ctx.width * ctx.height);
   for (let start = 0; start < regions.length; start++) {
     if (regions[start] !== -1) continue;
-    const sx = start % MAP_WIDTH;
-    const sy = (start / MAP_WIDTH) | 0;
+    const sx = start % ctx.width;
+    const sy = (start / ctx.width) | 0;
     if (!state.tiles[tileIdOf(sx, sy)].walkable) continue;
     let head = 0;
     let tail = 0;
@@ -143,8 +156,8 @@ export function rebuildRegions(ctx: SimContext, state: GameState): void {
     regions[start] = label;
     while (head < tail) {
       const idx = queue[head++];
-      const x = idx % MAP_WIDTH;
-      const y = (idx / MAP_WIDTH) | 0;
+      const x = idx % ctx.width;
+      const y = (idx / ctx.width) | 0;
       const neighbours = [
         [x + 1, y],
         [x - 1, y],
@@ -152,8 +165,8 @@ export function rebuildRegions(ctx: SimContext, state: GameState): void {
         [x, y - 1],
       ];
       for (const [nx, ny] of neighbours) {
-        if (nx < 0 || ny < 0 || nx >= MAP_WIDTH || ny >= MAP_HEIGHT) continue;
-        const nIdx = ny * MAP_WIDTH + nx;
+        if (nx < 0 || ny < 0 || nx >= ctx.width || ny >= ctx.height) continue;
+        const nIdx = ny * ctx.width + nx;
         if (regions[nIdx] !== -1) continue;
         if (!state.tiles[tileIdOf(nx, ny)].walkable) continue;
         regions[nIdx] = label;
@@ -166,8 +179,8 @@ export function rebuildRegions(ctx: SimContext, state: GameState): void {
 }
 
 export function regionAt(ctx: SimContext, x: number, y: number): number {
-  if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return -1;
-  return ctx.regions[y * MAP_WIDTH + x];
+  if (x < 0 || y < 0 || x >= ctx.width || y >= ctx.height) return -1;
+  return ctx.regions[y * ctx.width + x];
 }
 
 /**

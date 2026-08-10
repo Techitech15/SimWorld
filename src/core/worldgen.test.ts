@@ -2,7 +2,6 @@
 // for seeds nobody has ever looked at - not just the handful the other tests
 // happen to use.
 import { describe, expect, it } from 'vitest';
-import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import { createSimContext } from './derived';
 import { tickMany } from './simulation';
 import { tileIdOf } from './state';
@@ -62,8 +61,8 @@ describe('any seed makes a playable map', () => {
       const at = after.colonists[id].position;
       expect(at.x).toBeGreaterThanOrEqual(0);
       expect(at.y).toBeGreaterThanOrEqual(0);
-      expect(at.x).toBeLessThan(MAP_WIDTH);
-      expect(at.y).toBeLessThan(MAP_HEIGHT);
+      expect(at.x).toBeLessThan(after.width);
+      expect(at.y).toBeLessThan(after.height);
       expect(after.tiles[tileIdOf(at.x, at.y)].walkable).toBe(true);
     }
     for (const id in after.animals) {

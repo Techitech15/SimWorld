@@ -504,6 +504,17 @@ export interface Reservation {
 }
 
 export interface GameState {
+  /**
+   * [ext] How big this map is (docs/design-phase6-space.md 3.1).
+   *
+   * Saved rather than read from a module constant, and that is not a violation
+   * of "do not store what can be derived": the size of a world is not derived
+   * from anything - it is a fact about that world, like `worldSeed`. Storing it
+   * is what lets the default grow without every existing colony becoming an
+   * unreadable save.
+   */
+  width: number;
+  height: number;
   tick: number;
   /** 0 = paused, 1 = normal, 3 = fast */
   /**

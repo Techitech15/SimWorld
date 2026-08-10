@@ -14,9 +14,27 @@ export interface Harness {
   run: (ticks: number, onTick?: (state: GameState) => void) => GameState;
 }
 
-export function createHarness(seed = 42): Harness {
+/**
+ * A world to run assertions against.
+ *
+ * Fixed at 60x60 rather than following the shipped default, which is 120x120
+ * (docs/design-phase6-space.md 5, stage A-3). Two reasons, and the second is
+ * the important one:
+ *
+ * - four times the tiles is four times the run time, and a suite that takes
+ *   twenty minutes stops being run
+ * - **every measurement in design-notes.md was taken at 60x60.** A harness that
+ *   quietly changed size would invalidate all of them at once without a single
+ *   line of the notes being rewritten, which is exactly the failure the "do not
+ *   delete past measurements" rule exists to prevent
+ *
+ * The shipped size is covered where it matters instead: `longrun.test.ts` runs
+ * a year at 120x120, `chaos.test.ts` checks the invariants there, and
+ * `roundtrip.test.ts` round-trips both sizes in one process.
+ */
+export function createHarness(seed = 42, size = 60): Harness {
   const harness: Harness = {
-    state: generateWorld({ seed }),
+    state: generateWorld({ seed, width: size, height: size }),
     ctx: undefined as unknown as SimContext,
     run(ticks, onTick) {
       for (let i = 0; i < ticks; i++) {

@@ -36,8 +36,6 @@ import {
   ROCKEATER_GNAW_TICKS,
   ROCKEATER_HUNGER_RESTORED,
   ROCKEATER_SEARCH_RADIUS,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   PASTURE_TILES_PER_ANIMAL,
   PREDATOR_BITE_DAMAGE,
   PREDATOR_BITE_INTERVAL_TICKS,
@@ -62,7 +60,7 @@ import { invalidateTile } from './derived';
 import { LAMP_RADIUS, invalidateNetworks, isManaBuilding, isPowered, refreshNetworks } from './mana';
 import type { SimContext } from './derived';
 import { findPath, isWalkable, isWalkableByAnimal } from './pathfinding';
-import { scaledCount, scenarioOf } from './scenario';
+import { perArea, perSpan, scaledCount, scenarioOf } from './scenario';
 import { BREEDING_BY_SEASON, FORAGE_REGROW_BY_SEASON, seasonOf } from './season';
 import { mulberry32 } from './rng';
 import { traitMultiplier } from './traits';
@@ -1007,7 +1005,7 @@ function canStep(state: GameState, animal: Animal): boolean {
 }
 
 function stepTo(state: GameState, id: AnimalId, x: number, y: number): boolean {
-  if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return false;
+  if (x < 0 || y < 0 || x >= state.width || y >= state.height) return false;
   if (!isWalkableByAnimal(state, x, y)) return false;
   updateAnimal(state, id, { position: { x, y } });
   return true;
@@ -1190,7 +1188,7 @@ function spawnPredators(state: GameState): void {
 
   const camp = colonyCentre(state);
   const rnd = tickRandom(state, 991);
-  const spot = findSpawnTile(state, rnd, camp, PREDATOR_MIN_SPAWN_DISTANCE);
+  const spot = findSpawnTile(state, rnd, camp, perSpan(state, PREDATOR_MIN_SPAWN_DISTANCE));
   if (!spot) return;
   const wolf = createAnimal(state, 'wolf', spot.x, spot.y);
   addLog(state, `A wolf was spotted near the treeline (${wolf.name})`);
@@ -1215,10 +1213,13 @@ function spawnWildlife(state: GameState): void {
   for (const species of ANIMAL_SPECIES) {
     const profile = SPECIES[species];
     if (profile.diet === 'carnivore') continue;
-    if ((wild[species] ?? 0) >= scaledCount(profile.initialCount, scenarioOf(state).wildlife)) {
+    if (
+      (wild[species] ?? 0) >=
+      perArea(state, scaledCount(profile.initialCount, scenarioOf(state).wildlife))
+    ) {
       continue;
     }
-    const spot = findSpawnTile(state, rnd, camp, WILDLIFE_MIN_SPAWN_DISTANCE);
+    const spot = findSpawnTile(state, rnd, camp, perSpan(state, WILDLIFE_MIN_SPAWN_DISTANCE));
     if (spot) createAnimal(state, species, spot.x, spot.y);
   }
 }
@@ -1232,6 +1233,6 @@ function colonyCentre(state: GameState): Vector2 {
     sumY += state.colonists[id].position.y;
     count++;
   }
-  if (count === 0) return { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 };
+  if (count === 0) return { x: state.width / 2, y: state.height / 2 };
   return { x: Math.round(sumX / count), y: Math.round(sumY / count) };
 }

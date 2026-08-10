@@ -47,6 +47,39 @@ function assertLocksAgree(state: GameState): void {
 }
 
 describe('saving in the middle of everything', () => {
+  it('keeps two map sizes apart in one process', () => {
+    // The failure this exists for: a 60x60 save loaded into a session that was
+    // showing a 120x120 one. Everything indexed by width - the region labels,
+    // the A* grid, the minimap buffer - is silently wrong at the other stride
+    // rather than loudly broken (docs/design-phase6-space.md 5, A-1).
+    const small = createHarness(1951, 60);
+    const large = createHarness(1953, 120);
+    expect(small.state.width).toBe(60);
+    expect(large.state.width).toBe(120);
+
+    const smallSave = JSON.parse(JSON.stringify(small.state)) as GameState;
+    const largeSave = JSON.parse(JSON.stringify(large.state)) as GameState;
+    expect(Object.keys(smallSave.tiles).length).toBe(60 * 60);
+    expect(Object.keys(largeSave.tiles).length).toBe(120 * 120);
+
+    // reload them the other way round, each with its own rebuilt caches
+    small.state = largeSave;
+    small.ctx = createSimContext(largeSave);
+    large.state = smallSave;
+    large.ctx = createSimContext(smallSave);
+    small.run(60);
+    large.run(60);
+
+    for (const harness of [small, large]) {
+      for (const id in harness.state.colonists) {
+        const at = harness.state.colonists[id].position;
+        expect(at.x).toBeLessThan(harness.state.width);
+        expect(at.y).toBeLessThan(harness.state.height);
+        expect(harness.state.tiles[tileIdOf(at.x, at.y)].walkable).toBe(true);
+      }
+    }
+  });
+
   it('restores hunts, builds and chops without losing or duplicating a claim', () => {
     const harness = createHarness(1901);
     const at = Object.values(harness.state.colonists)[0].position;

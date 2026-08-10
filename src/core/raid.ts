@@ -18,8 +18,6 @@ import {
   COLONIST_MELEE_DAMAGE,
   DEFEND_RANGE,
   FLEE_DURATION_TICKS,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   RAIDER_ATTACK_INTERVAL_TICKS,
   RAIDER_DAMAGE,
   RAIDER_HEALTH,
@@ -76,7 +74,7 @@ function colonyCentre(state: GameState): Vector2 {
     y += state.colonists[id].position.y;
     count++;
   }
-  if (count === 0) return { x: Math.floor(MAP_WIDTH / 2), y: Math.floor(MAP_HEIGHT / 2) };
+  if (count === 0) return { x: Math.floor(state.width / 2), y: Math.floor(state.height / 2) };
   return { x: Math.round(x / count), y: Math.round(y / count) };
 }
 
@@ -93,15 +91,15 @@ export function spawnRaid(state: GameState, count: number, rnd: () => number): R
   for (let i = 0; i < count; i++) {
     let x: number;
     let y: number;
-    const along = Math.floor(rnd() * (side < 2 ? MAP_HEIGHT : MAP_WIDTH));
+    const along = Math.floor(rnd() * (side < 2 ? state.height : state.width));
     if (side === 0) [x, y] = [0, along];
-    else if (side === 1) [x, y] = [MAP_WIDTH - 1, along];
+    else if (side === 1) [x, y] = [state.width - 1, along];
     else if (side === 2) [x, y] = [along, 0];
-    else [x, y] = [along, MAP_HEIGHT - 1];
+    else [x, y] = [along, state.height - 1];
 
     // walk inwards to the first tile they can actually stand on
     let steps = 0;
-    while (!isWalkable(state, x, y) && steps < MAP_WIDTH) {
+    while (!isWalkable(state, x, y) && steps < state.width) {
       x += side === 0 ? 1 : side === 1 ? -1 : 0;
       y += side === 2 ? 1 : side === 3 ? -1 : 0;
       steps++;
@@ -222,8 +220,8 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
       const gone =
         at.x <= 0 ||
         at.y <= 0 ||
-        at.x >= MAP_WIDTH - 1 ||
-        at.y >= MAP_HEIGHT - 1 ||
+        at.x >= state.width - 1 ||
+        at.y >= state.height - 1 ||
         state.tick > raider.leavesAtTick + RAID_LEAVE_GRACE_TICKS;
       if (gone) {
         removeRaider(state, id);

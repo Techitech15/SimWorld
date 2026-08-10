@@ -9,7 +9,6 @@
 // about it.
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { MAP_HEIGHT, MAP_WIDTH } from '../core/constants';
 import { isPredator } from '../core/animals';
 import type { GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
@@ -47,9 +46,16 @@ const PREDATOR: Rgb = [214, 74, 74];
 const TAME: Rgb = [232, 196, 76];
 const WILD: Rgb = [176, 132, 84];
 
-function put(data: Uint8ClampedArray, x: number, y: number, [r, g, b]: Rgb): void {
-  if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return;
-  const at = (y * MAP_WIDTH + x) * 4;
+function put(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  [r, g, b]: Rgb,
+): void {
+  if (x < 0 || y < 0 || x >= width || y >= height) return;
+  const at = (y * width + x) * 4;
   data[at] = r;
   data[at + 1] = g;
   data[at + 2] = b;
@@ -58,25 +64,24 @@ function put(data: Uint8ClampedArray, x: number, y: number, [r, g, b]: Rgb): voi
 
 /** One pass over the world, painted bottom layer first. */
 export function paintMinimap(state: GameState, data: Uint8ClampedArray): void {
+  const { width, height } = state;
   for (const tileId in state.tiles) {
     const tile = state.tiles[tileId];
-    put(data, tile.x, tile.y, TERRAIN[tile.terrain] ?? TERRAIN.grass);
+    put(data, width, height, tile.x, tile.y, TERRAIN[tile.terrain] ?? TERRAIN.grass);
   }
   for (const zoneId in state.zones) {
     const zone = state.zones[zoneId];
     if (zone.type !== 'pasture') continue;
     for (const tileId of zone.tileIds) {
       const tile = state.tiles[tileId];
-      if (tile) put(data, tile.x, tile.y, PASTURE);
+      if (tile) put(data, width, height, tile.x, tile.y, PASTURE);
     }
   }
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     const tile = state.tiles[building.tileId];
     if (!tile) continue;
-    put(
-      data,
-      tile.x,
+    put(data, width, height, tile.x,
       tile.y,
       building.isBlueprint
         ? BLUEPRINT
@@ -87,22 +92,20 @@ export function paintMinimap(state: GameState, data: Uint8ClampedArray): void {
   }
   for (const tileId in state.tiles) {
     const tile = state.tiles[tileId];
-    if (tile.designation) put(data, tile.x, tile.y, DESIGNATED);
+    if (tile.designation) put(data, width, height, tile.x, tile.y, DESIGNATED);
   }
   // creatures last: on a one-pixel-per-tile map, being covered by the floor
   // you are standing on would hide the thing the player is looking for
   for (const id in state.animals) {
     const animal = state.animals[id];
-    put(
-      data,
-      animal.position.x,
+    put(data, width, height, animal.position.x,
       animal.position.y,
       isPredator(animal) ? PREDATOR : animal.tame ? TAME : WILD,
     );
   }
   for (const id in state.colonists) {
     const colonist = state.colonists[id];
-    put(data, colonist.position.x, colonist.position.y, COLONIST);
+    put(data, width, height, colonist.position.x, colonist.position.y, COLONIST);
   }
 }
 
@@ -120,7 +123,14 @@ export function Minimap(): React.JSX.Element {
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d');
     if (!canvas || !context) return;
-    const image = (imageRef.current ??= context.createImageData(MAP_WIDTH, MAP_HEIGHT));
+    // Re-made when the map size changes: an ImageData is a fixed buffer, and
+    // one sized for the previous world would paint the new one at the wrong
+    // stride (docs/design-phase6-space.md 3.1).
+    let image = imageRef.current;
+    if (!image || image.width !== state.width || image.height !== state.height) {
+      image = context.createImageData(state.width, state.height);
+      imageRef.current = image;
+    }
     paintMinimap(state, image.data);
     context.putImageData(image, 0, 0);
 
@@ -138,14 +148,14 @@ export function Minimap(): React.JSX.Element {
       <canvas
         ref={canvasRef}
         className="minimap"
-        width={MAP_WIDTH}
-        height={MAP_HEIGHT}
+        width={state.width}
+        height={state.height}
         title="click to jump the camera"
         onClick={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
-          const x = Math.floor(((event.clientX - box.left) / box.width) * MAP_WIDTH);
-          const y = Math.floor(((event.clientY - box.top) / box.height) * MAP_HEIGHT);
-          if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return;
+          const x = Math.floor(((event.clientX - box.left) / box.width) * state.width);
+          const y = Math.floor(((event.clientY - box.top) / box.height) * state.height);
+          if (x < 0 || y < 0 || x >= state.width || y >= state.height) return;
           focusOnTile({ x, y });
           selectTile(`${x},${y}`);
         }}

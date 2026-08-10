@@ -8,8 +8,18 @@ import type {
   ResourceType,
 } from './types';
 
-export const MAP_WIDTH = 60;
-export const MAP_HEIGHT = 60;
+/**
+ * The size a *new* world is generated at (docs/design-phase6-space.md 3.1).
+ *
+ * These are defaults, not the map's dimensions: a loaded save carries its own
+ * `width` / `height`, so a 60x60 colony saved before the map grew keeps being a
+ * 60x60 colony. Everything that needs to know how big the map is reads it off
+ * the state - the rename from MAP_WIDTH/MAP_HEIGHT was deliberate, so that all
+ * seventy-odd call sites had to be looked at rather than silently keeping a
+ * module constant that had stopped being true.
+ */
+export const DEFAULT_MAP_WIDTH = 120;
+export const DEFAULT_MAP_HEIGHT = 120;
 export const TILE_SIZE = 32;
 
 /** 1 tick = 200ms => 5 ticks/second (section 5) */

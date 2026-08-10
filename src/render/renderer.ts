@@ -2,7 +2,7 @@
 // store. All input is forwarded to store action functions; nothing here mutates
 // GameState directly.
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
-import { MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from '../core/constants';
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, TILE_SIZE } from '../core/constants';
 import { tileIdOf } from '../core/state';
 import type { Building, Colonist, GameState, Item, Tile } from '../core/types';
 import { getNetworks, useGameStore } from '../store/gameStore';
@@ -100,7 +100,15 @@ export class GameRenderer {
       this.app.destroy(true, { children: true });
       return;
     }
-    this.camera = createCamera(this.app.renderer.width, this.app.renderer.height);
+    // The camera needs the world's size, and the world is not known until the
+    // first frame arrives - so it starts on the default and is re-centred by
+    // the first syncTerrain, which is also where the sprite pool is sized.
+    this.camera = createCamera(
+      this.app.renderer.width,
+      this.app.renderer.height,
+      DEFAULT_MAP_WIDTH,
+      DEFAULT_MAP_HEIGHT,
+    );
 
     this.world.addChild(
       this.terrainLayer,
@@ -113,7 +121,6 @@ export class GameRenderer {
     );
     this.app.stage.addChild(this.world);
 
-    this.buildTerrainSprites();
     this.attachInput();
     this.observeHostSize(host);
     this.app.ticker.add(() => this.renderFrame());
@@ -148,9 +155,25 @@ export class GameRenderer {
   }
 
   // --- terrain -------------------------------------------------------------
-  private buildTerrainSprites(): void {
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
+  /** The size the sprite pool was built for; 0 until the first frame. */
+  private mapWidth = 0;
+  private mapHeight = 0;
+
+  /**
+   * Build (or rebuild) one sprite per tile.
+   *
+   * Sized from the state rather than from a constant, and rebuilt when the size
+   * changes: loading a 60x60 save into a session that was showing a 120x120 one
+   * is an ordinary thing to do, and a pool left at the old size would draw the
+   * new map through the wrong stride - wrong, but not obviously so.
+   */
+  private buildTerrainSprites(width: number, height: number): void {
+    for (const sprite of this.terrainSprites) sprite.destroy();
+    this.terrainLayer.removeChildren();
+    this.terrainSprites = [];
+    this.terrainKeys = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
         const sprite = new Sprite(this.textures.tiles.grass);
         sprite.x = x * TILE_SIZE;
         sprite.y = y * TILE_SIZE;
@@ -159,6 +182,8 @@ export class GameRenderer {
         this.terrainKeys.push('');
       }
     }
+    this.mapWidth = width;
+    this.mapHeight = height;
   }
 
   private terrainTexture(tile: Tile): Texture {
@@ -178,9 +203,23 @@ export class GameRenderer {
   }
 
   private syncTerrain(state: GameState): void {
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
-        const index = y * MAP_WIDTH + x;
+    if (state.width !== this.mapWidth || state.height !== this.mapHeight) {
+      const first = this.mapWidth === 0;
+      this.buildTerrainSprites(state.width, state.height);
+      // a different world, so the old viewpoint means nothing: look at the
+      // middle of the new one
+      if (!first) {
+        this.camera = createCamera(
+          this.app.renderer.width,
+          this.app.renderer.height,
+          state.width,
+          state.height,
+        );
+      }
+    }
+    for (let y = 0; y < state.height; y++) {
+      for (let x = 0; x < state.width; x++) {
+        const index = y * state.width + x;
         const tile = state.tiles[tileIdOf(x, y)];
         const key = tile.terrain;
         if (this.terrainKeys[index] === key) continue;
@@ -667,7 +706,13 @@ export class GameRenderer {
     this.syncSelectionOverlay(state);
     this.applyKeyboardPan(deltaMs);
 
-    clampCamera(this.camera, this.app.renderer.width, this.app.renderer.height);
+    clampCamera(
+      this.camera,
+      this.app.renderer.width,
+      this.app.renderer.height,
+      Math.max(1, this.mapWidth),
+      Math.max(1, this.mapHeight),
+    );
     this.world.scale.set(this.camera.zoom);
     this.world.x = -this.camera.x * this.camera.zoom;
     this.world.y = -this.camera.y * this.camera.zoom;
@@ -743,7 +788,7 @@ export class GameRenderer {
         return;
       }
       if (!this.dragStart || !this.dragCurrent) return;
-      const tiles = tilesInRect(this.dragStart, this.dragCurrent);
+      const tiles = tilesInRect(this.dragStart, this.dragCurrent, this.mapWidth, this.mapHeight);
       this.dragStart = null;
       this.dragCurrent = null;
       useGameStore.getState().applyTool(tiles);
@@ -840,12 +885,17 @@ function waitForSize(host: HTMLElement, timeoutMs = 2000): Promise<void> {
   });
 }
 
-function tilesInRect(a: { x: number; y: number }, b: { x: number; y: number }): string[] {
+function tilesInRect(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  mapWidth: number,
+  mapHeight: number,
+): string[] {
   const tiles: string[] = [];
   const x0 = Math.max(0, Math.min(a.x, b.x));
   const y0 = Math.max(0, Math.min(a.y, b.y));
-  const x1 = Math.min(MAP_WIDTH - 1, Math.max(a.x, b.x));
-  const y1 = Math.min(MAP_HEIGHT - 1, Math.max(a.y, b.y));
+  const x1 = Math.min(mapWidth - 1, Math.max(a.x, b.x));
+  const y1 = Math.min(mapHeight - 1, Math.max(a.y, b.y));
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) tiles.push(tileIdOf(x, y));
   return tiles;
 }
