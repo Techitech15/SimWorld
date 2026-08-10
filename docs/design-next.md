@@ -21,6 +21,7 @@
 | [design-phase10-ores.md](design-phase10-ores.md) | 鉱石と家具・建築メニュー階層化の設計案（**実装済み**） |
 | [design-phase11-worldmap.md](design-phase11-worldmap.md) | ワールドマップ・バイオーム・部族の設計案（未着手） |
 | [design-phase12-research.md](design-phase12-research.md) | 研究ツリーと職業の設計案（未着手） |
+| [design-phase13-presentation.md](design-phase13-presentation.md) | 画面の整えと音の設計案（未着手） |
 | **このファイル** | 未実装のものの検討。実装されたら上の2つへ移して消す |
 
 数値は測ったものには測った条件（シード数・日数）を添える。測っていない見積もりは**見積もりと明記する**。
