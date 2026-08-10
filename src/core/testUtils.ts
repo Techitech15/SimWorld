@@ -4,7 +4,7 @@ import { createSimContext } from './derived';
 import type { SimContext } from './derived';
 import { tickOnce } from './simulation';
 import { placePastureZone } from './actions';
-import { tileIdOf } from './state';
+import { isRock, tileIdOf } from './state';
 import { generateWorld } from './worldgen';
 import type { GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
 
@@ -203,6 +203,54 @@ export function placePastureNear(harness: Harness, size: number): ZoneId {
 
 export function anyColonistId(state: GameState): string {
   return Object.keys(state.colonists)[0];
+}
+
+/**
+ * The corridor a player has to cut to reach a vein, from the nearest open
+ * ground inward. Written for the mana crystal tests and reused unchanged for
+ * iron: a vein of anything sits inside a rock face, and designating the vein
+ * alone leaves a job nobody can reach - the corridor is how a test actually
+ * mines one. Returns the tiles to designate and how many of them carry the
+ * given vein terrain.
+ */
+export function quarryTo(
+  state: GameState,
+  veinId: TileId,
+  veinTerrain: TerrainType,
+): { tiles: TileId[]; veins: number } {
+  const parent = new Map<TileId, TileId | null>([[veinId, null]]);
+  let frontier = [state.tiles[veinId]];
+  let reached: TileId | null = null;
+  while (frontier.length > 0 && !reached) {
+    const next = [];
+    for (const tile of frontier) {
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const step = state.tiles[tileIdOf(tile.x + dx, tile.y + dy)];
+        if (!step || parent.has(step.id)) continue;
+        parent.set(step.id, tile.id);
+        if (!isRock(step.terrain)) {
+          reached = tile.id; // the last rock before open ground
+          break;
+        }
+        next.push(step);
+      }
+      if (reached) break;
+    }
+    frontier = next;
+  }
+  if (!reached) throw new Error('this vein has no route to open ground at all');
+
+  const tiles: TileId[] = [];
+  for (let at: TileId | null = reached; at; at = parent.get(at) ?? null) tiles.push(at);
+  return {
+    tiles,
+    veins: tiles.filter((id) => state.tiles[id].terrain === veinTerrain).length,
+  };
 }
 
 /**

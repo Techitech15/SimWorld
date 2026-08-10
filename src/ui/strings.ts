@@ -278,6 +278,7 @@ const EN_RESOURCES: Record<ResourceType, string> = {
   stone: 'stone',
   food: 'food',
   manaCrystal: 'mana crystal',
+  iron: 'iron',
 };
 
 const EN_SPECIES: Record<AnimalSpecies, string> = {
@@ -409,6 +410,7 @@ const en: Strings = {
     forest: 'Forest',
     stone: 'Rock face',
     crystal: 'Mana crystal vein',
+    ironVein: 'Iron vein',
   },
   buildingLabels: EN_BUILDINGS,
   designationLabels: {
@@ -602,8 +604,12 @@ const en: Strings = {
     furnaceBurnedOut: (p) => `the mana furnace at ${p.tile} has burned out`,
     furnaceStoked: (p) => `the mana furnace at ${p.tile} was stoked`,
     extractorOutOfRock: (p) => `the extractor at ${p.tile} has run out of rock`,
-    extractorCutVein: (p) => `the extractor at ${p.tile} cut into a mana crystal vein`,
-    veinCutOpen: (p) => `A mana crystal vein was cut open at ${p.x}, ${p.y}`,
+    // entries written before phase 10 carry no resource param: they could only
+    // ever have meant mana crystal, so that is what the fallback says
+    extractorCutVein: (p) =>
+      `the extractor at ${p.tile} cut into a vein of ${EN_RESOURCES[(p.resource as ResourceType) ?? 'manaCrystal']}`,
+    veinCutOpen: (p) =>
+      `A vein of ${EN_RESOURCES[(p.resource as ResourceType) ?? 'manaCrystal']} was cut open at ${p.x}, ${p.y}`,
     buildingRepaired: (p) => `the ${enBuilding(p.building)} at ${p.tile} was repaired`,
     buildingDismantled: (p) => `${enBuilding(p.building)} at ${p.tile} was dismantled`,
     animalTamed: (p) => `${p.name} the ${enSpecies(p.species)} was tamed`,
@@ -829,6 +835,7 @@ const JA_RESOURCES: Record<ResourceType, string> = {
   stone: '石材',
   food: '食料',
   manaCrystal: '魔力結晶',
+  iron: '鉄',
 };
 
 const JA_SPECIES: Record<AnimalSpecies, string> = {
@@ -943,6 +950,7 @@ const ja: Strings = {
     forest: '森',
     stone: '岩壁',
     crystal: '魔力結晶の鉱脈',
+    ironVein: '鉄の鉱脈',
   },
   buildingLabels: JA_BUILDINGS,
   designationLabels: {
@@ -1122,8 +1130,11 @@ const ja: Strings = {
     furnaceBurnedOut: (p) => `${p.tile}の魔導炉の火が消えた`,
     furnaceStoked: (p) => `${p.tile}の魔導炉に燃料がくべられた`,
     extractorOutOfRock: (p) => `${p.tile}の自動採掘機が掘る岩を失った`,
-    extractorCutVein: (p) => `${p.tile}の自動採掘機が魔力結晶の鉱脈を掘り当てた`,
-    veinCutOpen: (p) => `${p.x}, ${p.y}で魔力結晶の鉱脈が掘り開かれた`,
+    // フェーズ10より前の記録には resource が無い。当時は魔力結晶しかありえない
+    extractorCutVein: (p) =>
+      `${p.tile}の自動採掘機が${JA_RESOURCES[(p.resource as ResourceType) ?? 'manaCrystal']}の鉱脈を掘り当てた`,
+    veinCutOpen: (p) =>
+      `${p.x}, ${p.y}で${JA_RESOURCES[(p.resource as ResourceType) ?? 'manaCrystal']}の鉱脈が掘り開かれた`,
     buildingRepaired: (p) => `${p.tile}の${jaBuilding(p.building)}が修理された`,
     buildingDismantled: (p) => `${p.tile}の${jaBuilding(p.building)}が解体された`,
     animalTamed: (p) => `${jaSpecies(p.species)}の${p.name}を飼い慣らした`,

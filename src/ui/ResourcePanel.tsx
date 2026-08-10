@@ -12,6 +12,7 @@ const RESOURCE_ICON: Record<ResourceType, string> = {
   stone: icons.stone,
   food: icons.food,
   manaCrystal: icons.manaCrystal,
+  iron: icons.iron,
 };
 
 

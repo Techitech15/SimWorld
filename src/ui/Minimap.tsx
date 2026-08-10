@@ -23,6 +23,8 @@ const TERRAIN: Record<string, Rgb> = {
   stone: [125, 125, 134],
   // the one violet on the map: a vein has to be findable from the minimap
   crystal: [138, 95, 214],
+  // rust against the grey, for the same reason
+  ironVein: [172, 102, 58],
 };
 
 const BUILDING: Record<string, Rgb> = {

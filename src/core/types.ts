@@ -43,9 +43,11 @@ export interface Vector2 {
  * It is a terrain rather than a building because mining it is the same act as
  * mining stone - the design document asked whether the existing `mine` job
  * could be extended rather than a new job added, and this is what makes the
- * answer yes.
+ * answer yes. `ironVein` is the second ore and follows the same precedent
+ * (フェーズ10): what differs between the two is a row in VEIN_YIELD, not a
+ * mechanism.
  */
-export type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal';
+export type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal' | 'ironVein';
 
 /**
  * [ext] Player designation marking a tile as work to be done. `deconstruct`
@@ -72,7 +74,7 @@ export interface Tile {
   forage: number;
 }
 
-export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal';
+export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal' | 'iron';
 
 export interface Item {
   id: ItemId;
@@ -539,8 +541,8 @@ export type LogKey =
   | 'furnaceBurnedOut' // { tile }
   | 'furnaceStoked' // { tile }
   | 'extractorOutOfRock' // { tile }
-  | 'extractorCutVein' // { tile }
-  | 'veinCutOpen' // { x, y }
+  | 'extractorCutVein' // { tile, resource? } - entries older than phase 10 have no resource
+  | 'veinCutOpen' // { x, y, resource? } - entries older than phase 10 have no resource
   | 'buildingRepaired' // { building, tile }
   | 'buildingDismantled' // { building, tile }
   | 'animalTamed' // { name, species }

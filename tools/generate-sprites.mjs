@@ -59,6 +59,9 @@ const P = {
   iconMetalDark: '#8c93a3',
   mana: ['#3b2a63', '#5b3fa0', '#8a5fd6', '#c9a6ff'],
   manaGlow: '#a97cff',
+  // rust rather than metal: unmined iron reads as ore in the rock, and the
+  // orange-brown keeps it apart from wood's warmer browns and stone's greys
+  iron: ['#6b3a26', '#9c5030', '#c26a3c', '#e08d55'],
   iconWood: '#a9764a',
   iconWoodDark: '#7d5432',
 };
@@ -1021,6 +1024,60 @@ function crystalTile() {
   return c;
 }
 
+/**
+ * A rock face with iron in it. Same statement as crystalTile - "same rock,
+ * something in it" - but the something is rust-brown nuggets along a seam
+ * rather than violet shards: iron is the ore you meet on the way in.
+ */
+function ironVeinTile() {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(0x1207);
+  c.fill(P.stone[2]);
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      const r = rnd();
+      if (r < 0.18) c.set(x, y, P.stone[1]);
+      else if (r < 0.24) c.set(x, y, P.stone[3]);
+    }
+  }
+  for (const [cx, cy, r] of [
+    [24, 8, 5],
+    [7, 25, 5],
+  ]) {
+    c.disc(cx, cy, r, P.stone[1]);
+    c.disc(cx - 1, cy - 1, r - 2, P.stone[3]);
+  }
+  // the seam: nuggets strung along a diagonal, rust with a lit top edge
+  const nugget = (cx, cy, r) => {
+    c.disc(cx, cy, r, P.iron[0]);
+    c.disc(cx, cy - 1, Math.max(1, r - 1), P.iron[1]);
+    c.disc(cx - 1, cy - 1, Math.max(1, r - 2), P.iron[2]);
+    c.set(cx - 1, cy - 2, P.iron[3]);
+  };
+  c.line(8, 10, 24, 23, P.iron[0]);
+  nugget(9, 11, 4);
+  nugget(16, 16, 5);
+  nugget(23, 22, 4);
+  nugget(21, 27, 2);
+  tileEdge(c, '#3c3c43');
+  return c;
+}
+
+/** The mined iron stack, and the UI icon for the resource list. */
+function ironIcon() {
+  const c = new Canvas(TILE, TILE);
+  const lump = (cx, cy, r) => {
+    c.disc(cx, cy, r, P.iron[1]);
+    c.disc(cx - 1, cy - 1, r - 1, P.iron[2]);
+    c.disc(cx - 2, cy - 2, Math.max(1, r - 3), P.iron[3]);
+  };
+  lump(11, 21, 7);
+  lump(22, 22, 5);
+  lump(19, 12, 6);
+  c.outline(P.outline);
+  return c;
+}
+
 /** The mined stack, and the UI icon for the resource list. */
 function crystalIcon() {
   const c = new Canvas(TILE, TILE);
@@ -1208,6 +1265,7 @@ written.push(save('terrain/forest_1.png', forestTile(1)));
 written.push(save('terrain/forest_2.png', forestTile(2)));
 written.push(save('terrain/stone.png', stoneTile()));
 written.push(save('terrain/crystal.png', crystalTile()));
+written.push(save('terrain/iron_vein.png', ironVeinTile()));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));
@@ -1226,6 +1284,7 @@ written.push(save('resources/wood.png', woodIcon()));
 written.push(save('resources/stone.png', stoneIcon()));
 written.push(save('resources/food.png', foodIcon()));
 written.push(save('resources/mana_crystal.png', crystalIcon()));
+written.push(save('resources/iron.png', ironIcon()));
 written.push(save('buildings/mana_furnace.png', manaFurnaceTile()));
 written.push(save('buildings/mana_conduit.png', manaConduitTile(false)));
 written.push(save('buildings/mana_conduit_live.png', manaConduitTile(true)));

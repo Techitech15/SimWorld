@@ -136,6 +136,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   const forestNoise = valueNoise2D(seed);
   const stoneNoise = valueNoise2D(seed + 977);
   const crystalNoise = valueNoise2D(seed + 4231);
+  const ironNoise = valueNoise2D(seed + 7211);
 
   const cx = Math.floor(MAP_WIDTH / 2);
   const cy = Math.floor(MAP_HEIGHT / 2);
@@ -156,6 +157,12 @@ export function generateWorld(options: WorldOptions = {}): GameState {
       // puzzle free, and quarrying towards one is the point (11章).
       if (terrain === 'stone' && s > 0.86 && crystalNoise(x, y, 13) > 0.62) {
         terrain = 'crystal';
+      } else if (terrain === 'stone' && s > 0.78 && ironNoise(x, y, 11) > 0.57) {
+        // Iron sits shallower than crystal and there is more of it, so it is
+        // the ore a quarry meets on the way in - and because the crystal check
+        // runs first, iron never takes a tile crystal would have had: the deep
+        // rock stays the crystal's place (design-phase10-ores.md 2.2).
+        terrain = 'ironVein';
       }
       const tile = makeTile(x, y, terrain);
       state.tiles[tile.id] = tile;

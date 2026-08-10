@@ -171,6 +171,8 @@ export class GameRenderer {
         return this.textures.tiles.stone;
       case 'crystal':
         return this.textures.tiles.crystal;
+      case 'ironVein':
+        return this.textures.tiles.ironVein;
       default:
         return this.textures.tiles.grass;
     }
@@ -292,12 +294,25 @@ export class GameRenderer {
   }
 
   // --- items ---------------------------------------------------------------
-  private itemTexture(item: Item): Texture {
+  /** One texture per resource, shared by ground stacks and carried stacks. */
+  private resourceTexture(type: Item['type']): Texture {
     const t = this.textures.tiles;
-    if (item.type === 'wood') return t.wood;
-    if (item.type === 'stone') return t.stoneItem;
-    if (item.type === 'manaCrystal') return t.manaCrystal;
-    return t.food;
+    switch (type) {
+      case 'wood':
+        return t.wood;
+      case 'stone':
+        return t.stoneItem;
+      case 'manaCrystal':
+        return t.manaCrystal;
+      case 'iron':
+        return t.ironItem;
+      default:
+        return t.food;
+    }
+  }
+
+  private itemTexture(item: Item): Texture {
+    return this.resourceTexture(item.type);
   }
 
   private syncItems(state: GameState): void {
@@ -485,12 +500,7 @@ export class GameRenderer {
 
     if (colonist.carrying) {
       view.carried.visible = true;
-      view.carried.texture =
-        colonist.carrying.type === 'wood'
-          ? this.textures.tiles.wood
-          : colonist.carrying.type === 'stone'
-            ? this.textures.tiles.stoneItem
-            : this.textures.tiles.food;
+      view.carried.texture = this.resourceTexture(colonist.carrying.type);
       view.carried.x = view.sprite.x;
       view.carried.y = view.sprite.y - TILE_SIZE * 0.55;
     } else {

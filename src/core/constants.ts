@@ -6,6 +6,7 @@ import type {
   JobType,
   RequiredResource,
   ResourceType,
+  TerrainType,
 } from './types';
 
 export const MAP_WIDTH = 60;
@@ -129,6 +130,38 @@ export const STONE_PER_ROCK = 20;
  * arranged around (11章).
  */
 export const CRYSTAL_PER_VEIN = 6;
+/**
+ * An iron vein: less than a rock face gives stone, slightly more than a crystal
+ * vein gives crystal. Iron is the ore you meet on the way in, not the prize at
+ * the back of the seam (design-phase10-ores.md 7.1).
+ */
+export const IRON_PER_VEIN = 8;
+
+export interface VeinYield {
+  resource: ResourceType;
+  quantity: number;
+}
+
+/**
+ * What cutting a rock face yields, per terrain (design-phase10-ores.md 2.1).
+ *
+ * The mine job (jobs/execute.ts) and the extractor (mana.ts) used to carry the
+ * same two-way if - crystal or stone - once each. A third ore would have made
+ * that four branches in two files, so the branch became this table: adding an
+ * ore is now one row here, one check in worldgen and one member on TerrainType.
+ * Plain rock is deliberately the fallback rather than a row, so a terrain the
+ * table has never heard of still yields stone instead of nothing.
+ */
+export const VEIN_YIELD: Partial<Record<TerrainType, VeinYield>> = {
+  crystal: { resource: 'manaCrystal', quantity: CRYSTAL_PER_VEIN },
+  ironVein: { resource: 'iron', quantity: IRON_PER_VEIN },
+};
+
+/** The single place that answers "what falls out of this rock face". */
+export function veinYieldOf(terrain: TerrainType): VeinYield {
+  return VEIN_YIELD[terrain] ?? { resource: 'stone', quantity: STONE_PER_ROCK };
+}
+
 export const FOOD_PER_HARVEST = 16;
 /**
  * Wild berries. A bush ripens on its own with no sowing and yields less than a
@@ -152,7 +185,7 @@ export const FOREST_REGROW_INTERVAL_TICKS = TICKS_PER_DAY;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
-export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal'];
+export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal', 'iron'];
 
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {

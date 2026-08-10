@@ -226,5 +226,5 @@ export function removeItem(state: GameState, itemId: ItemId): void {
  * the tool but not to the validity check.
  */
 export function isRock(terrain: TerrainType): boolean {
-  return terrain === 'stone' || terrain === 'crystal';
+  return terrain === 'stone' || terrain === 'crystal' || terrain === 'ironVein';
 }

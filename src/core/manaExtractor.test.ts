@@ -6,7 +6,7 @@
 // never has to be told. What it costs is a furnace's whole output, and the
 // crystal to keep that furnace lit.
 import { describe, expect, it } from 'vitest';
-import { CRYSTAL_PER_VEIN, STONE_PER_ROCK } from './constants';
+import { CRYSTAL_PER_VEIN, IRON_PER_VEIN, STONE_PER_ROCK } from './constants';
 import {
   BURN_TICKS_PER_CRYSTAL,
   EXTRACTOR_RADIUS,
@@ -48,7 +48,7 @@ function rock(state: GameState, x: number, y: number): void {
 }
 
 /** A furnace with fuel, an extractor beside it, and rock beside that. */
-function rig(seed: number, options: { crystal?: boolean; rocks?: number } = {}) {
+function rig(seed: number, options: { crystal?: boolean; iron?: boolean; rocks?: number } = {}) {
   const harness = createHarness(seed);
   idleColony(harness.state);
   const x = 12;
@@ -74,6 +74,10 @@ function rig(seed: number, options: { crystal?: boolean; rocks?: number } = {}) 
   if (options.crystal) {
     const id = tileIdOf(x + 1, y);
     harness.state.tiles[id] = { ...harness.state.tiles[id], terrain: 'crystal', walkable: false };
+  }
+  if (options.iron) {
+    const id = tileIdOf(x + 1, y);
+    harness.state.tiles[id] = { ...harness.state.tiles[id], terrain: 'ironVein', walkable: false };
   }
   // the rig rewrote the terrain, which in the game always goes through
   // invalidateTile; say so, or the region labels describe the map as it was
@@ -148,6 +152,16 @@ describe('cutting rock without a colonist', () => {
     const { harness } = rig(4011, { crystal: true });
     const lines = recordLog(harness, EXTRACTOR_TICKS_PER_ROCK + 5);
     expect(stockOf(harness.state, 'manaCrystal')).toBe(CRYSTAL_PER_VEIN);
+    expect(lines).toContain('extractorCutVein');
+  });
+
+  it('brings up iron when it hits that vein instead: one table, both ores', () => {
+    // the machine reads the same VEIN_YIELD row the mine job does, so a third
+    // ore would reach this test by adding a row rather than a branch
+    const { harness } = rig(4029, { iron: true });
+    const lines = recordLog(harness, EXTRACTOR_TICKS_PER_ROCK + 5);
+    expect(stockOf(harness.state, 'iron')).toBe(IRON_PER_VEIN);
+    expect(stockOf(harness.state, 'manaCrystal')).toBe(0);
     expect(lines).toContain('extractorCutVein');
   });
 

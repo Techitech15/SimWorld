@@ -10,7 +10,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -285,6 +285,39 @@ export const migrations: Record<number, Migration> = {
       return { ...rest, key: 'legacy', params: { text: message ?? '' } };
     });
     return { ...state, log };
+  },
+
+  /**
+   * 16 -> 17: iron veins (design-phase10-ores.md 段階A). The same two gaps the
+   * mana crystal migration closed one ore ago, closed the same way.
+   *
+   * Old rock faces contain no iron, so veins are seeded into existing stone
+   * deterministically from the world seed - same world, same veins, however
+   * many times it is loaded. Fresh worldgen turns about a fifth of its rock
+   * into iron (median 114 veins of ~550 rock tiles, 200 seeds); the rate here
+   * is slightly under that because a migrated map has already been quarried,
+   * exactly as the crystal rate was set below its worldgen fraction.
+   *
+   * And storage zones that predate the resource would silently never take it,
+   * so `iron` joins every existing storage zone's accepts: the player chose to
+   * exclude nothing, so nothing should arrive excluded.
+   */
+  16: (old) => {
+    const state = old as Partial<GameState>;
+    const tiles = { ...(state.tiles ?? {}) };
+    const rnd = mulberry32(Math.abs(Math.floor(state.worldSeed ?? 0)) + 7211);
+    for (const id in tiles) {
+      const tile = tiles[id];
+      if (tile.terrain !== 'stone') continue;
+      if (rnd() < 0.18) tiles[id] = { ...tile, terrain: 'ironVein' };
+    }
+    const zones = { ...(state.zones ?? {}) };
+    for (const id in zones) {
+      const zone = zones[id];
+      if (zone.type !== 'storage' || zone.accepts?.includes('iron')) continue;
+      zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'iron'] };
+    }
+    return { ...state, tiles, zones };
   },
 };
 

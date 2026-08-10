@@ -453,4 +453,52 @@ describe('IndexedDB slot', () => {
     );
   });
 
+  it('gives an old save iron to find, the same way it was given mana', () => {
+    // A colony saved before phase 10 has rock with no iron in it and storage
+    // zones that never heard of the resource - the same two gaps, one ore on.
+    const harness = createHarness(107);
+    const v16 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v16.tiles) {
+      if (v16.tiles[id].terrain === 'ironVein') {
+        v16.tiles[id] = { ...v16.tiles[id], terrain: 'stone' };
+      }
+    }
+    for (const id in v16.zones) {
+      v16.zones[id] = {
+        ...v16.zones[id],
+        accepts: v16.zones[id].accepts.filter((type) => type !== 'iron'),
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 16,
+      savedAtTick: v16.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: v16,
+    }).state;
+
+    const veins = Object.values(migrated.tiles).filter((t) => t.terrain === 'ironVein');
+    expect(veins.length).toBeGreaterThan(0);
+    for (const vein of veins) expect(vein.walkable).toBe(false);
+    // and crystal was left exactly where it was: iron is seeded into stone only
+    expect(Object.values(migrated.tiles).filter((t) => t.terrain === 'crystal').length).toBe(
+      Object.values(v16.tiles).filter((t) => t.terrain === 'crystal').length,
+    );
+    for (const id in migrated.zones) {
+      if (migrated.zones[id].type !== 'storage') continue;
+      expect(migrated.zones[id].accepts).toContain('iron');
+    }
+
+    // and the same world migrates to the same veins, not a fresh roll each load
+    const again = migrateSave({
+      schemaVersion: 16,
+      savedAtTick: v16.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: JSON.parse(JSON.stringify(v16)) as GameState,
+    }).state;
+    expect(Object.values(again.tiles).filter((t) => t.terrain === 'ironVein').length).toBe(
+      veins.length,
+    );
+  });
+
 });
