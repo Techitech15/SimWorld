@@ -1,33 +1,22 @@
-import { BUILDING_COSTS } from '../core/constants';
-import type { BuildingType } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import type { Tool } from '../store/gameStore';
+import {
+  BUILD_CATEGORIES,
+  BUILD_MENU,
+  buildMenuHint,
+  buildMenuLabel,
+  useBuildCategoryStore,
+} from './buildMenu';
+import type { BuildMenuTool } from './buildMenu';
 import { icons } from './icons';
 import { useStrings } from './language';
-import type { Strings } from './strings';
 
-// the one list of what the build menu offers; the names come from the dictionary
-const BUILD_MENU: BuildingType[] = [
-  'wall',
-  'stoneWall',
-  'floor',
-  'stoneFloor',
-  'door',
-  'bed',
-  'hearth',
-  'farmPlot',
-  'manaFurnace',
-  'manaConduit',
-  'manaLamp',
-  'manaExtractor',
-  'manaTurret',
-];
-
-function costLabel(strings: Strings, type: BuildingType): string {
-  const costs = BUILDING_COSTS[type];
-  if (costs.length === 0) return strings.costFree;
-  return strings.costList(costs);
-}
+// zone tools keep the icons of the jobs they create; buildings share one
+const MENU_ICONS: Record<BuildMenuTool['kind'], string> = {
+  build: icons.build,
+  storage: icons.haul,
+  pasture: icons.handle,
+};
 
 function sameTool(a: Tool, b: Tool): boolean {
   if (a.kind !== b.kind) return false;
@@ -40,6 +29,8 @@ function sameTool(a: Tool, b: Tool): boolean {
 export function Toolbar(): React.JSX.Element {
   const tool = useGameStore((s) => s.tool);
   const setTool = useGameStore((s) => s.setTool);
+  const category = useBuildCategoryStore((s) => s.category);
+  const setCategory = useBuildCategoryStore((s) => s.setCategory);
   const strings = useStrings();
 
   const button = (candidate: Tool, label: string, iconUrl?: string, title?: string) => (
@@ -73,16 +64,26 @@ export function Toolbar(): React.JSX.Element {
 
       <div className="toolbar__group">
         <h3>{strings.buildGroup}</h3>
-        {BUILD_MENU.map((type) =>
+        <div className="toolbar__categories">
+          {BUILD_CATEGORIES.map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              className={candidate === category ? 'toolbar__category active' : 'toolbar__category'}
+              onClick={() => setCategory(candidate)}
+            >
+              {strings.buildCategoryLabels[candidate]}
+            </button>
+          ))}
+        </div>
+        {BUILD_MENU.filter((entry) => entry.category === category).map((entry) =>
           button(
-            { kind: 'build', building: type },
-            strings.buildingLabels[type],
-            icons.build,
-            strings.buildButtonTitle(strings.buildingLabels[type], costLabel(strings, type)),
+            entry.tool,
+            buildMenuLabel(strings, entry),
+            MENU_ICONS[entry.tool.kind],
+            buildMenuHint(strings, entry),
           ),
         )}
-        {button({ kind: 'storage' }, strings.toolStorage, icons.haul, strings.toolStorageHint)}
-        {button({ kind: 'pasture' }, strings.toolPasture, icons.handle, strings.toolPastureHint)}
         {button({ kind: 'cancel' }, strings.toolCancel, undefined, strings.toolCancelHint)}
       </div>
 

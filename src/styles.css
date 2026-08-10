@@ -211,6 +211,23 @@ button.active {
   text-align: left;
 }
 
+/* the build category switcher: one row of chips, only the open one's buttons below */
+.toolbar__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.toolbar__category {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 3px 5px;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .toolbar__hint {
   font-size: 12px;
   line-height: 1.4;
