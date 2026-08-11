@@ -59,24 +59,28 @@ interface CloudDef {
 }
 
 /**
- * Thirteen clouds, each with its own speed/size/phase, spread out so they do
+ * Eighteen clouds, each with its own speed/size/phase, spread out so they do
  * not clump on one side of the map at t = 0. `x0`/`y0` are just a starting
  * point for the drift below, not a position tied to any particular map size.
  *
  * This was five, and five turned out to be too few to be seen. Measuring the
  * shipped 120x120 map over 20 minutes of drift against a viewport-sized window
- * at many places found a shadow on screen only **16.0%** of the time - five
- * times out of six the player is looking at ground with nothing crossing it,
+ * at many places found a shadow on screen only **17.2%** of the time - four
+ * times out of five the player is looking at ground with nothing crossing it,
  * which is exactly how it was reported ("雲の影が見えない"). The original five
  * were chosen when 60x60 was the default; the map got four times the area in
- * フェーズ6 and the table never followed. Thirteen puts it at **40.5%**
- * measured the same way. The first five entries are unchanged, so the clouds
- * that were there before still drift exactly as they did.
+ * フェーズ6 and the table never followed. Thirteen took it to 38.9% and
+ * eighteen to **59.1%**, all three measured the same way at the current
+ * WRAP_MARGIN_TILES.
  *
- * The count is what changed, deliberately - not the size, speed or alpha. A
- * cloud shadow that is bigger or darker to compensate for being rare reads as
- * weather; the thing being fixed here is only that there were not enough of
- * them. Cost stays independent of map size (one sprite each).
+ * The first five entries are unchanged, so the clouds that were there before
+ * still drift exactly as they did.
+ *
+ * Radius now spans 5 to 16 tiles rather than 5 to 10. The old spread was
+ * narrow enough that every shadow read as the same object at slightly
+ * different sizes; a sky needs a few big slow ones to have any sense of scale.
+ * Cost stays independent of map size (one sprite each) - a bigger radius is a
+ * bigger scale on the same texture, not more work.
  */
 const CLOUDS: CloudDef[] = [
   { x0: 5, y0: 8, speed: 0.0012, radius: 7, alphaScale: 1.0 },
@@ -92,6 +96,15 @@ const CLOUDS: CloudDef[] = [
   { x0: 48, y0: 92, speed: 0.0013, radius: 6, alphaScale: 0.6 },
   { x0: 75, y0: 105, speed: 0.0012, radius: 7, alphaScale: 0.95 },
   { x0: 28, y0: 112, speed: 0.001, radius: 10, alphaScale: 0.7 },
+  // The big, slow ones. Size and speed move together on purpose: a 30-tile
+  // shadow crossing as briskly as a 10-tile one reads as the camera moving,
+  // not as weather. These are what give the sky a sense of scale - before
+  // them every shadow was within a few tiles of the same size.
+  { x0: 60, y0: 15, speed: 0.0007, radius: 16, alphaScale: 0.8 },
+  { x0: 10, y0: 60, speed: 0.0008, radius: 14, alphaScale: 0.7 },
+  { x0: 95, y0: 8, speed: 0.0009, radius: 13, alphaScale: 0.85 },
+  { x0: 40, y0: 75, speed: 0.0007, radius: 15, alphaScale: 0.75 },
+  { x0: 115, y0: 30, speed: 0.001, radius: 12, alphaScale: 0.6 },
 ];
 
 /**
@@ -100,7 +113,7 @@ const CLOUDS: CloudDef[] = [
  * fadeFactor) before the wrap happens, so the modulo's discontinuity always
  * lands where the cloud is already invisible.
  */
-export const WRAP_MARGIN_TILES = 14;
+export const WRAP_MARGIN_TILES = 18;
 
 /** Wrap `value` into [-WRAP_MARGIN_TILES, span + WRAP_MARGIN_TILES). */
 function wrap(value: number, span: number): number {

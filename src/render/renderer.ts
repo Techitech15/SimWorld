@@ -852,9 +852,16 @@ export class GameRenderer {
       size / 2,
       size / 2,
     );
-    gradient.addColorStop(0, 'rgba(20, 26, 45, 1)');
-    gradient.addColorStop(0.6, 'rgba(20, 26, 45, 0.5)');
-    gradient.addColorStop(1, 'rgba(20, 26, 45, 0)');
+    // Slate blue rather than the near-black navy this started as. At the alpha
+    // a shadow actually gets, (20, 26, 45) was so close to black that it only
+    // subtracted brightness - the ground went grey-green and read as dirty
+    // rather than shaded. Real shadow on a lit day is not an absence of light,
+    // it is the sky's own colour reaching the ground where the sun does not, so
+    // lifting the blue channel well clear of the other two is what makes it
+    // look like weather instead of a smudge.
+    gradient.addColorStop(0, 'rgba(46, 74, 132, 1)');
+    gradient.addColorStop(0.6, 'rgba(46, 74, 132, 0.5)');
+    gradient.addColorStop(1, 'rgba(46, 74, 132, 0)');
     context.fillStyle = gradient;
     context.fillRect(0, 0, size, size);
     this.cloudTexture = Texture.from(canvas);
