@@ -88,8 +88,12 @@ function defaultPriorities(): Record<JobType, number> {
   const table = {} as Record<JobType, number>;
   // research starts at the lowest priority too (design-phase12-research.md
   // 2.2): a colonist should never drift to the desk before the player has
-  // built one, picked a tech, and raised this column on purpose
-  for (const t of JOB_TYPES) table[t] = t === 'haul' || t === 'research' || t === 'craft' ? 3 : 2;
+  // built one, picked a tech, and raised this column on purpose. `treat` joins
+  // them for the same reason (design-phase14-water-medicine.md 5.3): nobody
+  // becomes the colony's doctor until the player says so.
+  for (const t of JOB_TYPES) {
+    table[t] = t === 'haul' || t === 'research' || t === 'craft' || t === 'treat' ? 3 : 2;
+  }
   return table;
 }
 

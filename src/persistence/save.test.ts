@@ -566,6 +566,44 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 26 save into the treat column and illnessTicks (フェーズ14 段階 M-1)', () => {
+    // A real v26 save predates illness entirely: no `treat` on any colonist's
+    // workPriorities or skills, and no `illnessTicks` field at all.
+    const harness = createHarness(139);
+    harness.run(50);
+    const v26 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v26.colonists) {
+      const { treat: _wp, ...workPriorities } = v26.colonists[id].workPriorities as Record<
+        string,
+        number
+      >;
+      const { treat: _sk, ...skills } = v26.colonists[id].skills as Record<string, number>;
+      const { illnessTicks: _it, ...colonistRest } = v26.colonists[id];
+      v26.colonists[id] = {
+        ...colonistRest,
+        workPriorities: workPriorities as GameState['colonists'][string]['workPriorities'],
+        skills: skills as GameState['colonists'][string]['skills'],
+      } as GameState['colonists'][string];
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 26,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v26,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.colonists) {
+      expect(migrated.state.colonists[id].workPriorities.treat).toBe(3);
+      expect(migrated.state.colonists[id].skills.treat).toBe(0);
+      // nobody is sick in a save from before sickness existed
+      expect(migrated.state.colonists[id].illnessTicks).toBe(0);
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

@@ -75,7 +75,8 @@ export type ThoughtKey =
   | 'friendNearby'
   | 'knowsNobody'
   | 'grieving'
-  | 'winterDrags';
+  | 'winterDrags'
+  | 'sick';
 
 export interface Thought {
   /** what the colonist would say, rendered per language by the UI dictionary */
@@ -230,6 +231,14 @@ export function thoughtsOf(
       key: colonist.health < 50 ? 'badlyHurt' : 'inPain',
       amount: -Math.round((100 - colonist.health) * 0.25),
     });
+  }
+
+  // illness (フェーズ14 段階 M-1): its own thought, separate from the health
+  // ones above - a sick colonist whose health has not yet dropped far still
+  // knows something is wrong, and the thought is what tells the player before
+  // the health bar does.
+  if ((colonist.illnessTicks ?? 0) > 0) {
+    thoughts.push({ key: 'sick', amount: -15 });
   }
 
   const recreation = colonist.needs.recreation ?? 0;

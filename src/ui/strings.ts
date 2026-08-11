@@ -270,6 +270,9 @@ export interface Strings {
   rowName: string;
   rowWhere: string;
   rowHealth: string;
+  /** フェーズ14 段階 M-1: shown only while `illnessTicks > 0` */
+  rowIllness: string;
+  illnessSick: string;
   rowRest: string;
   rowTrait: string;
   rowPace: string;
@@ -449,6 +452,7 @@ const EN_SKILLS: Record<SkillName, string> = {
   handle: 'Animals',
   research: 'Research',
   craft: 'Crafting',
+  treat: 'Medicine',
 };
 
 const EN_TECHS: Record<TechName, string> = {
@@ -469,6 +473,7 @@ const EN_TITLES: Record<SkillName, string> = {
   craft: 'Cook',
   handle: 'Handler',
   research: 'Researcher',
+  treat: 'Healer',
 };
 
 const EN_SEASONS: Record<Season, string> = {
@@ -611,6 +616,7 @@ const en: Strings = {
     repair: 'repair',
     research: 'research',
     craft: 'craft',
+    treat: 'treat',
   },
   techLabels: EN_TECHS,
   titleLabels: EN_TITLES,
@@ -667,6 +673,7 @@ const en: Strings = {
     knowsNobody: () => 'Nobody here they are close to',
     grieving: (p) => `Grieving for ${p.name}`,
     winterDrags: () => 'Winter drags on',
+    sick: () => 'Feeling ill',
   },
 
   alerts: {
@@ -677,6 +684,8 @@ const en: Strings = {
     foodLow: (p) => `Food is running low (${p.food})`,
     colonistsHurt: (p) =>
       `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} badly hurt`,
+    colonistsIll: (p) =>
+      `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} ill — needs treating`,
     predatorNear: (p) => `Predator near the camp (${enSpeciesList(p.species)})`,
     nowhereToStore: (p) =>
       `Nowhere to store ${enResourceList(p.resources)} — the stacks are lying where they fell`,
@@ -785,6 +794,7 @@ const en: Strings = {
       `A herd of ${en.speciesCounted(p.species as AnimalSpecies, p.count as number)} moved through`,
     incidentLostSupplies: (p) =>
       `Someone abandoned ${p.quantity} ${EN_RESOURCES[p.resource as ResourceType]} on the road nearby`,
+    incidentIllness: (p) => `${p.name} has fallen ill`,
     incidentRaid: (p) => {
       const tribe = p.tribe ? en.tribeLabels[p.tribe as TribeName] : null;
       if (tribe) {
@@ -847,6 +857,7 @@ const en: Strings = {
     equipmentCrafted: (p) => `${en.equipmentLabels[p.kind as EquipmentKind]} finished at the workbench`,
     equipmentBroke: (p) =>
       `${en.equipmentLabels[p.kind as EquipmentKind]} broke — a replacement was ordered`,
+    colonistTreated: (p) => `${p.healer} treated ${p.name}`,
   },
   jobFailReasons: {
     interrupted: 'interrupted by a need',
@@ -1021,6 +1032,8 @@ const en: Strings = {
   rowName: 'Name',
   rowWhere: 'Where',
   rowHealth: 'Health',
+  rowIllness: 'Illness',
+  illnessSick: 'Sick — needs a healer',
   rowRest: 'Rest',
   rowTrait: 'Trait',
   rowPace: 'Pace',
@@ -1181,6 +1194,7 @@ const JA_SKILLS: Record<SkillName, string> = {
   handle: '世話',
   research: '研究',
   craft: '加工',
+  treat: '治療',
 };
 
 const JA_TECHS: Record<TechName, string> = {
@@ -1201,6 +1215,7 @@ const JA_TITLES: Record<SkillName, string> = {
   handle: '世話係',
   research: '研究者',
   craft: '料理人',
+  treat: '治療師',
 };
 
 const JA_SEASONS: Record<Season, string> = {
@@ -1336,6 +1351,7 @@ const ja: Strings = {
     repair: '修理',
     research: '研究',
     craft: '加工',
+    treat: '治療',
   },
   techLabels: JA_TECHS,
   titleLabels: JA_TITLES,
@@ -1392,6 +1408,7 @@ const ja: Strings = {
     knowsNobody: () => '親しい人がいない',
     grieving: (p) => `${p.name}を悼んでいる`,
     winterDrags: () => '冬が長い',
+    sick: () => '体調が悪い',
   },
 
   alerts: {
@@ -1400,6 +1417,7 @@ const ja: Strings = {
     noFood: () => '植民地のどこにも食料がない',
     foodLow: (p) => `食料が残り少ない（${p.food}）`,
     colonistsHurt: (p) => `${p.count}人の入植者が重傷を負っている`,
+    colonistsIll: (p) => `${p.count}人の入植者が病気だ — 治療が要る`,
     predatorNear: (p) => `野営地の近くに肉食獣（${jaSpeciesList(p.species)}）`,
     nowhereToStore: (p) =>
       `${jaResourceList(p.resources)}の置き場がない — 落ちた場所に積まれたまま`,
@@ -1497,6 +1515,7 @@ const ja: Strings = {
       `${ja.speciesCounted(p.species as AnimalSpecies, p.count as number)}の群れが通り過ぎていった`,
     incidentLostSupplies: (p) =>
       `誰かが${JA_RESOURCES[p.resource as ResourceType]}${p.quantity}を近くの道端に置き捨てていった`,
+    incidentIllness: (p) => `${p.name}が体調を崩した`,
     incidentRaid: (p) => {
       const tribe = p.tribe ? ja.tribeLabels[p.tribe as TribeName] : null;
       if (tribe) {
@@ -1553,6 +1572,7 @@ const ja: Strings = {
     equipmentCrafted: (p) => `作業台で${ja.equipmentLabels[p.kind as EquipmentKind]}ができた`,
     equipmentBroke: (p) =>
       `${ja.equipmentLabels[p.kind as EquipmentKind]}が壊れた — 作り直しを注文した`,
+    colonistTreated: (p) => `${p.healer}が${p.name}を治療した`,
   },
   jobFailReasons: {
     interrupted: '欲求による中断',
@@ -1725,6 +1745,8 @@ const ja: Strings = {
   rowName: '名前',
   rowWhere: '位置',
   rowHealth: '体力',
+  rowIllness: '病気',
+  illnessSick: '病気 — 治療が必要',
   rowRest: '休息',
   rowTrait: '特性',
   rowPace: '作業速度',

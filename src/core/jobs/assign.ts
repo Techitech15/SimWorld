@@ -62,6 +62,13 @@ export function jobWorkSite(
       if (!animal) return null;
       return { position: { ...animal.position }, adjacent: true };
     }
+    // A patient moves too - work or a need can walk them anywhere between the
+    // job being generated and a healer reaching them (フェーズ14 段階 M-1).
+    case 'treat': {
+      const patient = job.targetEntityId ? state.colonists[job.targetEntityId] : undefined;
+      if (!patient) return null;
+      return { position: { ...patient.position }, adjacent: true };
+    }
     default:
       return null;
   }
@@ -81,6 +88,7 @@ function reservationTargets(state: GameState, job: Job): string[] | null {
     case 'handle':
     case 'research':
     case 'craft':
+    case 'treat':
       return job.targetEntityId ? [job.targetEntityId] : null;
     case 'haul': {
       const item: Item | undefined = job.targetEntityId
@@ -149,6 +157,9 @@ export function candidatesFor(
   for (const jobId in state.jobs) {
     const job = state.jobs[jobId];
     if (job.state !== 'pending') continue;
+    // nobody treats themselves (design doc 5.3): the patient's own reflex
+    // never counts as a candidate, no matter how idle they are
+    if (job.type === 'treat' && job.targetEntityId === colonistId) continue;
     // (d) cooldown
     if (job.cooldownUntilTick !== null && state.tick < job.cooldownUntilTick) continue;
     // (c) the colonist is allowed to do this kind of work

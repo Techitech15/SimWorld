@@ -17,6 +17,9 @@ function jobKey(job: Job): string {
   switch (job.type) {
     case 'hunt':
     case 'handle':
+    case 'treat':
+      // keyed on the patient/animal, not the tile: both wander while the job
+      // is pending, and the tile at generation time is not where they end up
       return `${job.type}:${job.targetEntityId}`;
     case 'haul':
       // a delivery is identified by "this blueprint still needs this resource",
@@ -361,6 +364,27 @@ export function runJobGenerator(state: GameState): void {
     claim(key);
   }
 
+  // --- illness: someone needs a healer ---------------------------------------
+  // The same single-shot shape every other job in this function takes: pending
+  // unless one already exists for this patient, generated only while herb is
+  // actually reachable (フェーズ14 段階 M-1, design-phase14-water-medicine.md
+  // 5.3). Checking for herb here rather than at execution time is what makes
+  // "薬草が無ければ治療は成立しない" true - a job never starts a walk it
+  // cannot finish, the same reason a haul is not created without a source.
+  for (const colonistId in state.colonists) {
+    const patient = state.colonists[colonistId];
+    if ((patient.illnessTicks ?? 0) <= 0) continue;
+    const key = `treat:${colonistId}`;
+    if (has(key)) continue;
+    const herb = findNearestItem(state, 'herb', patient.position, { preferStorage: true });
+    if (!herb) continue;
+    createJob(state, 'treat', {
+      targetTileId: tileIdOf(patient.position.x, patient.position.y),
+      targetEntityId: colonistId,
+    });
+    claim(key);
+  }
+
   // --- a standing trade deal -> haul the goods to the post -------------------
   // The same haul job again, pointed at the post. Making a deal is hauling
   // work, so it competes with everything else on that column: a colony that
@@ -503,6 +527,13 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
       }
       const line = bench.requiredResources.find((r) => r.type === 'food');
       return !!line && line.quantity <= 0;
+    }
+    case 'treat': {
+      // valid while the patient is still sick and there is still herb
+      // somewhere reachable to spend on them (5.3, above)
+      const patient = job.targetEntityId ? state.colonists[job.targetEntityId] : undefined;
+      if (!patient || (patient.illnessTicks ?? 0) <= 0) return false;
+      return !!findNearestItem(state, 'herb', patient.position, { preferStorage: true });
     }
     case 'hunt':
     case 'handle': {

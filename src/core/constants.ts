@@ -162,6 +162,9 @@ export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   // matter; grouped with haul so it never jumps the queue by accident
   research: 3,
   craft: 3, // same reasoning as research: cooking is deliberate work
+  // same reasoning again (フェーズ14 段階 M-1, design-phase14-water-medicine.md
+  // 5.3): nobody drifts into nursing until the player raises the column
+  treat: 3,
 };
 
 /** Work ticks required once the colonist stands in place. */
@@ -177,6 +180,7 @@ export const WORK_TICKS: Record<JobType, number> = {
   repair: 30,
   research: 50, // heavier than farm(25), lighter than mine(60)
   craft: 50, // one batch of meals is a research cycle's worth of standing work
+  treat: 40, // between chop and mine: a visit, not a sitting
 };
 
 /**
@@ -779,6 +783,36 @@ export const WILD_PLANTS: Record<WildPlantType, WildPlantProfile> = {
 export function wildPlantOf(type: BuildingType): WildPlantProfile | undefined {
   return (WILD_PLANTS as Partial<Record<BuildingType, WildPlantProfile>>)[type];
 }
+
+/**
+ * Illness (11章 フェーズ14 段階 M-1, docs/design-phase14-water-medicine.md 5章
+ * と7章). `illnessTicks` never counts itself down - only a `treat` job does -
+ * so the number it is set to on onset is not a duration in the usual sense; it
+ * is simply "not cured yet". One completed `treat` job clears it outright,
+ * which is what makes `HERB_PER_HARVEST`'s existing comment ("a single plant
+ * is three treatments") exactly true: one `herb` buys one full cure.
+ *
+ * `ILLNESS_HEALTH_DECAY_PER_TICK` is measured, not derived on paper -
+ * `healColonists` (animals.ts) regenerates health at
+ * `COLONIST_HEALTH_REGEN_PER_TICK` whenever a colonist sleeps, which fights
+ * this decay every night, so the net rate depends on how much of the day is
+ * spent asleep.
+ *
+ * 100/8000 was the first value tried and it was too steep: measured over 3
+ * seeds with the treat column switched off, it killed the patient outright on
+ * day 3.7-4.6, so the "about five days to a danger zone" 7章 asks for was
+ * never a danger zone at all - the colonist was dead before the player had
+ * any window to react, and the alert existed only to announce a death. At
+ * 100/11000 the same measurement reaches the danger zone (health 20) on day
+ * 4.5-5.9 and kills on day 5.5-5.6 in two of three seeds, with the third
+ * bottoming out at 20 and recovering: neglect still ends in a grave, but it
+ * ends there *after* the warning rather than instead of it. Treated at the
+ * default priority the patient never drops below 64. See design-notes.md.
+ */
+export const ILLNESS_ONSET_TICKS = TICKS_PER_DAY * 5;
+export const ILLNESS_HEALTH_DECAY_PER_TICK = 100 / 11000;
+/** What one `treat` job spends; `HERB_PER_HARVEST` is sized around this being 1. */
+export const TREAT_HERB_COST = 1;
 
 /**
  * Rockeater: ticks to work through one tile of stone, and how far it will look

@@ -267,6 +267,23 @@ export interface Colonist {
    * existed, which reads as "no recent meal".
    */
   mealUntilTick?: number;
+  /**
+   * [ext] 0 = healthy, >0 = sick (フェーズ14 段階 M-1,
+   * docs/design-phase14-water-medicine.md 5.1). This is the whole of the
+   * illness layer's state: no severity, no body part, no name for what it is -
+   * the discipline `health` already keeps (docs/design-phase2.5-animals.md 1)
+   * extends to illness rather than being carved into an exception for it. Not
+   * derivable (it records that an incident happened), so it is saved. It never
+   * counts down on its own - only a `treat` job reduces it - which is what
+   * makes an untreated illness something the player has to act on rather than
+   * something that quietly passes.
+   *
+   * Optional like `mealUntilTick` above, and for the same reason: worldgen's
+   * colonist constructor is off limits for this stage, so a fresh colonist is
+   * simply never given the field, which reads as "not sick" without it -
+   * exactly the value every colonist implicitly has before anyone falls ill.
+   */
+  illnessTicks?: number;
 }
 
 /** [ext] See src/core/traits.ts for what each one bends. */
@@ -494,7 +511,16 @@ export type JobType =
    * [ext] Working the workbench (design-next 提案3). Its own column and skill,
    * the same defaults as research: nobody cooks until the player raises it.
    */
-  | 'craft';
+  | 'craft'
+  /**
+   * [ext] Treating a sick colonist (フェーズ14 段階 M-1,
+   * docs/design-phase14-water-medicine.md 5.3). Adding this one member is the
+   * entire mechanism: `SkillName = Exclude<JobType, 'deconstruct' | 'repair'>`
+   * below means a `treat` skill exists the moment this does, with no code of
+   * its own. Its own column, default priority the same as research/craft
+   * (lowest) - nobody drifts into nursing until the player raises it.
+   */
+  | 'treat';
 
 /**
  * The columns of the work-priority table. `deconstruct` and `repair` are
@@ -511,6 +537,7 @@ export const JOB_TYPES: JobType[] = [
   'handle',
   'research',
   'craft',
+  'treat',
 ];
 
 /**
@@ -803,6 +830,7 @@ export type LogKey =
   | 'incidentWolfPack' // { count }
   | 'incidentHerd' // { count, species }
   | 'incidentLostSupplies' // { quantity, resource }
+  | 'incidentIllness' // { name } (フェーズ14 段階 M-1)
   | 'incidentRaid' // { count, tribe } - tribe is always 'parched' (11章 段階C, raiders are the Parched's raid)
   | 'raiderCutDownBy' // { raider, colonist }
   | 'raiderCutDownByTurret' // { raider }
@@ -841,7 +869,8 @@ export type LogKey =
   | 'researchUnlocked' // { tech }
   | 'mealsCooked' // { count } (design-next 提案3)
   | 'equipmentCrafted' // { kind } (フェーズ8)
-  | 'equipmentBroke'; // { kind } (フェーズ8 E-4: a broken tool is never silent)
+  | 'equipmentBroke' // { kind } (フェーズ8 E-4: a broken tool is never silent)
+  | 'colonistTreated'; // { name, healer } (フェーズ14 段階 M-1)
 
 /**
  * [ext] Why a job was given up on; rendered per language like everything else.

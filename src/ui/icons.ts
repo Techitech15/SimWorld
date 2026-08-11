@@ -13,6 +13,10 @@ export const icons = {
   handle: sprites.jobHandle,
   research: sprites.jobResearch,
   craft: sprites.jobCraft,
+  // no dedicated sprite (フェーズ14 段階 M-1: illness needs no art of its
+  // own, docs/design-phase14-water-medicine.md) - the health icon already
+  // says what this column is about
+  treat: sprites.needHealth,
   hunger: sprites.needHunger,
   sleep: sprites.needSleep,
   health: sprites.needHealth,

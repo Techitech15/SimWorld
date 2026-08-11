@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -460,6 +460,31 @@ export const migrations: Record<number, Migration> = {
       zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'herb'] };
     }
     return { ...state, zones };
+  },
+
+  /**
+   * 26 -> 27: illness and the `treat` skill (フェーズ14 段階 M-1,
+   * docs/design-phase14-water-medicine.md 6章). Same shape as 19 -> 20
+   * (research) and 22 -> 23 (craft): a new `JobType` grows a new column and a
+   * new skill, and both need a default the same way those two did -
+   * `workPriorities.treat = 3` (lowest, so nobody drifts into nursing) and
+   * `skills.treat = 0` (an old colonist has never practised it, same as a new
+   * one). `illnessTicks` gets the plain "0 = healthy" every field's absence
+   * already means: nobody is sick in a save from before sickness existed.
+   */
+  26: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        workPriorities: { ...colonist.workPriorities, treat: colonist.workPriorities?.treat ?? 3 },
+        skills: { ...colonist.skills, treat: colonist.skills?.treat ?? 0 },
+        illnessTicks: colonist.illnessTicks ?? 0,
+      };
+    }
+    return { ...state, colonists };
   },
 };
 

@@ -19,6 +19,7 @@ import {
   TAME_FAIL_FLEE_TICKS,
   TECH_PROGRESS_PER_CYCLE,
   TECHS,
+  TREAT_HERB_COST,
   veinYieldOf,
   wildPlantOf,
   WOOD_PER_TREE,
@@ -53,6 +54,7 @@ import {
 } from '../state';
 import { addItem } from '../worldgen';
 import { depositCarried } from '../death';
+import { findNearestItem } from '../storage';
 import type { GameState, JobType, JobFailReason } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
@@ -92,6 +94,11 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
 
   if (job.type === 'hunt' || job.type === 'handle') {
     executeAnimalJob(state, ctx, jobId, colonistId);
+    return;
+  }
+
+  if (job.type === 'treat') {
+    executeTreatJob(state, ctx, jobId, colonistId);
     return;
   }
 
@@ -422,6 +429,55 @@ function executeAnimalJob(
       },
     });
     addLog(state, 'animalTameFailed', { name: animal.name, species: animal.species });
+  }
+  completeJob(state, jobId, colonistId);
+}
+
+/**
+ * Treating a sick colonist (フェーズ14 段階 M-1,
+ * docs/design-phase14-water-medicine.md 5.3). The same `chase` a hunter uses
+ * on a moving animal, because a patient is exactly that kind of target -
+ * still walking their own life, working their own jobs, right up until the
+ * healer catches them.
+ *
+ * The herb is looked up again here rather than carried from the generator's
+ * check: between a job being generated and a colonist actually finishing the
+ * work, someone else may have hauled the last of it away, or a haul may have
+ * moved it further off. `isJobStillValid` (checked every tick in `executeJob`
+ * above) already cancels the job the moment none is reachable at all, so by
+ * the time this runs there is always at least one stack to spend - this just
+ * picks the nearest one now rather than trusting a stale id.
+ */
+function executeTreatJob(state: GameState, ctx: SimContext, jobId: string, colonistId: string): void {
+  const job = state.jobs[jobId];
+  const patient = job.targetEntityId ? state.colonists[job.targetEntityId] : undefined;
+  if (!patient) {
+    cancelJob(state, ctx, jobId, colonistId, 'patient gone');
+    return;
+  }
+
+  const move = chase(state, ctx, colonistId, patient.position, 1);
+  if (move === 'blocked') {
+    failJob(state, ctx, jobId, colonistId, 'unreachable');
+    return;
+  }
+  if (move !== 'arrived') return;
+
+  const progress = job.workProgress + putInWork(state, ctx, colonistId, job.workType);
+  if (progress < WORK_TICKS.treat) {
+    updateJob(state, jobId, { workProgress: progress });
+    return;
+  }
+
+  const herb = findNearestItem(state, 'herb', patient.position, { preferStorage: true });
+  if (herb) {
+    if (herb.quantity <= TREAT_HERB_COST) removeItem(state, herb.id);
+    else updateItem(state, herb.id, { quantity: herb.quantity - TREAT_HERB_COST });
+    // one completed visit is a full cure (constants.ts's ILLNESS_ONSET_TICKS
+    // comment): HERB_PER_HARVEST's own note - "a treatment costs one herb, so
+    // a single plant is three treatments" - only holds if a treatment is a cure
+    updateColonist(state, patient.id, { illnessTicks: 0 });
+    addLog(state, 'colonistTreated', { name: patient.name, healer: state.colonists[colonistId].name });
   }
   completeJob(state, jobId, colonistId);
 }

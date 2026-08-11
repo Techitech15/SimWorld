@@ -645,18 +645,18 @@ CLAUDE.md の言語方針は「UI 文言は辞書キー経由（辞書に en / j
 `#8`・`#9` はどちらも「主張する前に測る」（CLAUDE.md）の実例で、報告された症状に対する当初の仮説が
 部分的にしか当たっておらず、より重い原因が別に見つかった。測定条件と実測値は design-notes.md。
 
-### フェーズ14: 水と薬草と医療 — 実装中
+### フェーズ14: 水と薬草と医療 — 済
 
 当初のロードマップに無い追加。設計案は [design-phase14-water-medicine.md](design-phase14-water-medicine.md)。
-実プレイからの要望（#16）が発端で、**design-next.md 6章の「医療・部位・病気は非目標」を撤回する**
-（撤回するのは「病気という層を持たない」ことだけで、損傷を `health` 1つに固定する規律は維持する）。
+実プレイからの要望（#16）が発端で、**design-next.md 6章の「医療・部位・病気は非目標」を撤回した**
+（撤回したのは「病気という層を持たない」ことだけで、損傷を `health` 1つに固定する規律は維持する）。
 
 | 項目 | 状態 | 内容 |
 | --- | --- | --- |
 | 水地形（浅瀬・深水） | 済（段階 W-1） | `TerrainType` に2種。**深さは `Tile` の新フィールドにしない**――通行可否は `makeTile` の既存経路（`walkable: !isRock(terrain) && terrain !== 'deepWater'`）にそのまま乗り、`walkable` を書き換える既存6箇所が「深さも見る」必要を持たない。浅瀬は歩けるが建てられない、深水はどちらも不可。**`isRock` には入れず `isWater` を別に立てた**――`isRock` は「通行不可」「採掘対象」「建築不可」を兼ねており、入れると `veinYieldOf` の既定で水を掘ると石が出る。建築のガードは `actions.ts` の1箇所だけなのでそこに足す。`pathfinding.ts` は1行も触っていない（`isWalkable` は `Tile.walkable` を読むだけで `terrain` を見ない）。生成は5本目のノイズ＋`BiomeProfile.waterThreshold`（4バイオームの行が埋まるまで型が止める）で、**水を岩・森より先に決める**（湖の中に岩壁が立たない）。深水はノイズの芯だけ、縁が浅瀬なので**湖の岸は必ず歩ける**。`schemaVersion` 24→25、移行は**何もしない**――水のレトロフィットは入植者が立っている・建物が建っているタイルを後から通行不可にする形で、移行は `createSimContext` の前に走るので region を張り直せない。実測値は design-notes.md「水（フェーズ14 段階 W-1）」 |
-| 川と連結性の保証 | 未（段階 W-2） | 川の本体は浅瀬にして「渡れる」を既定にする。加えて生成の最後に拠点 region の下限を保証する。**測ったところ断片化は水由来ではなかった**（下記） |
-| 薬草 | 未（段階 H-1） | 水辺の草地に生える3つ目の野生植物。産出は新 `ResourceType 'herb'`（`food` の variant にすると腹を空かせた入植者が薬を食べる） |
-| 病気・治療・`treat` スキル | 未（段階 M-1） | `Colonist.illnessTicks` 1つ。`JobType` に `treat` を足すと `SkillName = Exclude<JobType, ...>` によりスキルが自動的に生える |
+| 川と連結性の保証 | 済（段階 W-2） | 川の本体は浅瀬にして「渡れる」を既定にする。加えて生成の最後に拠点 region の下限（90%）を保証する（`enforceConnectivity`、`enforceCrystalFloor` と同じ「生成してから足す」形）。**測ったところ断片化は水由来ではなかった**――岩尾根が元から持っていた性質で、保証は水だけでなくこの既存の断片化にも効いた。`schemaVersion` 25→26は無し（W-2自体は地形生成のみでセーブ形式を増やさない）。実測値は design-notes.md「川と連結性（フェーズ14 段階 W-2）」 |
+| 薬草 | 済（段階 H-1） | 水辺の草地に生える3つ目の野生植物。産出は新 `ResourceType 'herb'`（`food` の variant にすると腹を空かせた入植者が薬を食べる）。3種目を `WILD_PLANTS` 表に抽出（フェーズ10の `VEIN_YIELD` と同じ形）。`schemaVersion` 25→26、移行は既存の備蓄ゾーンの `accepts` に `herb` を足す1段。実測値は design-notes.md「薬草（フェーズ14 段階 H-1）」 |
+| 病気・治療・`treat` スキル | 済（段階 M-1） | `Colonist.illnessTicks`（任意フィールド、`mealUntilTick` と同形。`worldgen.ts` を触らずに新しい入植者の既定値「無し＝健康」を成立させるための選択）。`JobType` に `treat` を足すと `SkillName = Exclude<JobType, ...>` によりスキルが自動的に生える。発症は既存のインシデント枠（`events.ts`）に1本、頻度は季節重みと `illnessWeightMultiplier`（気分・空腹・頭数）で調整。治療は既存のジョブ機構1本（`treat`）――患者へ移動して`herb`を1個消費し、1回の治療で全快する。体力は既存の負傷・餓死と同じ経路（`health` 減算 → 0で `killColonist`、死因は既存の汎用キー `colonistKilled`）に乗せ、新しい死に方は増やしていない。アラート1件（`colonistsIll`）と思考1件（`sick`）を追加。`schemaVersion` 26→27、移行は `workPriorities.treat`/`skills.treat` の既定値補完と `illnessTicks` の0埋め。実測値は design-notes.md「病気と治療（フェーズ14 段階 M-1）」 |
 
 ### プレイテスト由来の追加3件（#12・#15・#19）
 
