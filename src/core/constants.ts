@@ -570,7 +570,9 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
-    initialCount: 6,
+    // Halved from 6 (issue #10): measured, see docs/design-notes.md
+    // 「野生動物の密度（#10）」.
+    initialCount: 3,
   },
   boar: {
     diet: 'omnivore',
@@ -582,7 +584,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
-    initialCount: 4,
+    // Halved from 4 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 2,
   },
   rabbit: {
     diet: 'herbivore',
@@ -594,7 +597,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY, // and quick to mature, so the herd rebuilds fast
-    initialCount: 10,
+    // Halved from 10 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 5,
   },
   chicken: {
     diet: 'herbivore',
@@ -606,7 +610,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 1500,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY,
-    initialCount: 8,
+    // Halved from 8 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 4,
   },
   /**
    * The reason to build a pen. A pasture tile holds the same one animal
@@ -630,7 +635,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 1200,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
-    initialCount: 5,
+    // Halved from 5 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 3,
   },
   wolf: {
     diet: 'carnivore',
@@ -665,7 +671,11 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 2400,
     produceType: 'manaCrystal',
     adultAtTicks: TICKS_PER_DAY * 3,
-    initialCount: 3,
+    // Halved from 3 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    // This is the standing cap, not the supply rate - WILDLIFE_RESPAWN_INTERVAL_TICKS
+    // tops the wild herd up by one head a day regardless of this number, so
+    // taming two elk still takes about the same number of days either way.
+    initialCount: 2,
   },
   /**
    * Eats the map (11章 フェーズ5). Not a predator - it never touches a colonist
@@ -683,7 +693,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 3,
-    initialCount: 2,
+    // Halved from 2 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 1,
   },
 };
 
