@@ -132,6 +132,10 @@ export interface Strings {
   newMapButton: string;
   languageToggleTitle: string;
   soundToggleTitle: string;
+  /** the volume slider next to the mute toggle (段階 S-1, GitHub issue #17) */
+  soundVolumeTitle: string;
+  /** e.g. "Volume 50%" - read by the number next to the slider, not a tooltip alone */
+  soundVolumeLabel: (percent: number) => string;
   mapSizeLabels: Record<MapSizeName, string>;
   mapSizeTitle: string;
   equipmentLabels: Record<EquipmentKind, string>;
@@ -891,6 +895,8 @@ const en: Strings = {
   newMapButton: 'New map',
   languageToggleTitle: 'Language',
   soundToggleTitle: 'Sound effects on/off (off by default)',
+  soundVolumeTitle: 'Sound volume',
+  soundVolumeLabel: (percent) => `Volume ${percent}%`,
   mapSizeLabels: { vale: 'Vale (60)', frontier: 'Frontier (120)' },
   mapSizeTitle: 'Board size for the next map',
   equipmentLabels: {
@@ -1606,6 +1612,8 @@ const ja: Strings = {
   newMapButton: '新しいマップ',
   languageToggleTitle: '言語',
   soundToggleTitle: '効果音のオン/オフ（既定はオフ）',
+  soundVolumeTitle: '音量',
+  soundVolumeLabel: (percent) => `音量 ${percent}%`,
   mapSizeLabels: { vale: '狭い谷（60）', frontier: '辺境（120）' },
   mapSizeTitle: '次の地図の広さ',
   equipmentLabels: {
