@@ -37,13 +37,16 @@ describe('build menu table', () => {
     for (const type of NOT_PLAYER_BUILT) expect(counts[type], type).toBeUndefined();
   });
 
-  it('keeps every category at 7 buttons or fewer', () => {
-    // 7 is the furniture category at its stage-B size, the cap the switcher
-    // design is built around (design-phase10-ores.md 5.2)
+  it('keeps every category at 8 buttons or fewer', () => {
+    // The cap is the largest category's size - what the switcher design bounds
+    // is the visible button count (design-phase10-ores.md 5.2). Stage B set it
+    // at 7; the workbench (design-next 提案3) grew furniture to 8, which still
+    // fits the sidebar column with room to spare. Anything past 8 should go
+    // back through the category split rather than through this number.
     for (const category of BUILD_CATEGORIES) {
       const size = BUILD_MENU.filter((entry) => entry.category === category).length;
       expect(size, category).toBeGreaterThan(0);
-      expect(size, category).toBeLessThanOrEqual(7);
+      expect(size, category).toBeLessThanOrEqual(8);
     }
     // every entry sits in a real category (no orphan rows)
     for (const entry of BUILD_MENU) expect(BUILD_CATEGORIES).toContain(entry.category);

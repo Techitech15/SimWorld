@@ -35,6 +35,7 @@ import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
 import type { ThoughtKey } from './mood';
 import { advanceTowards } from './movement';
 import { mulberry32 } from './rng';
+import { NIGHT_WAKE_HUNGER, isNight, sleepThresholdMultiplier } from './daynight';
 import { addLog, removeItem, tileIdOf, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
 import { traitMultiplier } from './traits';
@@ -191,7 +192,9 @@ function startNeedBehaviour(state: GameState, ctx: SimContext, colonistId: strin
   }
 
   const wantsFood = colonist.needs.hunger >= HUNGER_THRESHOLD;
-  const wantsSleep = colonist.needs.sleep >= SLEEP_THRESHOLD;
+  // the clock's pull (docs/design-phase7-time.md 3.4): the same threshold,
+  // lower at night and higher in daylight - never forced either way
+  const wantsSleep = colonist.needs.sleep >= SLEEP_THRESHOLD * sleepThresholdMultiplier(state.tick);
   const wantsRest = (colonist.needs.recreation ?? 0) >= RECREATION_THRESHOLD;
 
   // Time off yields to both of the older needs: nobody sits at the fire while
@@ -507,7 +510,22 @@ function runSleeping(state: GameState, ctx: SimContext, colonistId: string): voi
     }
   }
 
+  // Real hunger interrupts even sleep: without this, a colonist who went to
+  // bed with a high bar could cross 100 mid-drain and take starvation damage
+  // in their bed (survival2 caught exactly this once night sleep grew longer).
+  if (colonist.needs.hunger >= NIGHT_WAKE_HUNGER) {
+    releaseByJob(state, NEED_SLEEP_JOB_ID);
+    endActivity(state, colonistId);
+    return;
+  }
+
   if (colonist.needs.sleep <= SLEEP_WAKE_AT) {
+    // Night sleep runs to dawn (docs/design-phase7-time.md 3.4 実装メモ):
+    // measured, the threshold multiplier alone leaves the ~21-hour sleep cycle
+    // drifting across the clock and only half the nights land right. Somebody
+    // rested at 2am staying in bed until first light is the missing anchor -
+    // and hunger still wakes them, so nobody starves politely in bed.
+    if (isNight(state.tick) && colonist.needs.hunger < NIGHT_WAKE_HUNGER) return;
     releaseByJob(state, NEED_SLEEP_JOB_ID);
     endActivity(state, colonistId);
   }

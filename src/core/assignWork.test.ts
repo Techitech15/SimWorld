@@ -124,6 +124,14 @@ describe('assigning work by skill', () => {
     // button's own description rather than dressed up as a free win.
     const standing = (assign: boolean) => {
       const harness = createHarness(1331);
+      // Known skills rather than the seed's roll: the craft column joining the
+      // starting-skill pool (design-next 提案3) reshuffled what every seed
+      // rolls, and this test is about the *shape* of the trade - the button
+      // raising haul and mine implicitly demotes the chop order - not about
+      // any particular dice. Every colonist is a born hauler here.
+      for (const id of Object.keys(harness.state.colonists)) {
+        skilled(harness.state, id, { haul: 4, mine: 3 });
+      }
       const at = Object.values(harness.state.colonists)[0].position;
       harness.state = setDesignation(
         harness.state,

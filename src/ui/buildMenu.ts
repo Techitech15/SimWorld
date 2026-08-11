@@ -9,7 +9,8 @@
 //
 // The menu is a category switcher, not an accordion: only the selected
 // category's buttons are visible, so the visible button count is capped by the
-// largest category (7) no matter how many rows the table grows.
+// largest category (8 since the workbench joined) no matter how many rows the
+// table grows.
 import { create } from 'zustand';
 import { BUILDING_COSTS } from '../core/constants';
 import type { Tool } from '../store/gameStore';

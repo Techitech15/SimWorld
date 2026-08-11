@@ -203,6 +203,12 @@ export interface Colonist {
    */
   traits: TraitName[];
   /**
+   * [ext] Ticks walked towards the next step (docs/design-phase7-time.md 2.3):
+   * the pace multipliers make "ticks per step" fractional, so the count has to
+   * live somewhere. The one saved field phase 7 adds; absent reads as 0.
+   */
+  stepProgress?: number;
+  /**
    * [ext] Until when the "decent meal" thought lasts (design-next 提案3).
    * Event state like a furnace's fuel: "ate a cooked meal recently" is not
    * derivable from anything else. Absent on colonists from before the field

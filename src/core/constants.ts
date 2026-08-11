@@ -34,7 +34,13 @@ export const TICKS_PER_STEP = 2;
 
 // --- needs (section 5): linear decay, threshold triggers behaviour -----------
 export const HUNGER_PER_TICK = 100 / 2400; // full bar in 0.8 day
-export const SLEEP_PER_TICK = 100 / 2000; // full bar in ~16 in-game hours
+// Full bar in ~19 waking hours. Was 2000 (16 hours) until phase 7 anchored
+// waking to dawn: with a 15.6-hour ceiling on wakefulness (the day threshold,
+// 97.5, over this rate) a 16-hour bar forced ~8.4 bed-hours a day, a quarter
+// more than the pre-phase economy was balanced for - and the year-long runs
+// starved (design-notes.md「時間と動き」). 2400 puts the natural day at
+// ~15.7h awake + ~8.3h in bed, which is a 24-hour circadian budget.
+export const SLEEP_PER_TICK = 100 / 2400;
 export const SLEEP_RECOVERY_PER_TICK = 100 / 900; // rested again in ~7 hours
 /**
  * Sleeping on the ground. Beds cost 12 wood and recovered sleep at exactly the
@@ -661,7 +667,13 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
  * It yields less than a berry bush on purpose - the point is that the season
  * has work in it, not that winter becomes the good season.
  */
-export const FOOD_PER_FROSTBLOOM_HARVEST = 7;
+// 8 since phase 7: the slower winter walks (forest pace) and the dawn-anchored
+// nights squeezed the season's labour, and the winter crop is the number that
+// answers for the winter budget - measured, 7 left a stocked colony eating
+// into its stores over the frostbloom season (design-notes.md「時間と動き」).
+// Still strictly under the berry bush (9), so winter never becomes the good
+// season.
+export const FOOD_PER_FROSTBLOOM_HARVEST = 8;
 /** Ripe in a day and a half, so a five-day winter gives about three harvests. */
 export const FROSTBLOOM_REGROW_PER_TICK = 1 / 4500;
 export const FROSTBLOOM_COUNT = 14;
