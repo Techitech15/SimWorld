@@ -39,10 +39,13 @@ export interface WindGust {
  * that reasoning was wrong twice over. The number was invisible in play, and
  * the comparison it was based on does not hold: a cloud alpha blends a *dark*
  * texture over the ground and this one adds a *white* one, so the two scales
- * are not the same scale. 0.22 is what reads as a ripple without reading as
- * light. See wind.test.ts for what replaced the old assertion.
+ * are not the same scale. See wind.test.ts for what replaced the old assertion.
+ *
+ * 0.22 was then judged a shade heavy against the streak texture, which
+ * concentrates the same alpha into far less area than the haze it replaced.
+ * 0.18 is what reads as a ripple without reading as light.
  */
-export const WIND_STRENGTH_MAX = 0.22;
+export const WIND_STRENGTH_MAX = 0.18;
 
 /** Every gust travels the same way - one wind, not a wind per gust (mirrors
  *  clouds.ts's WIND_DIR). Mostly horizontal, since that reads best for gusts
@@ -77,26 +80,33 @@ interface GustDef {
  * `x0`/`y0` are just a starting point for the drift below, not a position tied
  * to any particular map size (same caveat as CLOUDS).
  *
- * This was four gusts of 18x4 tiles running at 0.0048-0.0065 tiles/ms. On the
- * shipping 120x120 map that meant a viewport of roughly 16 tiles saw a band
- * for about three seconds at a time and, most of the time, saw nothing at all
- * - the layer was effectively absent from the game. Ten longer, wider, slower
- * bands (1.8-2.6 tiles/s, still faster than the 0.8-1.5 of CLOUDS, because a
- * gust that moves like a cloud is not a gust) put the effect on screen often
- * enough to exist. Cost is unchanged in kind: ten sprites, still independent
- * of how many tiles the map has.
+ * This was four gusts of 18x4 tiles. On the shipping 120x120 map that meant a
+ * viewport of roughly 16 tiles saw a band for about three seconds at a time
+ * and, most of the time, saw nothing at all - the layer was effectively absent
+ * from the game. Ten longer, wider bands put it on screen often enough to
+ * exist. Cost is unchanged in kind: ten sprites, still independent of how many
+ * tiles the map has.
+ *
+ * Speed was tuned by watching, in two steps: 0.0018-0.0026 read as drifting
+ * rather than gusting, 0.0054-0.0078 still read as slow, and 0.0108-0.0156
+ * tiles/ms (10.8-15.6 tiles/s) is where it reads as wind. That is about an
+ * order of magnitude clear of CLOUDS (0.8-1.5 tiles/s), which is the point -
+ * the two layers are the same mechanism and have to be told apart by motion
+ * alone, and a gust that moves like a cloud is not a gust. Note this is far
+ * faster than the very first version, which was invisible: what hid that one
+ * was four small bands, never their speed.
  */
 const GUSTS: GustDef[] = [
-  { x0: 8, y0: 12, speed: 0.0022, length: 30, width: 8, strengthScale: 1.0 },
-  { x0: 45, y0: 30, speed: 0.0018, length: 36, width: 7, strengthScale: 0.75 },
-  { x0: 25, y0: 55, speed: 0.0026, length: 26, width: 9, strengthScale: 0.85 },
-  { x0: 75, y0: 18, speed: 0.002, length: 32, width: 8, strengthScale: 0.6 },
-  { x0: 15, y0: 88, speed: 0.0024, length: 28, width: 7, strengthScale: 0.9 },
-  { x0: 95, y0: 70, speed: 0.0019, length: 34, width: 9, strengthScale: 0.7 },
-  { x0: 55, y0: 100, speed: 0.0025, length: 27, width: 8, strengthScale: 0.8 },
-  { x0: 105, y0: 45, speed: 0.0021, length: 31, width: 7, strengthScale: 0.65 },
-  { x0: 35, y0: 5, speed: 0.0023, length: 29, width: 9, strengthScale: 0.95 },
-  { x0: 85, y0: 112, speed: 0.002, length: 33, width: 8, strengthScale: 0.75 },
+  { x0: 8, y0: 12, speed: 0.0132, length: 30, width: 8, strengthScale: 1.0 },
+  { x0: 45, y0: 30, speed: 0.0108, length: 36, width: 7, strengthScale: 0.75 },
+  { x0: 25, y0: 55, speed: 0.0156, length: 26, width: 9, strengthScale: 0.85 },
+  { x0: 75, y0: 18, speed: 0.012, length: 32, width: 8, strengthScale: 0.6 },
+  { x0: 15, y0: 88, speed: 0.0144, length: 28, width: 7, strengthScale: 0.9 },
+  { x0: 95, y0: 70, speed: 0.0114, length: 34, width: 9, strengthScale: 0.7 },
+  { x0: 55, y0: 100, speed: 0.015, length: 27, width: 8, strengthScale: 0.8 },
+  { x0: 105, y0: 45, speed: 0.0126, length: 31, width: 7, strengthScale: 0.65 },
+  { x0: 35, y0: 5, speed: 0.0138, length: 29, width: 9, strengthScale: 0.95 },
+  { x0: 85, y0: 112, speed: 0.012, length: 33, width: 8, strengthScale: 0.75 },
 ];
 
 /**

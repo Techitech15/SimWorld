@@ -89,13 +89,16 @@ describe('continuity: no teleporting band (mirrors clouds.test.ts)', () => {
     // condition (issue #23 acceptance 4), not "the raw coordinate is
     // monotonic".
     const visibleStrength = 0.005;
-    // Gusts travel faster than clouds (wind.ts's fastest GUSTS entry is
-    // 0.0065 tiles/ms vs. clouds.ts's fastest of 0.0015), so the per-step
-    // bound is wider than clouds.test.ts's 0.1: 0.0065 tiles/ms * 50ms step
-    // is already ~0.32 tiles, so 0.1 would fail on real, non-teleporting
-    // motion. 0.4 keeps margin above that while still catching an actual
-    // wrap-seam jump, which is many tiles in one step.
-    const maxStepTiles = 0.4;
+    // Gusts travel an order of magnitude faster than clouds (wind.ts's fastest
+    // GUSTS entry is 0.0156 tiles/ms vs. clouds.ts's fastest of 0.0015), so
+    // the per-step bound is far wider than clouds.test.ts's 0.1: 0.0156
+    // tiles/ms * 50ms step is already ~0.78 tiles, so 0.1 - or either of the
+    // 0.4 and 0.6 this held at earlier speeds - would fail on real,
+    // non-teleporting motion. 1.2 keeps margin above the fastest entry while
+    // still catching an actual wrap-seam jump, which is many tiles in one step
+    // (the seam is WRAP_MARGIN_TILES * 2 = 24 tiles wide, so the gap between
+    // "fastest legitimate step" and "a jump" stays two orders of magnitude).
+    const maxStepTiles = 1.2;
     let previous = windAt(0, WIDTH, HEIGHT);
     for (let elapsedMs = stepMs; elapsedMs <= 300_000; elapsedMs += stepMs) {
       const current = windAt(elapsedMs, WIDTH, HEIGHT);

@@ -889,13 +889,13 @@ export class GameRenderer {
     // y: where the streak sits across the gust (0..1 of the texture height)
     // half/thickness: how long and how thick, both as a fraction of the size
     // alpha: the streak's own weight, so they do not all read as one slab
+    // Two, not the six this started with: six read as a hatched band rather
+    // than as wind. A pair still carries the direction - one leading streak
+    // and one shorter, lighter one offset across the gust - without the set
+    // closing up into a texture of its own.
     const STREAKS = [
-      { y: 0.28, half: 0.34, thickness: 3, alpha: 0.55 },
-      { y: 0.38, half: 0.46, thickness: 5, alpha: 0.9 },
-      { y: 0.46, half: 0.28, thickness: 3, alpha: 0.45 },
-      { y: 0.54, half: 0.48, thickness: 6, alpha: 1.0 },
-      { y: 0.62, half: 0.32, thickness: 4, alpha: 0.6 },
-      { y: 0.72, half: 0.4, thickness: 3, alpha: 0.5 },
+      { y: 0.44, half: 0.48, thickness: 5, alpha: 1.0 },
+      { y: 0.6, half: 0.33, thickness: 4, alpha: 0.6 },
     ];
 
     for (const streak of STREAKS) {
