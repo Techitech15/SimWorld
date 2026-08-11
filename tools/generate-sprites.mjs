@@ -267,9 +267,14 @@ function stoneTile(variant) {
  * light so it reads as farther from the surface; shallow water carries a
  * couple of pale glints near the edge, standing in for a visible bottom.
  */
-function waterTile(deep) {
+function waterTile(deep, variant = 1) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(deep ? 6001 : 5001);
+  // Same base colour for every variant, for the reason grassTile records: a
+  // per-tile fill shift draws the grid instead of hiding it. Only the ripple
+  // seed changes, so a lake reads as one surface with moving water on it
+  // rather than as one stamp repeated - which is what a single water tile
+  // looked like on a large lake.
+  const rnd = mulberry32((deep ? 6000 : 5000) + variant);
   const p = deep ? P.waterDeep : P.waterShallow;
   c.fill(p[1]);
   for (let y = 0; y < TILE; y++) {
@@ -1941,8 +1946,10 @@ written.push(save('terrain/stone.png', stoneTile(1)));
 written.push(save('terrain/stone_2.png', stoneTile(2)));
 written.push(save('terrain/crystal.png', crystalTile()));
 written.push(save('terrain/iron_vein.png', ironVeinTile()));
-written.push(save('terrain/shallow_water.png', waterTile(false)));
-written.push(save('terrain/deep_water.png', waterTile(true)));
+written.push(save('terrain/shallow_water.png', waterTile(false, 1)));
+written.push(save('terrain/shallow_water_2.png', waterTile(false, 2)));
+written.push(save('terrain/deep_water.png', waterTile(true, 1)));
+written.push(save('terrain/deep_water_2.png', waterTile(true, 2)));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));

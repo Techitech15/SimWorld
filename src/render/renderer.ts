@@ -232,9 +232,12 @@ export class GameRenderer {
       case 'ironVein':
         return t.ironVein;
       case 'shallowWater':
-        return t.shallowWater;
+        // two variants for the same reason grass has three: a lake is a big
+        // block of one terrain, and one stamp repeated across it reads as a
+        // grid rather than as water
+        return variantAt(tile.x, tile.y, 2) === 0 ? t.shallowWater : t.shallowWater2;
       case 'deepWater':
-        return t.deepWater;
+        return variantAt(tile.x, tile.y, 2) === 0 ? t.deepWater : t.deepWater2;
       default: {
         const variant = variantAt(tile.x, tile.y, 3);
         return variant === 0 ? t.grass : variant === 1 ? t.grass2 : t.grass3;
