@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -380,6 +380,20 @@ export const migrations: Record<number, Migration> = {
   20: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, biome: state.biome ?? DEFAULT_BIOME };
+  },
+
+  /**
+   * 21 -> 22: the world map (11章 フェーズ11 段階B,
+   * docs/design-phase11-worldmap.md 6章). Every existing save predates the
+   * world map, so it was never generated on a chosen cell - `worldCell: null`
+   * says exactly that, and `src/core/tribes.ts` reads a `null` cell as "nowhere
+   * near any tribe", which keeps every multiplier this phase adds at 1 for a
+   * migrated save. Nothing about `biome` changes: it stays whatever the
+   * previous migration (or fresh generation) already wrote there.
+   */
+  21: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, worldCell: state.worldCell ?? null };
   },
 };
 

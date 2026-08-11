@@ -33,9 +33,14 @@ export interface Harness {
  * a year at 120x120, `chaos.test.ts` checks the invariants there, and
  * `roundtrip.test.ts` round-trips both sizes in one process.
  */
-export function createHarness(seed = 42, size = 60, biome?: BiomeName): Harness {
+export function createHarness(
+  seed = 42,
+  size = 60,
+  biome?: BiomeName,
+  worldCell?: { x: number; y: number },
+): Harness {
   const harness: Harness = {
-    state: generateWorld({ seed, width: size, height: size, biome }),
+    state: generateWorld({ seed, width: size, height: size, biome, worldCell }),
     ctx: undefined as unknown as SimContext,
     run(ticks, onTick) {
       for (let i = 0; i < ticks; i++) {

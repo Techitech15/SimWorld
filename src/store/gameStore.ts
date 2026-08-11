@@ -15,11 +15,11 @@ import { tickMany } from '../core/simulation';
 import { generateWorld } from '../core/worldgen';
 import { DEFAULT_SCENARIO } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
+import { randomWorldCell } from '../core/worldmap';
 import type {
   AnimalDesignation,
   LogParams,
   AnimalId,
-  BiomeName,
   BuildingType,
   ColonistId,
   Designation,
@@ -150,7 +150,12 @@ export interface GameStore {
   applyProfession: (colonistId: ColonistId, primary: JobType) => void;
 
   // persistence
-  newGame: (scenario?: ScenarioName, seed?: number, biome?: BiomeName) => void;
+  /**
+   * `worldCell` is the world-map choice (11章 段階B); omitted, a random cell
+   * is picked the same way `seed` is randomised when omitted, so a caller that
+   * only wants "a new map" needs to pass nothing new at all.
+   */
+  newGame: (scenario?: ScenarioName, seed?: number, worldCell?: { x: number; y: number }) => void;
   save: () => Promise<void>;
   load: (slot?: string) => Promise<void>;
   autosave: () => Promise<void>;
@@ -220,7 +225,10 @@ function refusalFor(tool: Tool, state: GameState): StatusKey | null {
 }
 
 function initialState(): GameState {
-  const state = generateWorld({ seed: randomSeed() });
+  // Silent generation on first load is still "おまかせ" underneath (5章): a
+  // random seed and a random cell, exactly what the world-map overlay's
+  // おまかせ button does, just without opening the overlay to ask.
+  const state = generateWorld({ seed: randomSeed(), worldCell: randomWorldCell() });
   simContext = createSimContext(state);
   return state;
 }
@@ -316,9 +324,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   applyProfession: (colonistId, primary) =>
     set({ state: actions.applyProfession(get().state, colonistId, primary) }),
 
-  newGame: (scenario, seed, biome) => {
+  newGame: (scenario, seed, worldCell) => {
     const chosen = scenario ?? DEFAULT_SCENARIO;
-    const state = generateWorld({ seed: seed ?? randomSeed(), scenario: chosen, biome });
+    const state = generateWorld({
+      seed: seed ?? randomSeed(),
+      scenario: chosen,
+      worldCell: worldCell ?? randomWorldCell(),
+    });
     simContext = createSimContext(state);
     set({
       state,

@@ -633,6 +633,22 @@ export interface GameState {
    * it every day.
    */
   biome: BiomeName;
+  /**
+   * [ext] The world-map cell this colony was started on (11章 フェーズ11 段階B,
+   * docs/design-phase11-worldmap.md 6章), or `null` for a save from before the
+   * world map existed. Everything else about the world map - the 16x16 grid,
+   * every cell's biome, the tribal territories - is derived from `worldSeed`
+   * and never saved (2.1章); this coordinate is the one fact that cannot be
+   * derived, because nothing says which cell among equally valid ones a player
+   * picked. `biome` above is filled in from this cell at generation time and
+   * kept as a separate field rather than computed on every read, the same
+   * adaptation stage A already made (see the field's own comment).
+   *
+   * `null` means "treat this colony as if it were nowhere near any tribe" -
+   * `src/core/tribes.ts` returns every multiplier at 1 for it, so an old save
+   * behaves exactly as it did before this phase existed.
+   */
+  worldCell: { x: number; y: number } | null;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
   /**
@@ -661,7 +677,7 @@ export interface GameState {
  */
 export type LogKey =
   | 'legacy'
-  | 'colonistArrived' // { name }
+  | 'colonistArrived' // { name, tribe? } - tribe is 'waldkin' on the colonies that mention it (11章 段階C)
   | 'skillLevelUp' // { name, skill, level }
   | 'seasonArrived' // { season }
   | 'colonistStarving' // { name }
@@ -677,7 +693,7 @@ export type LogKey =
   | 'incidentWolfPack' // { count }
   | 'incidentHerd' // { count, species }
   | 'incidentLostSupplies' // { quantity, resource }
-  | 'incidentRaid' // { count }
+  | 'incidentRaid' // { count, tribe } - tribe is always 'parched' (11章 段階C, raiders are the Parched's raid)
   | 'raiderCutDownBy' // { raider, colonist }
   | 'raiderCutDownByTurret' // { raider }
   | 'raidOver'
@@ -709,7 +725,7 @@ export type LogKey =
   | 'animalKilledByPredator' // { name, species, predator }
   | 'wolfSpotted' // { name }
   | 'rockeaterExposedVein' // { name, tile }
-  | 'traderArrived' // { name, kind }
+  | 'traderArrived' // { name, kind, tribe } - tribe is always 'lanternfolk' (11章 段階C, traders are the Lanternfolk's)
   | 'traderLeft' // { name }
   | 'tradeSettled' // { gaveQuantity, gave, tookQuantity, took }
   | 'researchUnlocked'; // { tech }

@@ -40,6 +40,11 @@ import { skillLevel } from './skills';
 import { addLog, nextId, tileIdOf, updateBuilding, updateColonist, updateTile } from './state';
 import type { Colonist, GameState, Raider, RaiderId, Vector2 } from './types';
 
+// The raid's one name pool, and the Parched's (11章 段階C,
+// docs/design-phase11-worldmap.md 4.3章: "raider names draw from a Parched
+// name pool"). Raiders have never been anything but this one threat, so
+// giving them a tribe does not split the pool - it names the pool that was
+// already there.
 const RAIDER_NAMES = [
   'Gash',
   'Vole',
@@ -401,10 +406,19 @@ export function runTurrets(state: GameState, ctx: SimContext): void {
   }
 }
 
-/** How many raiders a colony of this size and age has attracted. */
-export function raidSize(state: GameState, rnd: () => number): number {
+/**
+ * How many raiders a colony of this size and age has attracted.
+ *
+ * `sizeMultiplier` is the Parched proximity lever (11章 段階C,
+ * docs/design-phase11-worldmap.md 7章: ×1.5 near their territory). It scales
+ * both the raw draw and the cap together, so a raid near the Parched can
+ * genuinely be bigger rather than only rolling the same 1-5 range more often;
+ * the default of 1 reproduces the old fixed 1-5 range exactly.
+ */
+export function raidSize(state: GameState, rnd: () => number, sizeMultiplier = 1): number {
   const population = Object.keys(state.colonists).length;
-  return Math.max(1, Math.min(5, Math.round(population / 2 + rnd() * 1.5)));
+  const cap = Math.max(1, Math.round(5 * sizeMultiplier));
+  return Math.max(1, Math.min(cap, Math.round((population / 2 + rnd() * 1.5) * sizeMultiplier)));
 }
 
 export function raidSeed(state: GameState): () => number {

@@ -24,6 +24,7 @@ import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
 import { addLog, updateBuilding } from './state';
+import { tribalInfluence } from './tribes';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
 import type { AnimalSpecies, GameState, LogKey, LogParams, Vector2 } from './types';
 
@@ -182,20 +183,36 @@ export const INCIDENTS: Incident[] = [
     apply: (state, rnd) => {
       if (state.tick < RAID_FIRST_DAY * TICKS_PER_DAY) return null;
       if (isUnderAttack(state)) return null;
-      const spawned = spawnRaid(state, raidSize(state, rnd), rnd);
+      // Raiders are the Parched's raid (11章 段階C, design-phase11-worldmap.md
+      // 4.1章) whether or not this world happens to be near their territory -
+      // proximity only bends the size, not who they are.
+      const tribal = tribalInfluence(state);
+      const spawned = spawnRaid(state, raidSize(state, rnd, tribal.parched.raidSizeMultiplier), rnd);
       if (spawned.length === 0) return null;
-      return { key: 'incidentRaid', params: { count: spawned.length } };
+      return { key: 'incidentRaid', params: { count: spawned.length, tribe: 'parched' } };
     },
   },
 ];
 
-/** Pick by season weight. Returns null when nothing can happen this season. */
-export function chooseIncident(season: Season, roll: number): Incident | null {
-  const total = INCIDENTS.reduce((sum, incident) => sum + incident.weight[season], 0);
+/**
+ * Pick by season weight. Returns null when nothing can happen this season.
+ *
+ * `weightMultiplier` bends one or more incidents' weight before the roll -
+ * the Parched-proximity lever on `raid` (11章 段階C, design-phase11-worldmap.md
+ * 7章: shorter interval near their territory). Omitted, every incident keeps
+ * its plain season weight, exactly as before this existed.
+ */
+export function chooseIncident(
+  season: Season,
+  roll: number,
+  weightMultiplier: Partial<Record<IncidentName, number>> = {},
+): Incident | null {
+  const weightOf = (incident: Incident) => incident.weight[season] * (weightMultiplier[incident.name] ?? 1);
+  const total = INCIDENTS.reduce((sum, incident) => sum + weightOf(incident), 0);
   if (total <= 0) return null;
   let cursor = roll * total;
   for (const incident of INCIDENTS) {
-    cursor -= incident.weight[season];
+    cursor -= weightOf(incident);
     if (cursor < 0) return incident;
   }
   return INCIDENTS[INCIDENTS.length - 1];
@@ -220,7 +237,10 @@ export function runIncidents(state: GameState): void {
   const rnd = mulberry32(state.worldSeed * 31 + state.tick + 51001);
   if (rnd() >= EVENT_CHANCE_PER_DAY) return;
 
-  const incident = chooseIncident(seasonOf(state.tick), rnd());
+  const tribal = tribalInfluence(state);
+  const incident = chooseIncident(seasonOf(state.tick), rnd(), {
+    raid: tribal.parched.raidWeightMultiplier,
+  });
   if (!incident) return;
   const report = incident.apply(state, rnd);
   if (report) addLog(state, report.key, report.params, 'incident');

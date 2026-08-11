@@ -4,8 +4,6 @@ import { colonyMood, moodLabel } from '../core/mood';
 import type { GameState } from '../core/types';
 import { DEFAULT_SCENARIO, SCENARIO_NAMES } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
-import { BIOME_NAMES, DEFAULT_BIOME } from '../core/biome';
-import type { BiomeName } from '../core/biome';
 import { DAYS_PER_SEASON, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { getNetworks, useGameStore } from '../store/gameStore';
@@ -13,12 +11,21 @@ import { useJobCounts, useSpeed, useTick } from './hooks';
 import { useLanguageStore, useStrings } from './language';
 import { STRINGS } from './strings';
 import type { Language } from './strings';
+import { WorldMapOverlay } from './WorldMapOverlay';
 
 const LANGUAGES: Language[] = ['en', 'ja'];
 
+/**
+ * `select`: the "New map" flow, opened over a freshly rolled worldSeed so
+ * every open shows a different globe to pick from (5章). `view`: the
+ * read-only look at the running colony's own world, opened over its actual
+ * `worldSeed`. `null`: closed.
+ */
+type MapOverlayState = { mode: 'select' | 'view'; worldSeed: number } | null;
+
 export function TopBar(): React.JSX.Element {
   const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
-  const [biome, setBiome] = useState<BiomeName>(DEFAULT_BIOME);
+  const [mapOverlay, setMapOverlay] = useState<MapOverlayState>(null);
   const tick = useTick();
   const speed = useSpeed();
   const setSpeed = useGameStore((s) => s.setSpeed);
@@ -31,6 +38,8 @@ export function TopBar(): React.JSX.Element {
   const population = useGameStore((s) => Object.keys(s.state.colonists).length);
   // a number, not an object: the selector has to stay shallow-comparable
   const mood = useGameStore((s) => colonyMood(s.state, getNetworks(s.state)));
+  const worldSeed = useGameStore((s) => s.state.worldSeed);
+  const worldCell = useGameStore((s) => s.state.worldCell);
   const strings = useStrings();
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
@@ -111,22 +120,12 @@ export function TopBar(): React.JSX.Element {
             </option>
           ))}
         </select>
-        {/* the biome select (11章 フェーズ11 段階A): a second, orthogonal lever
-            beside the scenario one. Stage B replaces this with the world map
-            screen (design-phase11-worldmap.md 5章); this is deliberately the
-            simplest thing that lets a player choose a biome today. */}
-        <select
-          className="topbar__scenario"
-          value={biome}
-          onChange={(event) => setBiome(event.target.value as BiomeName)}
-          title={strings.biomeDescriptions[biome]}
-        >
-          {BIOME_NAMES.map((name) => (
-            <option key={name} value={name} title={strings.biomeDescriptions[name]}>
-              {strings.biomeLabels[name]}
-            </option>
-          ))}
-        </select>
+        {/* the world map, view-only during play (11章 段階B, 5章: "プレイ中は
+            TopBar から閲覧だけできる"). Biome now comes from the cell the
+            colony was started on, not a select here. */}
+        <button type="button" onClick={() => setMapOverlay({ mode: 'view', worldSeed })}>
+          {strings.worldMapButton}
+        </button>
         {/* the language toggle lives beside the scenario select (phase 9). The
             option shows each language in its own name, so the menu is readable
             from either side of the switch. */}
@@ -142,9 +141,12 @@ export function TopBar(): React.JSX.Element {
             </option>
           ))}
         </select>
+        {/* "New map" opens the world-map overlay rather than generating on the
+            spot (11章 段階B, 5章): the old one-click ease is kept by the
+            overlay's own "start anywhere" button, not by skipping the overlay. */}
         <button
           type="button"
-          onClick={() => newGame(scenario, undefined, biome)}
+          onClick={() => setMapOverlay({ mode: 'select', worldSeed: Math.floor(Math.random() * 0x7fffffff) })}
           title={strings.scenarioDescriptions[scenario]}
         >
           {strings.newMapButton}
@@ -155,6 +157,23 @@ export function TopBar(): React.JSX.Element {
         <div className="topbar__status">
           {strings.status[statusMessage.key](statusMessage.params ?? {})}
         </div>
+      ) : null}
+
+      {mapOverlay ? (
+        <WorldMapOverlay
+          mode={mapOverlay.mode}
+          worldSeed={mapOverlay.worldSeed}
+          currentCell={mapOverlay.mode === 'view' ? worldCell : null}
+          onClose={() => setMapOverlay(null)}
+          onStart={
+            mapOverlay.mode === 'select'
+              ? (cell) => {
+                  newGame(scenario, mapOverlay.worldSeed, cell);
+                  setMapOverlay(null);
+                }
+              : undefined
+          }
+        />
       ) : null}
     </header>
   );

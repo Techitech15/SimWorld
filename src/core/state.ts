@@ -78,6 +78,7 @@ export function createEmptyState(
     worldSeed: 0,
     scenario: 'standard',
     biome: 'meadow',
+    worldCell: null,
     nextIds: {},
     relationships: {},
     deaths: [],

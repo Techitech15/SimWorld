@@ -19,7 +19,7 @@
 | [design-phase8-equipment.md](design-phase8-equipment.md) | 服と武器の設計案（未着手） |
 | [design-phase9-language.md](design-phase9-language.md) | 日本語表示と言語切り替えの設計案（**実装済み**） |
 | [design-phase10-ores.md](design-phase10-ores.md) | 鉱石と家具・建築メニュー階層化の設計案（**実装済み**） |
-| [design-phase11-worldmap.md](design-phase11-worldmap.md) | ワールドマップ・バイオーム・部族の設計案（未着手） |
+| [design-phase11-worldmap.md](design-phase11-worldmap.md) | ワールドマップ・バイオーム・部族の設計案（**実装済み**） |
 | [design-phase12-research.md](design-phase12-research.md) | 研究ツリーと職業の設計案（**実装済み**） |
 | [design-phase13-presentation.md](design-phase13-presentation.md) | 画面の整えと音の設計案（未着手） |
 | **このファイル** | 未実装のものの検討。実装されたら上の2つへ移して消す |
@@ -164,6 +164,12 @@ design-notes.md は鉱脈を「8世界を実測すると1世界あたり 4〜57 
 下限をバイオームのレバー（`minCrystalVeins`）として持ち、全バイオームで 0 より大きくする形（同 3.3 章）。
 フェーズ11が先に実装されるなら (a) はそこへ吸収され、受け入れ条件 a-1 / a-2 はバイオーム別の回帰として引き継がれる。
 フェーズ11を待たずに (a) 単独で入れる選択肢も引き続き有効（そのほうが安い）。
+
+**追記3**: 追記2のとおりになった。**(a) はフェーズ11 段階Aの `minCrystalTiles`（バイオームごとの下限、
+`src/core/biome.ts` の `BIOMES` 表）として実装済み** —— 草原4本〜晶土32本、全バイオームで0より大きい
+（design.md 11章、design-notes.md「バイオーム（フェーズ11 段階A）」に実測あり）。**(b) の再生は
+引き続き未実装のまま**。フェーズ11段階A〜Cは(b)に触れておらず、掘り尽くした世界でマナが戻ってこない
+という 1.2 の問題は残っている。
 
 **受け入れ条件**:
 

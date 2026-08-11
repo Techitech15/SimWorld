@@ -443,6 +443,28 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 21 save into the world map', () => {
+    // A real v21 save predates the world map entirely: no `worldCell` on state.
+    const harness = createHarness(127);
+    harness.run(100);
+    const v21 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { worldCell: _dropped, ...rest } = v21;
+
+    const migrated = migrateSave({
+      schemaVersion: 21,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // nothing says which cell among equally valid ones the player would have
+    // picked, so a migrated save is simply nowhere near any tribe
+    expect(migrated.state.worldCell).toBeNull();
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

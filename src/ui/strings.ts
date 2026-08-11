@@ -15,6 +15,7 @@ import type { AlertKey } from '../core/alerts';
 import type { GoalId } from '../core/goals';
 import type { MoodWord, ThoughtKey } from '../core/mood';
 import type { Season } from '../core/season';
+import type { TribeName } from '../core/tribes';
 import type { StatusKey } from '../store/gameStore';
 import type { BuildCategory } from './buildMenu';
 import type {
@@ -82,6 +83,11 @@ export interface Strings {
   scenarioDescriptions: Record<ScenarioName, string>;
   biomeLabels: Record<BiomeName, string>;
   biomeDescriptions: Record<BiomeName, string>;
+  /** 11章 フェーズ11 段階C: the three tribes (design-phase11-worldmap.md 4章) */
+  tribeLabels: Record<TribeName, string>;
+  tribeDescriptions: Record<TribeName, string>;
+  /** Joins already-composed phrases (e.g. worldMapTribeHere/Near results) with the language's list separator. */
+  tribeList: (phrases: string[]) => string;
   jobTypeLabels: Record<JobType, string>;
   /** the research tree (11章 フェーズ12) */
   techLabels: Record<TechName, string>;
@@ -123,6 +129,24 @@ export interface Strings {
   autosaveTitle: string;
   newMapButton: string;
   languageToggleTitle: string;
+  worldMapButton: string;
+
+  // --- world map overlay (11章 フェーズ11 段階B, design-phase11-worldmap.md 5章) --
+  worldMapTitle: string;
+  worldMapSelectIntro: string;
+  worldMapViewIntro: string;
+  worldMapCloseButton: string;
+  worldMapRandomButton: string;
+  worldMapStartButton: string;
+  worldMapPickPrompt: string;
+  worldMapNearbyLabel: string;
+  worldMapNoTribesNearby: string;
+  /** e.g. "Lanternfolk territory here" vs "near the Lanternfolk" */
+  worldMapTribeHere: (tribeLabel: string) => string;
+  worldMapTribeNear: (tribeLabel: string) => string;
+  worldMapLegendTitle: string;
+  worldMapCurrentCellLabel: string;
+  worldMapPreWorldMapNote: string;
 
   // --- toolbar --------------------------------------------------------------
   ordersGroup: string;
@@ -536,6 +560,17 @@ const en: Strings = {
     crag: 'Stone and ore run deep here. Forage is thin, so the food has to come from elsewhere.',
     manaheath: "Mana bleeds into the ground. Crystal is abundant; the wildlife is not.",
   },
+  tribeLabels: {
+    lanternfolk: 'the Lanternfolk',
+    waldkin: 'the Waldkin',
+    parched: 'the Parched',
+  },
+  tribeDescriptions: {
+    lanternfolk: 'Tend crystal and trade the surplus. Their traders cross the map more often nearby.',
+    waldkin: 'Live off the woods and herds without mana. Migrants come from their country more often.',
+    parched: 'Worn out veins and cold furnaces, left to raid what they no longer have. Heavier and more frequent near their territory.',
+  },
+  tribeList: (phrases) => phrases.join(', '),
   jobTypeLabels: {
     chop: 'chop',
     mine: 'mine',
@@ -685,7 +720,10 @@ const en: Strings = {
 
   log: {
     legacy: (p) => String(p.text ?? ''),
-    colonistArrived: (p) => `${p.name} arrived, drawn by the colony's stores`,
+    colonistArrived: (p) =>
+      p.tribe
+        ? `${p.name} arrived, drawn by the colony's stores - out of ${en.tribeLabels[p.tribe as TribeName]} country`
+        : `${p.name} arrived, drawn by the colony's stores`,
     skillLevelUp: (p) => `${p.name} reached ${EN_SKILLS[p.skill as SkillName]} level ${p.level}`,
     seasonArrived: (p) => `${EN_SEASONS[p.season as Season]} has arrived`,
     colonistStarving: (p) => `${p.name} is starving`,
@@ -708,10 +746,17 @@ const en: Strings = {
       `A herd of ${en.speciesCounted(p.species as AnimalSpecies, p.count as number)} moved through`,
     incidentLostSupplies: (p) =>
       `Someone abandoned ${p.quantity} ${EN_RESOURCES[p.resource as ResourceType]} on the road nearby`,
-    incidentRaid: (p) =>
-      p.count === 1
+    incidentRaid: (p) => {
+      const tribe = p.tribe ? en.tribeLabels[p.tribe as TribeName] : null;
+      if (tribe) {
+        return p.count === 1
+          ? `A raider of ${tribe} is coming out of the trees`
+          : `${p.count} raiders of ${tribe} are coming out of the trees`;
+      }
+      return p.count === 1
         ? 'A raider is coming out of the trees'
-        : `${p.count} raiders are coming out of the trees`,
+        : `${p.count} raiders are coming out of the trees`;
+    },
     raiderCutDownBy: (p) => `${p.raider} the raider was cut down by ${p.colonist}`,
     raiderCutDownByTurret: (p) => `${p.raider} the raider was cut down by the turret`,
     raidOver: () => 'the raid is over',
@@ -753,8 +798,8 @@ const en: Strings = {
       `${p.name} the rockeater laid a mana crystal vein bare at ${p.tile}`,
     traderArrived: (p) =>
       p.kind === 'crystalFactor'
-        ? `${p.name}, a crystal factor, has set up at the post`
-        : `${p.name} the pedlar has set up at the post`,
+        ? `${p.name}, a crystal factor of ${en.tribeLabels.lanternfolk}, has set up at the post`
+        : `${p.name} the pedlar, of ${en.tribeLabels.lanternfolk}, has set up at the post`,
     traderLeft: (p) => `${p.name} packs up and leaves`,
     tradeSettled: (p) =>
       `traded ${p.gaveQuantity} ${EN_RESOURCES[p.gave as ResourceType]} for ${p.tookQuantity} ${EN_RESOURCES[p.took as ResourceType]}`,
@@ -791,6 +836,22 @@ const en: Strings = {
   autosaveTitle: 'the game saves once per in-game day, into its own slot',
   newMapButton: 'New map',
   languageToggleTitle: 'Language',
+  worldMapButton: 'World map',
+
+  worldMapTitle: 'World map',
+  worldMapSelectIntro: 'Pick a cell to start on, or let the map choose.',
+  worldMapViewIntro: 'Where this colony began. Read only - the choice was made at the start.',
+  worldMapCloseButton: 'Close',
+  worldMapRandomButton: 'Start anywhere',
+  worldMapStartButton: 'Start here',
+  worldMapPickPrompt: 'Click a cell to see what it holds.',
+  worldMapNearbyLabel: 'Nearby peoples',
+  worldMapNoTribesNearby: 'No tribe nearby - quiet, but no help either.',
+  worldMapTribeHere: (tribeLabel) => `${tribeLabel} territory`,
+  worldMapTribeNear: (tribeLabel) => `near ${tribeLabel}`,
+  worldMapLegendTitle: 'Biomes',
+  worldMapCurrentCellLabel: 'This colony',
+  worldMapPreWorldMapNote: 'This save predates the world map; its cell is not on record.',
 
   ordersGroup: 'Orders',
   buildGroup: 'Build',
@@ -1183,6 +1244,17 @@ const ja: Strings = {
     crag: '石と鉱石が深く眠る土地。forage は細く、食料は他の手段が要る。',
     manaheath: 'マナが地表に滲む土地。結晶は豊富だが、野生動物は少ない。',
   },
+  tribeLabels: {
+    lanternfolk: '灯持ち',
+    waldkin: '森歩き',
+    parched: '渇き衆',
+  },
+  tribeDescriptions: {
+    lanternfolk: '結晶を育て、余剰を商う。近くでは行商の来訪が増える。',
+    waldkin: 'マナに頼らず森と獣で暮らす。近くでは移住者が増える。',
+    parched: '鉱脈を掘り尽くした流民。近くでは襲撃が重く、頻繁になる。',
+  },
+  tribeList: (phrases) => phrases.join('・'),
   jobTypeLabels: {
     chop: '伐採',
     mine: '採掘',
@@ -1322,7 +1394,10 @@ const ja: Strings = {
 
   log: {
     legacy: (p) => String(p.text ?? ''),
-    colonistArrived: (p) => `${p.name}が植民地の蓄えに惹かれてやってきた`,
+    colonistArrived: (p) =>
+      p.tribe
+        ? `${p.name}が植民地の蓄えに惹かれてやってきた — ${ja.tribeLabels[p.tribe as TribeName]}の出という`
+        : `${p.name}が植民地の蓄えに惹かれてやってきた`,
     skillLevelUp: (p) => `${p.name}の${JA_SKILLS[p.skill as SkillName]}がレベル${p.level}に達した`,
     seasonArrived: (p) => `${JA_SEASONS[p.season as Season]}が来た`,
     colonistStarving: (p) => `${p.name}が飢えている`,
@@ -1343,8 +1418,15 @@ const ja: Strings = {
       `${ja.speciesCounted(p.species as AnimalSpecies, p.count as number)}の群れが通り過ぎていった`,
     incidentLostSupplies: (p) =>
       `誰かが${JA_RESOURCES[p.resource as ResourceType]}${p.quantity}を近くの道端に置き捨てていった`,
-    incidentRaid: (p) =>
-      p.count === 1 ? '襲撃者が森から現れた' : `${p.count}人の襲撃者が森から現れた`,
+    incidentRaid: (p) => {
+      const tribe = p.tribe ? ja.tribeLabels[p.tribe as TribeName] : null;
+      if (tribe) {
+        return p.count === 1
+          ? `${tribe}の襲撃者が森から現れた`
+          : `${tribe}の襲撃者${p.count}人が森から現れた`;
+      }
+      return p.count === 1 ? '襲撃者が森から現れた' : `${p.count}人の襲撃者が森から現れた`;
+    },
     raiderCutDownBy: (p) => `襲撃者${p.raider}は${p.colonist}に討ち取られた`,
     raiderCutDownByTurret: (p) => `襲撃者${p.raider}はタレットに撃ち倒された`,
     raidOver: () => '襲撃が終わった',
@@ -1382,7 +1464,8 @@ const ja: Strings = {
       `${jaSpecies(p.species)}の${p.name}が${jaSpecies(p.predator)}に殺された`,
     wolfSpotted: (p) => `森の際でオオカミが目撃された（${p.name}）`,
     rockeaterExposedVein: (p) => `岩喰いの${p.name}が${p.tile}で魔力結晶の鉱脈をむき出しにした`,
-    traderArrived: (p) => `${ja.traderKindLabels[p.kind as TraderKind]}の${p.name}が交易柱に店を構えた`,
+    traderArrived: (p) =>
+      `${ja.tribeLabels.lanternfolk}の${ja.traderKindLabels[p.kind as TraderKind]}、${p.name}が交易柱に店を構えた`,
     traderLeft: (p) => `${p.name}は店をたたんで去っていった`,
     tradeSettled: (p) =>
       `${JA_RESOURCES[p.gave as ResourceType]}${p.gaveQuantity}を${JA_RESOURCES[p.took as ResourceType]}${p.tookQuantity}と交換した`,
@@ -1419,6 +1502,22 @@ const ja: Strings = {
   autosaveTitle: 'ゲーム内の1日ごとに専用スロットへ自動セーブされる',
   newMapButton: '新しいマップ',
   languageToggleTitle: '言語',
+  worldMapButton: '世界地図',
+
+  worldMapTitle: '世界地図',
+  worldMapSelectIntro: '始めるセルを選ぶか、地図に任せる。',
+  worldMapViewIntro: 'この植民地が始まった場所。閲覧のみ — 選択は開始時に決まっている。',
+  worldMapCloseButton: '閉じる',
+  worldMapRandomButton: 'おまかせで始める',
+  worldMapStartButton: 'ここで始める',
+  worldMapPickPrompt: 'セルをクリックすると、その土地がわかる。',
+  worldMapNearbyLabel: '近隣の民',
+  worldMapNoTribesNearby: '近くに部族はいない — 静かだが、助けも来ない。',
+  worldMapTribeHere: (tribeLabel) => `${tribeLabel}の勢力圏`,
+  worldMapTribeNear: (tribeLabel) => `${tribeLabel}が近い`,
+  worldMapLegendTitle: 'バイオーム',
+  worldMapCurrentCellLabel: 'この植民地',
+  worldMapPreWorldMapNote: 'このセーブはワールドマップ導入前のもので、セルの記録がない。',
 
   ordersGroup: '指示',
   buildGroup: '建設',

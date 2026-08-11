@@ -17,6 +17,7 @@ import { DEFAULT_SCENARIO, SCENARIOS, perArea, scaledCount, scenarioOf } from '.
 import type { ScenarioName } from './scenario';
 import { BIOMES, DEFAULT_BIOME, biomeOf } from './biome';
 import type { BiomeName } from './biome';
+import { cellSeed, worldBiomeAt } from './worldmap';
 import { rollStartingSkills } from './skills';
 import { rollTraits } from './traits';
 import { createEmptyState, nextId, own, tileIdOf, updateTile, isRock } from './state';
@@ -42,11 +43,23 @@ export interface WorldOptions {
   /** Which opening to generate (src/core/scenario.ts). Defaults to standard. */
   scenario?: ScenarioName;
   /**
-   * Which land to generate (src/core/biome.ts, 11章 フェーズ11 段階A). Defaults
-   * to meadow, which reproduces the generator's pre-biome behaviour exactly
-   * (bar the crystal floor topping up a thin-tail world).
+   * Which land to generate (src/core/biome.ts, 11章 フェーズ11 段階A). Ignored
+   * when `worldCell` is given - stage B derives the biome from the cell
+   * instead (design-phase11-worldmap.md 6章). Defaults to meadow, which
+   * reproduces the generator's pre-biome behaviour exactly (bar the crystal
+   * floor topping up a thin-tail world).
    */
   biome?: BiomeName;
+  /**
+   * Which world-map cell to generate on (11章 フェーズ11 段階B,
+   * docs/design-phase11-worldmap.md). When given, the local map's own seed is
+   * derived from `seed` (the world seed) and this cell rather than used
+   * directly (2.2章), and `biome` above is overridden with the cell's own
+   * biome. Omitted entirely, generation behaves exactly as it did before the
+   * world map existed - `seed` generates the map directly and `biome` (or
+   * meadow) picks its rules, with `state.worldCell` left `null`.
+   */
+  worldCell?: { x: number; y: number };
   /** [ext] How big a map to make (docs/design-phase6-space.md 3.1). */
   width?: number;
   height?: number;
@@ -149,14 +162,25 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     options.height ?? DEFAULT_MAP_HEIGHT,
   );
   state.scenario = options.scenario ?? DEFAULT_SCENARIO;
-  state.biome = options.biome ?? DEFAULT_BIOME;
   state.worldSeed = seed;
+  state.worldCell = options.worldCell ?? null;
+  // Stage B (design-phase11-worldmap.md 2.2 / 6章): a chosen cell overrides
+  // `biome` with its own derivation, and the local map is generated from
+  // `cellSeed` rather than the world seed directly - two cells of the same
+  // world read as two different places, and re-picking a cell reproduces the
+  // exact map it gave before. With no cell (the pre-worldmap path, and every
+  // existing caller that only passes `seed`), nothing changes: `genSeed` is
+  // `seed` itself, exactly as it always was.
+  state.biome = state.worldCell
+    ? worldBiomeAt(seed, state.worldCell.x, state.worldCell.y)
+    : (options.biome ?? DEFAULT_BIOME);
+  const genSeed = state.worldCell ? cellSeed(seed, state.worldCell.x, state.worldCell.y) : seed;
   const scenario = SCENARIOS[state.scenario];
   const biome = BIOMES[state.biome];
-  const forestNoise = valueNoise2D(seed);
-  const stoneNoise = valueNoise2D(seed + 977);
-  const crystalNoise = valueNoise2D(seed + 4231);
-  const ironNoise = valueNoise2D(seed + 7211);
+  const forestNoise = valueNoise2D(genSeed);
+  const stoneNoise = valueNoise2D(genSeed + 977);
+  const crystalNoise = valueNoise2D(genSeed + 4231);
+  const ironNoise = valueNoise2D(genSeed + 7211);
 
   const cx = Math.floor(state.width / 2);
   const cy = Math.floor(state.height / 2);
@@ -247,19 +271,20 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   // colonists
   for (let i = 0; i < scenario.colonists; i++) {
-    // the founders' backgrounds come out of the world seed, so "new map" also
-    // means a different set of people, not the same three under a new sky
+    // the founders' backgrounds come out of the local map's seed, so "new map"
+    // (or a newly chosen cell) also means a different set of people, not the
+    // same three under a new sky
     addColonist(
       state,
       { x: cx - 1 + i, y: cy + 6 },
       { hunger: 20 + i * 5, sleep: 10 + i * 5 , recreation: 0 },
-      seed * 31 + i * 7919,
+      genSeed * 31 + i * 7919,
     );
   }
 
-  scatterBerryBushes(state, seed, { x: cx, y: cy });
-  scatterFrostblooms(state, seed, { x: cx, y: cy });
-  spawnInitialWildlife(state, seed, { x: cx, y: cy });
+  scatterBerryBushes(state, genSeed, { x: cx, y: cy });
+  scatterFrostblooms(state, genSeed, { x: cx, y: cy });
+  spawnInitialWildlife(state, genSeed, { x: cx, y: cy });
 
   return state;
 }
