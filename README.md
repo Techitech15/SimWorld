@@ -7,17 +7,23 @@ RimWorld 風の 2D ブラウザ入植地シミュレーション。TypeScript + 
 | --- | --- |
 | [docs/design.md](docs/design.md) | **設計方針（全12章）**。いま何がどう動くか。実装に追随して更新する |
 | [docs/design-notes.md](docs/design-notes.md) | **追加検討ノート**。なぜそうしたか・何を測ったか・案から何を変えたか |
-| [docs/design-phase2.5-animals.md](docs/design-phase2.5-animals.md) | **フェーズ2.5** 生物レイヤーの設計案（提案時のまま） |
-| [docs/design-phase5-trade.md](docs/design-phase5-trade.md) | **フェーズ5** 交易とファンタジー層の設計案（未着手） |
-| [docs/design-phase6-space.md](docs/design-phase6-space.md) | **フェーズ6** マップ拡張と画面の再配置の設計案（未着手） |
-| [docs/design-phase7-time.md](docs/design-phase7-time.md) | **フェーズ7** 昼夜の表現・なめらかな移動の設計案（未着手） |
-| [docs/design-phase8-equipment.md](docs/design-phase8-equipment.md) | **フェーズ8** 服と武器の設計案（未着手） |
+| [docs/design-phase2.5-animals.md](docs/design-phase2.5-animals.md) | **フェーズ2.5** 生物レイヤーの設計案（提案時のまま。現況は design-notes.md 側） |
+| [docs/design-phase5-trade.md](docs/design-phase5-trade.md) | **フェーズ5** 交易とファンタジー層の設計案（実装済み） |
+| [docs/design-phase6-space.md](docs/design-phase6-space.md) | **フェーズ6** マップ拡張と画面の再配置の設計案（実装済み） |
+| [docs/design-phase7-time.md](docs/design-phase7-time.md) | **フェーズ7** 昼夜の表現・なめらかな移動の設計案（実装済み） |
+| [docs/design-phase8-equipment.md](docs/design-phase8-equipment.md) | **フェーズ8** 服と武器の設計案（E-1〜E-4・E-6 実装済み、E-5 のみ保留） |
+| [docs/design-phase9-language.md](docs/design-phase9-language.md) | **フェーズ9** 日本語表示と言語切り替えの設計案（実装済み） |
+| [docs/design-phase10-ores.md](docs/design-phase10-ores.md) | **フェーズ10** 鉱石と家具・建築メニュー階層化の設計案（実装済み） |
+| [docs/design-phase11-worldmap.md](docs/design-phase11-worldmap.md) | **フェーズ11** ワールドマップ・バイオーム・部族の設計案（実装済み） |
+| [docs/design-phase12-research.md](docs/design-phase12-research.md) | **フェーズ12** 研究ツリーと職業の設計案（実装済み） |
+| [docs/design-phase13-presentation.md](docs/design-phase13-presentation.md) | **フェーズ13** 画面の整えと音の設計案（実装済み） |
 | [docs/design-next.md](docs/design-next.md) | **次の検討**。まだ実装していないものと、その優先順位 |
 | この README | 動かし方・操作・実装との対応・テスト一覧 |
 
 フェーズ単位で足す層の設計案は `design-phase<番号>-<名前>.md`。フェーズに属さない3つ
 （`design.md` / `design-notes.md` / `design-next.md`）にはこの命名を適用しない。
-ロードマップ上の各フェーズの現況は [docs/design.md](docs/design.md) の 11 章。
+ロードマップ上の各フェーズの現況は [docs/design.md](docs/design.md) の 11 章
+（プレイテスト由来の修正はフェーズ番号を持たず、11章末尾にまとめてある）。
 
 仕様（design.md）と理由（design-notes.md）を分けているのは、寿命が違うから。仕様は実装が変われば
 書き換わるが、「なぜ牧場は食料しか受け入れないか」は実装が変わっても消えてはいけない記録になる。
@@ -133,7 +139,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/berries.test.ts`     | ベリーが森に散り、自力で熟し、収穫量が畑を上回らないこと                                     |
 | `src/core/skills.test.ts`      | 熟練するほど同じ仕事が速く終わり、やった仕事だけが伸びること／開拓者の得意分野が異なること   |
 | `src/core/storageFilters.test.ts` | 貯蔵ゾーンが受け入れる資源を絞れること／囲いに薪が積まれないこと／往復の無限ループが起きないこと |
-| `src/ui/Minimap.test.ts`       | ミニマップに穴が無く、地形・捕食者・家畜・指定が描き分けられること                           |
+| `src/ui/Minimap.test.ts`       | ミニマップに穴が無く、地形・捕食者・家畜・指定が描き分けられること／クリック→タイル座標の変換（`tileAtMinimapPoint`）が四隅・中心・非正方形マップ・表示倍率の違いで正しくクランプされること（#14） |
 | `src/core/traits.test.ts`      | 特性が実際に差を生むこと（大食い／早熟／頑健／勤勉）と、矛盾する特性が同時に付かないこと     |
 | `src/core/trade.test.ts` | 柱と食料があれば行商人が来ること／灯りが晶商に格上げすること／灯りが無くても行商人は来ること／同じセーブが同じ相場を出すこと／運搬が遅いと取引が流れること |
 | `src/ui/panelState.test.ts` | パネルの折り畳みがセーブに入らないこと／既定の開閉が植民地の状態から決まること |
@@ -174,6 +180,10 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/render/daylight.test.ts`  | 昼夜の色が正午0・深夜0.45で境界で跳ばないこと／給電中の灯だけが光り、燃料が切れると消えること |
 | `src/core/mapsize.test.ts`     | 2種のマップサイズが実寸で生成されセーブ往復できること（大荒野180×180は実測27.9ms/tickで不採用） |
 | `src/core/equipment.test.ts`   | 注文した斧が作られ拾われ装備されセーブを往復すること／斧が伐採を実際に速くし装備ゼロは従来と一致すること／弓が猪の突進の外から狩れること／壊れたらログと再注文が出ること／剣と鎧が襲撃の数値を曲げること |
+| `src/game/loop.test.ts`        | 危機（食料ゼロ・餓死寸前）が新たに発生したときだけ自動停止すること（同じ状態が続く間は再発火しないこと）／`advanceTicks`（catch-up の積算）がどの速度・フレーム長でも `MAX_CATCHUP_TICKS` を超えないこと、上限に張り付いても余剰時間を持ち越さないこと、ストール明けの最初の通常フレームで即座に正常tickレートへ戻ること（#8） |
+| `src/core/hunt-chase.test.ts`  | 狩猟中の追跡が幅のある岩場の壁面で往復し続けないこと（実際に破綻していた2シードで固定）／射程境界での詰め直し回数と作業tick比率が測定値ベースの閾値を満たすこと（#9） |
+| `src/render/pick.test.ts`      | クリック位置の対象決定（`pickAt`）が入植者→動物→空タイルの優先順で選ばれること／入植者と動物が同じタイルにいれば入植者が勝つこと／動物が複数いても id 順で決定的に1体を返すこと（#13） |
+| `src/render/pace.test.ts`      | 補間速度（`interpolationSpeed`）がどんなフレーム列でもエンティティの歩調を超える表示速度を許さないこと（起動直後のストールで tick がまとめて進んだあとでも）／`isTeleport` が閾値ちょうどで境界どおりに判定し、対角の跳びも軸のどちらかが超えれば検知すること（#8） |
 
 ## 配布
 
