@@ -7,6 +7,7 @@
 // one once it has scrolled.
 import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from './constants';
 import { herdSize, isPredator, pastureCapacity } from './animals';
+import { buildNetworks } from './mana';
 import { manhattan, tileIdOf } from './state';
 import { freeCapacity } from './storage';
 import { CROP_GROWTH_BY_SEASON, DAYS_PER_SEASON, dayOfSeason, seasonOf } from './season';
@@ -38,7 +39,11 @@ export type AlertKey =
   | 'pastureOverCapacity' // { herd, capacity }
   | 'jobsAbandoned' // { count }
   | 'nothingGrows' // { season }
-  | 'winterClose';
+  | 'winterClose'
+  // [ext] design-next 提案2: the grid going dark is the "one visible fact" the
+  // all-or-nothing fuse was designed around, and it never reached this strip.
+  | 'furnaceEmpty' // { count }
+  | 'gridDown'; // { count }
 
 export interface Alert {
   level: AlertLevel;
@@ -265,6 +270,38 @@ export function collectAlerts(state: GameState): Alert[] {
       params: { count: abandoned.length },
       at: where ? { x: where.x, y: where.y } : undefined,
     });
+  }
+
+  // A dark grid (design-next 提案2). One alert per problem, pointing at the
+  // actionable cause: a grid with an unfuelled furnace is reported as the empty
+  // furnace (haul crystal to it), and only a grid whose furnaces are all lit
+  // and still short is reported as down (take something off the line). An idle
+  // grid - demand zero - is `powered` by definition and stays silent.
+  let emptyFurnaces = 0;
+  let emptyAt: Vector2 | undefined;
+  let downGrids = 0;
+  let downAt: Vector2 | undefined;
+  const networks = buildNetworks(state);
+  for (const grid of networks.grids) {
+    if (grid.powered) continue;
+    const buildingsOnGrid = grid.buildingIds.map((id) => state.buildings[id]);
+    const empty = buildingsOnGrid.find((b) => b.type === 'manaFurnace' && !(b.manaFuel > 0));
+    const anchor = empty ?? buildingsOnGrid.find((b) => b.type === 'manaFurnace') ?? buildingsOnGrid[0];
+    const tile = state.tiles[anchor.tileId];
+    const at = tile ? { x: tile.x, y: tile.y } : undefined;
+    if (empty) {
+      emptyFurnaces++;
+      emptyAt ??= at;
+    } else {
+      downGrids++;
+      downAt ??= at;
+    }
+  }
+  if (emptyFurnaces > 0) {
+    alerts.push({ level: 'warning', key: 'furnaceEmpty', params: { count: emptyFurnaces }, at: emptyAt });
+  }
+  if (downGrids > 0) {
+    alerts.push({ level: 'warning', key: 'gridDown', params: { count: downGrids }, at: downAt });
   }
 
   const season = seasonOf(state.tick);

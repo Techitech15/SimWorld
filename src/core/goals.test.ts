@@ -169,3 +169,36 @@ describe('what to do next', () => {
     expect(RESOURCE_TYPES.length).toBeGreaterThanOrEqual(3);
   });
 });
+
+// design-next 提案2: the goal panel never mentioned that phase 2 exists. Both
+// goals are derived like all the others, so they un-tick when the fuel dies.
+describe('the mana goals', () => {
+  it('tells a colony that has never touched mana to mine a crystal', () => {
+    const harness = createHarness(9611);
+    expect(goal(harness.state, 'mana').done).toBe(false);
+    addItem(harness.state, 'manaCrystal', 1, 30, 30);
+    expect(goal(harness.state, 'mana').done).toBe(true);
+  });
+
+  it('counts the lamp goal only while a lamp is actually powered', () => {
+    const harness = createHarness(9613);
+    expect(goal(harness.state, 'light').done).toBe(false);
+
+    // a furnace alone is not a light
+    const furnace = addBuilding(harness.state, 'manaFurnace', tileIdOf(10, 10));
+    harness.state.buildings[furnace.id] = { ...furnace, manaFuel: 1000 };
+    expect(goal(harness.state, 'light').done).toBe(false);
+
+    // a lamp on the lit furnace's grid is
+    addBuilding(harness.state, 'manaLamp', tileIdOf(11, 10));
+    expect(goal(harness.state, 'light').done).toBe(true);
+
+    // the fuel runs out and the goal goes back to undone - it is derived, not
+    // a medal (the property goals.test has pinned since the panel existed)
+    harness.state.buildings[furnace.id] = {
+      ...harness.state.buildings[furnace.id],
+      manaFuel: 0,
+    };
+    expect(goal(harness.state, 'light').done).toBe(false);
+  });
+});

@@ -667,6 +667,10 @@ const en: Strings = {
       `${p.count} ${n(p.count as number, 'job was', 'jobs were')} given up on — unreachable`,
     nothingGrows: (p) => `${EN_SEASONS[p.season as Season]}: nothing is growing`,
     winterClose: () => 'Winter is close — stock up on food',
+    furnaceEmpty: (p) =>
+      Number(p.count) === 1 ? 'A mana furnace is out of crystal' : `${p.count} mana furnaces are out of crystal`,
+    gridDown: (p) =>
+      Number(p.count) === 1 ? 'A mana grid is overloaded — demand exceeds supply' : `${p.count} mana grids are overloaded`,
   },
 
   goalLabels: {
@@ -679,6 +683,8 @@ const en: Strings = {
     tame: (p) => `Livestock of your own (${p.tame})`,
     filter: () => 'Tell a store what it takes',
     research: () => 'Finish your first research',
+    mana: () => 'Mine a mana crystal',
+    light: () => 'Put a lamp on a working grid',
   },
   goalHints: {
     beds: 'Build > Bed. Sleeping on the ground recovers rest at little more than half the rate.',
@@ -694,6 +700,9 @@ const en: Strings = {
       'Build > Research desk, pick a tech in the research panel, then raise a column of the work table.',
     filter:
       'Click a storage tile and use the Accepts chips - a wood yard by the wall, a larder by the beds.',
+    mana: 'Orders > Mine, on the violet crystal behind the rock. Digging through the grey face exposes it.',
+    light:
+      'Build > Mana furnace beside a Mana lamp, keep crystal hauled in, and the lamp lifts the mood around it.',
   },
 
   status: {
@@ -1347,6 +1356,10 @@ const ja: Strings = {
     jobsAbandoned: (p) => `${p.count}件の仕事が断念された — 到達できない`,
     nothingGrows: (p) => `${JA_SEASONS[p.season as Season]}：作物が育たない`,
     winterClose: () => '冬が近い — 食料を蓄えること',
+    furnaceEmpty: (p) =>
+      Number(p.count) === 1 ? '魔導炉の結晶が切れている' : `${p.count}基の魔導炉で結晶が切れている`,
+    gridDown: (p) =>
+      Number(p.count) === 1 ? '魔力グリッドが過負荷 — 需要が供給を超えている' : `${p.count}本の魔力グリッドが過負荷`,
   },
 
   goalLabels: {
@@ -1359,6 +1372,8 @@ const ja: Strings = {
     tame: (p) => `自分の家畜を（${p.tame}頭）`,
     filter: () => '倉庫に受け入れ品目を教える',
     research: () => '最初の研究を終える',
+    mana: () => 'マナ結晶を掘る',
+    light: () => '灯りを点す',
   },
   goalHints: {
     beds: '建設 > ベッド。地面で寝ると休息の回復は半分ほどしかない。',
@@ -1370,6 +1385,8 @@ const ja: Strings = {
     pasture: '建設 > 牧草地を草地の上に。広さが頭数の上限を決め、草がそのまま餌になる。',
     tame: '動物 > 飼い慣らしを、シカ・イノシシ・ウサギ・ニワトリに。オオカミは慣れない。',
     filter: '備蓄タイルをクリックして受け入れチップを。壁際に木材置き場、ベッドの隣に食料庫。',
+    mana: '指示 > 採掘を、岩の奥の紫の結晶に。灰色の岩壁を掘り進めば露出する。',
+    light: '建設 > 魔導炉を魔力灯の隣に。結晶を運び続ければ、灯りが周囲の気分を上げる。',
   },
 
   status: {

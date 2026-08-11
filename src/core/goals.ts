@@ -11,6 +11,7 @@
 // goes back to undone and says so - which is the more useful thing for a panel
 // that is answering "what now".
 import { RESOURCE_TYPES } from './constants';
+import { buildNetworks, isPowered } from './mana';
 import { seasonOf } from './season';
 import type { Season } from './season';
 import type { GameState, LogParams } from './types';
@@ -29,7 +30,11 @@ export type GoalId =
   | 'pasture'
   | 'tame'
   | 'filter'
-  | 'research';
+  | 'research'
+  // [ext] design-next 提案2: eleven phases in, nothing in the game said mana
+  // exists. Derived like all the others: the light goal un-ticks when fuel dies.
+  | 'mana'
+  | 'light';
 
 export interface Goal {
   id: GoalId;
@@ -142,6 +147,35 @@ export function colonyGoals(state: GameState): Goal[] {
       progress: state.research.unlocked.length > 0 ? 1 : 0,
     },
   ];
+
+  // The mana pair (design-next 提案2). Networks cost is proportional to the
+  // number of mana buildings, so a colony without any pays almost nothing here.
+  const networks = buildNetworks(state);
+  let fuelledFurnace = false;
+  let litLamp = false;
+  for (const id in state.buildings) {
+    const building = state.buildings[id];
+    if (building.isBlueprint) continue;
+    if (building.type === 'manaFurnace' && building.manaFuel > 0) fuelledFurnace = true;
+    if (building.type === 'manaLamp' && isPowered(networks, id)) litLamp = true;
+  }
+  const crystals = stock.manaCrystal ?? 0;
+  goals.push(
+    {
+      // touched mana at all: a crystal in stock, or one already burning
+      id: 'mana',
+      params: {},
+      done: crystals > 0 || fuelledFurnace,
+      progress: crystals > 0 || fuelledFurnace ? 1 : 0,
+    },
+    {
+      // a lamp actually shining, so it goes back to undone when the fuel dies
+      id: 'light',
+      params: {},
+      done: litLamp,
+      progress: litLamp ? 1 : 0,
+    },
+  );
 
   return goals;
 }

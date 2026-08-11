@@ -8,7 +8,7 @@ import { PREDATOR_ALERT_DISTANCE } from './alerts';
 import { TICKS_PER_SEASON } from './season';
 import { tileIdOf } from './state';
 import { createHarness } from './testUtils';
-import { createAnimal } from './worldgen';
+import { addBuilding, createAnimal } from './worldgen';
 import type { GameState } from './types';
 
 const keys = (state: GameState): string[] => collectAlerts(state).map((a) => a.key);
@@ -163,5 +163,57 @@ describe('alerts', () => {
     const harness = createHarness(823);
     harness.state.colonists = {};
     expect(collectAlerts(harness.state)).toEqual([{ level: 'critical', key: 'colonyDied' }]);
+  });
+});
+
+// design-next 提案2: a grid going dark was the "one visible fact" the all-or-
+// nothing fuse was designed around, and yet it never reached the alert strip.
+describe('the mana alerts', () => {
+  it('points at the empty furnace when that is why the grid is dark', () => {
+    const harness = createHarness(1821);
+    const furnace = addBuilding(harness.state, 'manaFurnace', tileIdOf(10, 10));
+    addBuilding(harness.state, 'manaLamp', tileIdOf(11, 10));
+
+    const alert = collectAlerts(harness.state).find((a) => a.key === 'furnaceEmpty');
+    expect(alert).toBeDefined();
+    expect(alert!.level).toBe('warning');
+    expect(alert!.at).toEqual({ x: 10, y: 10 });
+    // the cause is reported once, not once as a cause and again as an effect
+    expect(collectAlerts(harness.state).some((a) => a.key === 'gridDown')).toBe(false);
+
+    // fuel it and the alert goes away
+    harness.state.buildings[furnace.id] = { ...furnace, manaFuel: 1000 };
+    expect(collectAlerts(harness.state).some((a) => a.key === 'furnaceEmpty')).toBe(false);
+  });
+
+  it('reports an overloaded grid as down even though its furnace is lit', () => {
+    const harness = createHarness(1823);
+    const furnace = addBuilding(harness.state, 'manaFurnace', tileIdOf(10, 10));
+    harness.state.buildings[furnace.id] = { ...furnace, manaFuel: 1000 };
+    // one furnace (10) cannot feed an extractor (8) and a lamp (3)
+    addBuilding(harness.state, 'manaExtractor', tileIdOf(11, 10));
+    addBuilding(harness.state, 'manaLamp', tileIdOf(10, 11));
+
+    const alert = collectAlerts(harness.state).find((a) => a.key === 'gridDown');
+    expect(alert).toBeDefined();
+    expect(alert!.level).toBe('warning');
+    expect(alert!.at).toEqual({ x: 10, y: 10 });
+    expect(collectAlerts(harness.state).some((a) => a.key === 'furnaceEmpty')).toBe(false);
+  });
+
+  it('says nothing about mana in a colony that has none', () => {
+    const harness = createHarness(1825);
+    const keys = collectAlerts(harness.state).map((a) => a.key);
+    expect(keys).not.toContain('gridDown');
+    expect(keys).not.toContain('furnaceEmpty');
+  });
+
+  it('stays quiet about an idle grid with nothing drawing on it', () => {
+    const harness = createHarness(1827);
+    // a cold furnace with no consumers: building ahead of demand is not a crisis
+    addBuilding(harness.state, 'manaFurnace', tileIdOf(10, 10));
+    const keys = collectAlerts(harness.state).map((a) => a.key);
+    expect(keys).not.toContain('gridDown');
+    expect(keys).not.toContain('furnaceEmpty');
   });
 });
