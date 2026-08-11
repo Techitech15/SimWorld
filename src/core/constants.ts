@@ -116,6 +116,10 @@ export const TRADE_BASE_VALUE: Record<ResourceType, number> = {
   // between the commodities and the crystal: rarer than stone, but a vein of
   // it holds more than a crystal vein does (design-phase10-ores.md 7.1)
   iron: 3,
+  // a foraged good like food, not tuned beyond that (フェーズ14 段階 H-1 was
+  // not scoped to trade balance; this is here only because TRADE_BASE_VALUE
+  // is a Record and every ResourceType needs a row)
+  herb: 2,
 };
 export const TRADE_BUY_RATE = 0.7;
 export const TRADE_SELL_RATE = 1.4;
@@ -246,7 +250,7 @@ export const FOREST_REGROW_INTERVAL_TICKS = TICKS_PER_DAY;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
-export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal', 'iron'];
+export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal', 'iron', 'herb'];
 
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
@@ -260,6 +264,7 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   farmPlot: [],
   berryBush: [], // wild: nobody builds one
   frostbloom: [], // likewise: it grows where the map put it (11章 フェーズ5)
+  herb: [], // likewise: it grows by the water (フェーズ14 段階 H-1)
   storageZoneMarker: [],
   // The mana layer (11章 フェーズ2). A furnace is the expensive one on purpose:
   // it is the decision the player commits to, and conduit runs are what they
@@ -333,6 +338,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   farmPlot: 30,
   berryBush: 20,
   frostbloom: 20,
+  herb: 20,
   storageZoneMarker: 10,
   manaFurnace: 200,
   manaConduit: 40,
@@ -363,6 +369,7 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   farmPlot: false,
   berryBush: false,
   frostbloom: false,
+  herb: false,
   storageZoneMarker: false,
   // A furnace is a solid installation you walk around; a conduit is laid into
   // the floor and a lamp stands out of the way, so both stay walkable - a power
@@ -700,6 +707,78 @@ export const FROSTBLOOM_COUNT = 14;
  * small herd through the winter rather than a better pasture than a meadow.
  */
 export const LIGHTMOSS_REGROW_FACTOR = 0.6;
+
+/**
+ * Herb (11章 フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md 4章と
+ * 7章). Fewer than a frostbloom (14) per map, because it only grows on grass
+ * beside a shore - the effective count is lower still once that placement
+ * rule is applied. A harvest yields three (a treatment costs one `herb`, so a
+ * single plant is three treatments), and it regrows over two days: faster
+ * than a berry bush (four days), slower than a frostbloom (a day and a half).
+ * All three are starting points, adjusted from the measurements in
+ * design-notes.md.
+ */
+export const HERB_PER_HARVEST = 3;
+export const HERB_REGROW_PER_TICK = 1 / 6000;
+export const HERB_COUNT = 10;
+
+/**
+ * The wild plants (11章 フェーズ5 と フェーズ14 段階 H-1). Berries, frostbloom
+ * and herb used to be a `type === 'berryBush' || type === 'frostbloom'` check
+ * repeated at four call sites (jobs/generator.ts twice, jobs/execute.ts,
+ * simulation.ts's growCrops); herb would have made that three branches in
+ * three files, so - the same move `VEIN_YIELD` made for ore (フェーズ10) -
+ * the branch became this table instead. Adding a fourth wild plant is now one
+ * row here plus one placement rule in worldgen, not a fourth `||`.
+ *
+ * `seasonTable` names which season curve applies (src/core/season.ts) rather
+ * than carrying the table object itself: season.ts already imports this file
+ * for `TICKS_PER_DAY`, so the reverse import would be a load-order cycle.
+ * `'crop'` is the curve farm plots and berry bushes already share
+ * (`CROP_GROWTH_BY_SEASON`, winter included) - herb reads the same curve, so
+ * it is not a new table, just a new user of the existing one. `'frostbloomInverse'`
+ * is frostbloom's own table, the crop curve upside down.
+ */
+export type WildPlantType = 'berryBush' | 'frostbloom' | 'herb';
+
+export const WILD_PLANT_TYPES: WildPlantType[] = ['berryBush', 'frostbloom', 'herb'];
+
+export interface WildPlantProfile {
+  /** what a `farm` job harvesting this plant hands over */
+  resource: ResourceType;
+  /** quantity handed over per harvest */
+  harvestYield: number;
+  /** growth added per tick, before the season multiplier */
+  regrowPerTick: number;
+  seasonTable: 'crop' | 'frostbloomInverse';
+}
+
+export const WILD_PLANTS: Record<WildPlantType, WildPlantProfile> = {
+  berryBush: {
+    resource: 'food',
+    harvestYield: FOOD_PER_BERRY_HARVEST,
+    regrowPerTick: BERRY_REGROW_PER_TICK,
+    seasonTable: 'crop',
+  },
+  frostbloom: {
+    resource: 'food',
+    harvestYield: FOOD_PER_FROSTBLOOM_HARVEST,
+    regrowPerTick: FROSTBLOOM_REGROW_PER_TICK,
+    seasonTable: 'frostbloomInverse',
+  },
+  herb: {
+    resource: 'herb',
+    harvestYield: HERB_PER_HARVEST,
+    regrowPerTick: HERB_REGROW_PER_TICK,
+    // does not grow in winter, same as the crop curve (design-phase14 4章)
+    seasonTable: 'crop',
+  },
+};
+
+/** The single place that answers "is this building type a wild plant". */
+export function wildPlantOf(type: BuildingType): WildPlantProfile | undefined {
+  return (WILD_PLANTS as Partial<Record<BuildingType, WildPlantProfile>>)[type];
+}
 
 /**
  * Rockeater: ticks to work through one tile of stone, and how far it will look

@@ -82,6 +82,14 @@ export function describeTile(state: GameState, tileId: string | null, strings: S
             : strings.berriesRipening(Math.round(building.growth * 100)),
         );
       }
+      if (building.type === 'herb') {
+        add(
+          strings.rowHerb,
+          building.growth >= 1
+            ? strings.herbReady
+            : strings.herbGrowing(Math.round(building.growth * 100)),
+        );
+      }
       if (building.type === 'frostbloom') {
         // the one plant whose dormancy is every season but one, so it says which
         add(

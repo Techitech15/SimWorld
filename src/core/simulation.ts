@@ -13,13 +13,15 @@ import { runDefenders, runRaiders, runTurrets } from './raid';
 import { runRelationships } from './relationships';
 import { regrowForest } from './regrowth';
 import {
-  BERRY_REGROW_PER_TICK,
   CROP_GROWTH_PER_TICK,
   FLEE_DURATION_TICKS,
   FLEE_TRIGGER_DISTANCE,
-  FROSTBLOOM_REGROW_PER_TICK,
   TICKS_PER_STEP,
+  WILD_PLANTS,
+  WILD_PLANT_TYPES,
+  wildPlantOf,
 } from './constants';
+import type { WildPlantType } from './constants';
 import { invalidateTile, rebuildRegions } from './derived';
 import {
   CROP_GROWTH_BY_SEASON,
@@ -156,26 +158,32 @@ function growCrops(state: GameState): void {
   const season = seasonOf(state.tick);
   // nothing grows in winter, so the year has to be planned around it
   const rate = CROP_GROWTH_PER_TICK * CROP_GROWTH_BY_SEASON[season];
-  const berryRate = BERRY_REGROW_PER_TICK * CROP_GROWTH_BY_SEASON[season];
-  // ...except the one plant whose season is winter (11章 フェーズ5). It is read
-  // from its own table, so the early return below has to come after it rather
-  // than before: the tick where everything else stops is the tick this starts.
-  const frostRate = FROSTBLOOM_REGROW_PER_TICK * FROSTBLOOM_GROWTH_BY_SEASON[season];
-  if (rate <= 0 && frostRate <= 0) return;
+  // Each wild plant's rate, read off WILD_PLANTS rather than a per-type `if`
+  // (フェーズ14 段階 H-1 4.3): frostbloom is the one that reads its table
+  // upside down (11章 フェーズ5), so it is the only one whose rate can be
+  // positive while `rate` above is zero - which is why the early return below
+  // has to come after this, not before.
+  const seasonMultiplier = { crop: CROP_GROWTH_BY_SEASON[season], frostbloomInverse: FROSTBLOOM_GROWTH_BY_SEASON[season] };
+  const wildRate = {} as Record<WildPlantType, number>;
+  let anyWildGrowing = false;
+  for (const type of WILD_PLANT_TYPES) {
+    const plant = WILD_PLANTS[type];
+    const r = plant.regrowPerTick * seasonMultiplier[plant.seasonTable];
+    wildRate[type] = r;
+    if (r > 0) anyWildGrowing = true;
+  }
+  if (rate <= 0 && !anyWildGrowing) return;
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.isBlueprint || building.growth >= 1) continue;
-    if (building.type === 'frostbloom') {
-      if (frostRate <= 0) continue;
-      updateBuilding(state, buildingId, { growth: Math.min(1, building.growth + frostRate) });
+    if (wildPlantOf(building.type)) {
+      const r = wildRate[building.type as WildPlantType];
+      if (r <= 0) continue;
+      // a wild plant needs no sowing: it just comes back on its own
+      updateBuilding(state, buildingId, { growth: Math.min(1, building.growth + r) });
       continue;
     }
     if (rate <= 0) continue;
-    // a bush needs no sowing: it just comes back, slower than a tended plot
-    if (building.type === 'berryBush') {
-      updateBuilding(state, buildingId, { growth: Math.min(1, building.growth + berryRate) });
-      continue;
-    }
     if (building.type !== 'farmPlot' || !building.sown) continue;
     updateBuilding(state, buildingId, {
       growth: Math.min(1, building.growth + rate),

@@ -540,6 +540,32 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 25 save into herb-accepting storage zones (フェーズ14 段階 H-1)', () => {
+    const harness = createHarness(137);
+    harness.run(50);
+    const v25 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+
+    const migrated = migrateSave({
+      schemaVersion: 25,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v25,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.zones) {
+      if (migrated.state.zones[id].type !== 'storage') continue;
+      expect(migrated.state.zones[id].accepts).toContain('herb');
+    }
+    // and no herb plants were invented on a map generated before the
+    // placement rule existed - only newly generated worlds have them (6章)
+    expect(
+      Object.values(migrated.state.buildings).filter((b) => b.type === 'herb').length,
+    ).toBe(Object.values(v25.buildings).filter((b) => b.type === 'herb').length);
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

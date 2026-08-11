@@ -41,6 +41,9 @@ const BUILDING: Record<string, Rgb> = {
   farmPlot: [122, 82, 50],
   berryBush: [138, 58, 82],
   frostbloom: [168, 200, 226],
+  // green against the berry bush's red and the frostbloom's blue-white, so a
+  // shoreline reads apart from the other two wild plants at a glance
+  herb: [92, 168, 96],
   storageZoneMarker: [92, 108, 132],
 };
 

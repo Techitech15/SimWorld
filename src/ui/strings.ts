@@ -247,6 +247,10 @@ export interface Strings {
   bloomInFlower: string;
   bloomOpening: (percent: number) => string;
   bloomDormant: (percent: number) => string;
+  /** herb (フェーズ14 段階 H-1): same shape as the berry bush's row */
+  rowHerb: string;
+  herbReady: string;
+  herbGrowing: (percent: number) => string;
   cropNotSown: string;
   cropReady: string;
   cropDormant: (percent: number) => string;
@@ -379,6 +383,7 @@ const EN_RESOURCES: Record<ResourceType, string> = {
   food: 'food',
   manaCrystal: 'mana crystal',
   iron: 'iron',
+  herb: 'herb',
 };
 
 const EN_SPECIES: Record<AnimalSpecies, string> = {
@@ -424,6 +429,7 @@ const EN_BUILDINGS: Record<BuildingType, string> = {
   manaTurret: 'Mana turret',
   tradingPost: 'Trading post',
   frostbloom: 'Frostbloom',
+  herb: 'Herb',
   table: 'Table',
   stool: 'Stool',
   dresser: 'Dresser',
@@ -994,6 +1000,9 @@ const en: Strings = {
   bloomInFlower: 'in flower',
   bloomOpening: (percent) => `opening (${percent}%)`,
   bloomDormant: (percent) => `${percent}% — dormant until winter`,
+  rowHerb: 'Herb',
+  herbReady: 'ready to harvest',
+  herbGrowing: (percent) => `growing (${percent}%)`,
   cropNotSown: 'not sown',
   cropReady: 'ready to harvest',
   cropDormant: (percent) => `${percent}% — dormant until spring`,
@@ -1120,6 +1129,7 @@ const JA_RESOURCES: Record<ResourceType, string> = {
   food: '食料',
   manaCrystal: '魔力結晶',
   iron: '鉄',
+  herb: '薬草',
 };
 
 const JA_SPECIES: Record<AnimalSpecies, string> = {
@@ -1151,6 +1161,7 @@ const JA_BUILDINGS: Record<BuildingType, string> = {
   manaTurret: '防衛タレット',
   tradingPost: '交易柱',
   frostbloom: '霜花',
+  herb: '薬草',
   table: '食卓',
   stool: '腰掛け',
   dresser: '戸棚',
@@ -1693,6 +1704,9 @@ const ja: Strings = {
   bloomInFlower: '咲いている',
   bloomOpening: (percent) => `開きつつある（${percent}%）`,
   bloomDormant: (percent) => `${percent}% — 冬まで休眠`,
+  rowHerb: '薬草',
+  herbReady: '収穫できる',
+  herbGrowing: (percent) => `生育中（${percent}%）`,
   cropNotSown: '未播種',
   cropReady: '収穫できる',
   cropDormant: (percent) => `${percent}% — 春まで休眠`,

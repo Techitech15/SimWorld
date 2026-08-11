@@ -4,6 +4,7 @@ import {
   DEFAULT_MAP_HEIGHT,
   DEFAULT_MAP_WIDTH,
   FROSTBLOOM_COUNT,
+  HERB_COUNT,
   BUILDING_HP,
   COLONIST_COLORS,
   COLONIST_MAX_HEALTH,
@@ -316,6 +317,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   scatterBerryBushes(state, genSeed, { x: cx, y: cy });
   scatterFrostblooms(state, genSeed, { x: cx, y: cy });
+  scatterHerbs(state, genSeed, { x: cx, y: cy });
   spawnInitialWildlife(state, genSeed, { x: cx, y: cy });
 
   return state;
@@ -789,6 +791,43 @@ function scatterFrostblooms(state: GameState, seed: number, camp: { x: number; y
     });
     if (!nearRock) continue;
     addBuilding(state, 'frostbloom', tile.id);
+    placed++;
+  }
+}
+
+/**
+ * Herb (フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md 4章), placed
+ * the same way frostbloom is placed against the rock (4.1) - but against the
+ * shore instead: grass beside a shallow or deep water tile, rather than grass
+ * beside stone. This is what gives the lake layer (段階 W-1) a reason to
+ * matter beyond blocking a path: a world with no water grows no herb.
+ */
+function scatterHerbs(state: GameState, seed: number, camp: { x: number; y: number }): void {
+  const rnd = mulberry32(seed + 2609);
+  const wanted = perArea(state, HERB_COUNT);
+  const attempts = perArea(state, 1200);
+  let placed = 0;
+  for (let attempt = 0; attempt < attempts && placed < wanted; attempt++) {
+    const x = Math.floor(rnd() * state.width);
+    const y = Math.floor(rnd() * state.height);
+    const tile = state.tiles[tileIdOf(x, y)];
+    if (!tile || tile.terrain !== 'grass' || tile.buildingId) continue;
+    if (Math.abs(x - camp.x) + Math.abs(y - camp.y) < 5) continue;
+    const nearWater = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+    ].some(([dx, dy]) => {
+      const neighbour = state.tiles[tileIdOf(x + dx, y + dy)];
+      return !!neighbour && isWater(neighbour.terrain);
+    });
+    if (!nearWater) continue;
+    addBuilding(state, 'herb', tile.id);
     placed++;
   }
 }

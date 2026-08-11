@@ -70,6 +70,10 @@ const P = {
   waterShallow: ['#2f6488', '#3d7ba3', '#4f92ba', '#7fc1dc'],
   // deep water: darker and cooler, the far end of the same blue family
   waterDeep: ['#132842', '#1a3a5c', '#234f78', '#2f6694'],
+  // herb (フェーズ14 段階 H-1): a medicinal green, apart from grass/forest and
+  // from the berry bush's red and the frostbloom's ice blue-white, so a
+  // shoreline plant reads apart from both of the other wild plants
+  herb: ['#264d2a', '#3c7a41', '#5aa25a', '#eef2c9'],
 };
 
 function save(name, canvas) {
@@ -450,6 +454,49 @@ function frostbloom(bloomed) {
     c.disc(16, 16, 4, leafDark);
     c.disc(16, 15, 3, leaf);
     c.set(16, 12, leafDark);
+  }
+  c.outline(P.outline);
+  return c;
+}
+
+/**
+ * Herb (フェーズ14 段階 H-1). It has to read apart from both existing wild
+ * plants at a glance: a low fan of narrow leaves like the frostbloom's
+ * rosette (so the family reads as "another shoreline plant"), but green
+ * rather than icy, and topped with small pale-cream flowers rather than the
+ * berry bush's red beads or the frostbloom's violet-hearted bloom.
+ */
+function herbPlant(ripe) {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(ripe ? 0x9a21 : 0x9a20);
+  const leaf = P.herb[1];
+  const leafDark = P.herb[0];
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 7) * Math.PI - Math.PI;
+    const length = 9 + Math.floor(rnd() * 4);
+    const ex = 16 + Math.round(Math.cos(angle) * length);
+    const ey = 26 + Math.round(Math.sin(angle) * (length * 0.7));
+    c.line(16, 27, ex, ey, i % 2 === 0 ? leaf : leafDark);
+    c.set(ex, ey, leafDark);
+    c.set(ex, ey - 1, P.herb[2]);
+  }
+  c.vline(16, 19, 9, leafDark); // stem
+  if (ripe) {
+    // small clustered flowers, pale cream against the green
+    const clusters = [
+      [16, 12],
+      [12, 15],
+      [20, 15],
+      [16, 18],
+    ];
+    for (const [px, py] of clusters) {
+      c.disc(px, py, 2, P.herb[3]);
+      c.set(px, py - 1, '#ffffff');
+    }
+  } else {
+    // dormant: a tight green bud on the stem
+    c.disc(16, 16, 3, leafDark);
+    c.disc(16, 15, 2, leaf);
   }
   c.outline(P.outline);
   return c;
@@ -1350,6 +1397,23 @@ function crystalIcon() {
   return c;
 }
 
+/** The harvested resource icon: a small bundled sprig, apart from the plant sprite. */
+function herbIcon() {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(0x9a30);
+  for (let i = 0; i < 3; i++) {
+    const bx = 10 + i * 6;
+    const tx = bx - 2 + Math.floor(rnd() * 4);
+    const ty = 8 + Math.floor(rnd() * 4);
+    c.line(bx, 27, tx, ty, P.herb[0]);
+    c.disc(tx, ty, 3, P.herb[2]);
+  }
+  c.rect(9, 25, 14, 4, '#8a6a3c'); // the tie binding the bundle
+  c.hline(9, 26, 14, '#6b4f2a');
+  c.outline(P.outline);
+  return c;
+}
+
 
 /** The furnace: a stone housing with a crystal burning behind a grate. */
 function manaFurnaceTile() {
@@ -1935,6 +1999,9 @@ written.push(save('animals/crystal_elk.png', crystalElkSheet()));
 written.push(save('animals/rockeater.png', rockeaterSheet()));
 written.push(save('buildings/frostbloom_bare.png', frostbloom(false)));
 written.push(save('buildings/frostbloom_bloom.png', frostbloom(true)));
+written.push(save('buildings/herb_bare.png', herbPlant(false)));
+written.push(save('buildings/herb_ripe.png', herbPlant(true)));
+written.push(save('resources/herb.png', herbIcon()));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));

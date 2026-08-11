@@ -92,7 +92,13 @@ export interface Tile {
   forage: number;
 }
 
-export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal' | 'iron';
+/**
+ * [ext] `herb` (フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md 4.2)
+ * is deliberately its own resource rather than a `food` variant: `variant` is
+ * "what was done to it", not "what it is", and a hungry colonist eating the
+ * medicine would be exactly the bug that distinction exists to prevent.
+ */
+export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal' | 'iron' | 'herb';
 
 export interface Item {
   id: ItemId;
@@ -295,6 +301,14 @@ export type BuildingType =
    * map whose season is winter. Nobody builds one.
    */
   | 'frostbloom'
+  /**
+   * [ext] Herb (フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md 4章).
+   * Wild like the berry bush and the frostbloom, and grown the same way, but
+   * placed by the water rule (`isWater`) rather than the forest or the rock
+   * one: it only grows on grass beside a shore, which is what gives the lake
+   * layer (段階 W-1) something to be for. Nobody builds one.
+   */
+  | 'herb'
   /**
    * [ext] The workbench (design-next 提案3): the entrance to second-stage
    * goods. One recipe for now - raw food in, meals out - worked by the `craft`

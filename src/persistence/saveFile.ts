@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 25;
+export const SCHEMA_VERSION = 26;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -438,6 +438,29 @@ export const migrations: Record<number, Migration> = {
   // is no region index to re-stitch and nowhere to evacuate anyone to. Old
   // colonies simply have no lakes; only newly generated worlds do.
   24: (old) => old,
+
+  /**
+   * 25 -> 26: herb (フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md
+   * 6章). No retrofit into the map for the same reason water got none (2.5章)
+   * - a colony saved before herb existed was generated before the water-side
+   * placement rule existed too, so there is no shore to grow it on and
+   * nothing sane to seed. Only newly generated worlds have herb plants.
+   *
+   * Storage zones are the one thing that does need touching: a zone that
+   * predates the resource would silently never take it in, so `herb` joins
+   * every existing storage zone's `accepts` the same way iron did at 18 -> 19
+   * - the player chose to exclude nothing, so nothing should arrive excluded.
+   */
+  25: (old) => {
+    const state = old as Partial<GameState>;
+    const zones = { ...(state.zones ?? {}) };
+    for (const id in zones) {
+      const zone = zones[id];
+      if (zone.type !== 'storage' || zone.accepts?.includes('herb')) continue;
+      zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'herb'] };
+    }
+    return { ...state, zones };
+  },
 };
 
 export function createSaveFile(state: GameState, now: string = new Date().toISOString()): SaveFile {

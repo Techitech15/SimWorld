@@ -3,7 +3,7 @@
 //
 // Duplicate suppression uses a reverse index keyed by "what this job is about",
 // so a designated tree never grows a second chop job while the first is alive.
-import { CRAFT_FOOD_RESERVE, CRAFT_MEAL_INPUT, DEFAULT_JOB_PRIORITY } from '../constants';
+import { CRAFT_FOOD_RESERVE, CRAFT_MEAL_INPUT, DEFAULT_JOB_PRIORITY, wildPlantOf } from '../constants';
 import { EQUIPMENT } from '../equipment';
 import { wantsFuel } from '../mana';
 import { deskReadyToResearch, researchResourceCost } from '../research';
@@ -121,9 +121,9 @@ export function runJobGenerator(state: GameState): void {
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.isBlueprint) continue;
-    // a ripe bush is harvest work and nothing else: there is no sowing to do,
-    // and a frostbloom is a bush that keeps a different calendar
-    if (building.type === 'berryBush' || building.type === 'frostbloom') {
+    // a ripe wild plant is harvest work and nothing else: there is no sowing
+    // to do (WILD_PLANTS, constants.ts - フェーズ14 段階 H-1 4.3)
+    if (wildPlantOf(building.type)) {
       if (building.growth < 1) continue;
       const key = `farm:${building.tileId}`;
       if (has(key)) continue;
@@ -465,7 +465,7 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     case 'farm': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       if (!building || building.isBlueprint) return false;
-      if (building.type === 'berryBush' || building.type === 'frostbloom') {
+      if (wildPlantOf(building.type)) {
         return building.growth >= 1;
       }
       return !building.sown || building.growth >= 1;

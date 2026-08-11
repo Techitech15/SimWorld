@@ -324,6 +324,8 @@ export class GameRenderer {
         return building.growth >= 1 ? t.berryRipe : t.berryBare;
       case 'frostbloom':
         return building.growth >= 1 ? t.frostbloomBloom : t.frostbloomBare;
+      case 'herb':
+        return building.growth >= 1 ? t.herbRipe : t.herbBare;
       case 'farmPlot':
         if (!building.sown) return t.farmTilled;
         return building.growth >= 1 ? t.farm2 : building.growth > 0.35 ? t.farm1 : t.farm0;
@@ -402,6 +404,8 @@ export class GameRenderer {
         return t.manaCrystal;
       case 'iron':
         return t.ironItem;
+      case 'herb':
+        return t.herbItem;
       default:
         return t.food;
     }
