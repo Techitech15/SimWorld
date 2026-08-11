@@ -220,6 +220,10 @@ export class GameRenderer {
         return this.textures.tiles.crystal;
       case 'ironVein':
         return this.textures.tiles.ironVein;
+      case 'shallowWater':
+        return this.textures.tiles.shallowWater;
+      case 'deepWater':
+        return this.textures.tiles.deepWater;
       default:
         return this.textures.tiles.grass;
     }

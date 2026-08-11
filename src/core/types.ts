@@ -49,8 +49,23 @@ export interface Vector2 {
  * answer yes. `ironVein` is the second ore and follows the same precedent
  * (フェーズ10): what differs between the two is a row in VEIN_YIELD, not a
  * mechanism.
+ *
+ * `shallowWater` / `deepWater` are the water terrain (フェーズ14 段階 W-1,
+ * docs/design-phase14-water-medicine.md 2.1). Depth is two terrain members
+ * rather than a new `Tile.depth` field, for the same reason `crystal` is a
+ * terrain rather than a building: `walkable` already derives from terrain
+ * everywhere else, and a second field deciding passability would mean every
+ * place that writes `walkable` has to start reading depth too. Shallow water
+ * is walkable but unbuildable; deep water is neither.
  */
-export type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal' | 'ironVein';
+export type TerrainType =
+  | 'grass'
+  | 'forest'
+  | 'stone'
+  | 'crystal'
+  | 'ironVein'
+  | 'shallowWater'
+  | 'deepWater';
 
 /**
  * [ext] Player designation marking a tile as work to be done. `deconstruct`

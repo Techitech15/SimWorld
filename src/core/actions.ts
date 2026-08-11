@@ -18,6 +18,7 @@ import {
   updateColonist,
   updateTile,
   isRock,
+  isWater,
 } from './state';
 import { JOB_TYPES } from './types';
 import type {
@@ -176,6 +177,7 @@ export function placeBuildingBlueprint(
     const tile = next.tiles[tileId];
     if (!tile || tile.buildingId) continue;
     if (isRock(tile.terrain)) continue; // mine it out first
+    if (isWater(tile.terrain)) continue; // shallow water is walkable ground, not buildable ground
     changed = true;
     const id = nextId(next, 'b');
     own(next, 'buildings');

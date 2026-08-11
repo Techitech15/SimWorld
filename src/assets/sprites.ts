@@ -24,6 +24,8 @@ export const sprites = {
   stone: spriteUrl('terrain/stone.png'),
   crystal: spriteUrl('terrain/crystal.png'),
   ironVein: spriteUrl('terrain/iron_vein.png'),
+  shallowWater: spriteUrl('terrain/shallow_water.png'),
+  deepWater: spriteUrl('terrain/deep_water.png'),
   wall: spriteUrl('buildings/wall.png'),
   wallBlueprint: spriteUrl('buildings/wall_blueprint.png'),
   floor: spriteUrl('buildings/floor.png'),

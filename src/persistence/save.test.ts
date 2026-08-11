@@ -521,6 +521,25 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 24 save unchanged (water terrain, no retrofit)', () => {
+    const harness = createHarness(131);
+    harness.run(50);
+    const v24 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+
+    const migrated = migrateSave({
+      schemaVersion: 24,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v24,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // no retrofit: a pre-water save's tiles come through byte-for-byte
+    expect(migrated.state.tiles).toEqual(v24.tiles);
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

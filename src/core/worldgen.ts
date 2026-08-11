@@ -71,7 +71,9 @@ function makeTile(x: number, y: number, terrain: Tile['terrain']): Tile {
     x,
     y,
     terrain,
-    walkable: !isRock(terrain),
+    // deep water is the only terrain that is neither rock nor walkable -
+    // shallow water is walkable ground (フェーズ14 段階 W-1 2.1)
+    walkable: !isRock(terrain) && terrain !== 'deepWater',
     buildingId: null,
     itemIds: [],
     designation: null,
@@ -189,6 +191,7 @@ export function generateWorld(options: WorldOptions = {}): GameState {
   const stoneNoise = valueNoise2D(genSeed + 977);
   const crystalNoise = valueNoise2D(genSeed + 4231);
   const ironNoise = valueNoise2D(genSeed + 7211);
+  const waterNoise = valueNoise2D(genSeed + 5147);
 
   const cx = Math.floor(state.width / 2);
   const cy = Math.floor(state.height / 2);
@@ -202,11 +205,20 @@ export function generateWorld(options: WorldOptions = {}): GameState {
     for (let x = 0; x < state.width; x++) {
       const f = forestNoise(x, y, 9);
       const s = stoneNoise(x, y, 7);
+      const w = waterNoise(x, y, 15);
       // keep a clearing around the starting camp so the colony has room
       const distToCamp = Math.max(Math.abs(x - cx), Math.abs(y - cy));
       let terrain: Tile['terrain'] = 'grass';
       if (distToCamp > 6) {
-        if (s > biome.stoneThreshold) terrain = 'stone';
+        // Water decides before rock or forest (2.4章): a lake never has a rock
+        // wall standing in the middle of it. Two thresholds off the same noise
+        // field, 0.08 apart, put deep water only at the noise's core and a
+        // shallow ring around it - so every lake's shore is walkable ground,
+        // which is both where a bank has to be and where herbs (段階 H-1) will
+        // grow.
+        if (w > biome.waterThreshold + 0.08) terrain = 'deepWater';
+        else if (w > biome.waterThreshold) terrain = 'shallowWater';
+        else if (s > biome.stoneThreshold) terrain = 'stone';
         else if (f > biome.forestThreshold) terrain = 'forest';
       }
       // Mana crystal sits in the heart of a rock face, never at its edge: a

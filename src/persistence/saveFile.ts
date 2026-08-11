@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -426,6 +426,18 @@ export const migrations: Record<number, Migration> = {
     const state = old as Partial<GameState>;
     return { ...state, equipment: state.equipment ?? {} };
   },
+
+  // 24 -> 25: water terrain (フェーズ14 段階 W-1,
+  // docs/design-phase14-water-medicine.md 2.5). Deliberately a no-op. Every
+  // existing save was generated before `shallowWater` / `deepWater` existed,
+  // so it has no water tiles to describe - but unlike the crystal and iron
+  // retrofits (2.5章), water cannot be added to an existing map after the
+  // fact: colonists may already be standing on, buildings already built on,
+  // and paths already routed through tiles that would have to turn
+  // unwalkable, and migrations run before `createSimContext` exists, so there
+  // is no region index to re-stitch and nowhere to evacuate anyone to. Old
+  // colonies simply have no lakes; only newly generated worlds do.
+  24: (old) => old,
 };
 
 export function createSaveFile(state: GameState, now: string = new Date().toISOString()): SaveFile {

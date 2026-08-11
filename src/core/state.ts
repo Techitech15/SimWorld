@@ -239,3 +239,16 @@ export function removeItem(state: GameState, itemId: ItemId): void {
 export function isRock(terrain: TerrainType): boolean {
   return terrain === 'stone' || terrain === 'crystal' || terrain === 'ironVein';
 }
+
+/**
+ * Water terrain (フェーズ14 段階 W-1, docs/design-phase14-water-medicine.md
+ * 2.2). Kept apart from `isRock` on purpose: `isRock` doubles as "what the
+ * `mine` job can target" and `veinYieldOf` (constants.ts) falls back to stone
+ * for any terrain it does not have a row for, so folding water into `isRock`
+ * would make mining a lake yield stone. Water is unwalkable (deep) or
+ * unbuildable (both) but never mineable - callers check `isRock` and
+ * `isWater` separately rather than through one shared predicate.
+ */
+export function isWater(terrain: TerrainType): boolean {
+  return terrain === 'shallowWater' || terrain === 'deepWater';
+}

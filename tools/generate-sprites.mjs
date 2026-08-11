@@ -64,6 +64,12 @@ const P = {
   iron: ['#6b3a26', '#9c5030', '#c26a3c', '#e08d55'],
   iconWood: '#a9764a',
   iconWoodDark: '#7d5432',
+  // shallow water: light enough to read as "you can see the bottom", and
+  // apart from grass/stone/crystal so the minimap and the tile both stay
+  // legible (フェーズ14 段階 W-1)
+  waterShallow: ['#2f6488', '#3d7ba3', '#4f92ba', '#7fc1dc'],
+  // deep water: darker and cooler, the far end of the same blue family
+  waterDeep: ['#132842', '#1a3a5c', '#234f78', '#2f6694'],
 };
 
 function save(name, canvas) {
@@ -169,6 +175,41 @@ function stoneTile() {
     c.line(x, y, x + 3 - Math.floor(rnd() * 6), y + 4, P.stone[0]);
   }
   tileEdge(c, '#3c3c43');
+  return c;
+}
+
+/**
+ * Water, shallow or deep (フェーズ14 段階 W-1). Same statement both times -
+ * "flecked with ripples" - but deep water is darker, cooler and sparser with
+ * light so it reads as farther from the surface; shallow water carries a
+ * couple of pale glints near the edge, standing in for a visible bottom.
+ */
+function waterTile(deep) {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(deep ? 6001 : 5001);
+  const p = deep ? P.waterDeep : P.waterShallow;
+  c.fill(p[1]);
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      const r = rnd();
+      if (r < 0.16) c.set(x, y, p[0]);
+      else if (r < 0.28) c.set(x, y, p[2]);
+    }
+  }
+  // horizontal ripple bands, offset a little per row so they do not tile into
+  // an obvious repeating stripe
+  for (let i = 0; i < (deep ? 4 : 6); i++) {
+    const y = Math.floor(rnd() * TILE);
+    const x0 = Math.floor(rnd() * (TILE - 10));
+    c.hline(x0, y, 6 + Math.floor(rnd() * 6), p[3]);
+  }
+  if (!deep) {
+    // a few bright glints near the surface, the visible-bottom read
+    for (let i = 0; i < 4; i++) {
+      c.set(Math.floor(rnd() * TILE), Math.floor(rnd() * TILE), '#bfe6f5');
+    }
+  }
+  tileEdge(c, deep ? '#0a1c30' : '#254f6b');
   return c;
 }
 
@@ -1744,6 +1785,8 @@ written.push(save('terrain/forest_2.png', forestTile(2)));
 written.push(save('terrain/stone.png', stoneTile()));
 written.push(save('terrain/crystal.png', crystalTile()));
 written.push(save('terrain/iron_vein.png', ironVeinTile()));
+written.push(save('terrain/shallow_water.png', waterTile(false)));
+written.push(save('terrain/deep_water.png', waterTile(true)));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));

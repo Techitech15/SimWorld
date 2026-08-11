@@ -547,6 +547,8 @@ const en: Strings = {
     stone: 'Rock face',
     crystal: 'Mana crystal vein',
     ironVein: 'Iron vein',
+    shallowWater: 'Shallows',
+    deepWater: 'Deep water',
   },
   buildingLabels: EN_BUILDINGS,
   designationLabels: {
@@ -1266,6 +1268,8 @@ const ja: Strings = {
     stone: '岩壁',
     crystal: '魔力結晶の鉱脈',
     ironVein: '鉄の鉱脈',
+    shallowWater: '浅瀬',
+    deepWater: '深み',
   },
   buildingLabels: JA_BUILDINGS,
   designationLabels: {
