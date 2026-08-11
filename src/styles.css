@@ -816,6 +816,20 @@ button.active {
   max-width: 260px;
 }
 
+/* the selected colonist or animal (段階 U-1), mirroring .overlay--bl on the
+   other side of the board. selectedTileId is not exclusive with a creature
+   selection, so this can be on screen at the same time as .overlay--bl. Sits
+   under .overlay--tr (the minimap, 220px wide), so its own max-height is
+   capped rather than the full board height - otherwise a tall colonist sheet
+   would grow up into the minimap. */
+.overlay--br {
+  right: 8px;
+  bottom: 8px;
+  top: auto;
+  max-width: 260px;
+  max-height: calc(50% - 16px);
+}
+
 /* Over the map, so the panels behind them need to be readable rather than
    transparent - the map is busy and a translucent panel is a smear. */
 .overlay .panel {

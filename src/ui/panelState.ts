@@ -23,8 +23,12 @@ export type PanelId =
   | 'resources'
   | 'map'
   | 'research'
-  // [ext] the selection overlay on the board (13章 段階B)
-  | 'selection';
+  // [ext] the tile-selection overlay on the board, bottom-left (13章 段階B)
+  | 'selection'
+  // [ext] the colonist/animal-selection overlay on the board, bottom-right
+  // (段階 U-1: split out of 'selection' so a creature and its tile can show
+  // at once - see SelectionFrame.tsx)
+  | 'selectionCreature';
 
 const KEY = 'simworld.panels';
 

@@ -195,6 +195,9 @@ export interface Strings {
 
   // --- panel chrome ---------------------------------------------------------
   panelSelection: string;
+  /** the bottom-left overlay's Fold heading (段階 U-1): names the tile panel,
+   *  distinct from `tileTitle`, which is the panel's own "Tile x, y" heading */
+  panelTile: string;
   panelColonist: string;
   panelAnimal: string;
   panelColonists: string;
@@ -941,6 +944,7 @@ const en: Strings = {
     'Keys: space pauses, 1/2/3/4 set speed, Esc selects. c chop, m mine, x deconstruct, q clear, b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame, k slaughter. A build key also opens its category.',
 
   panelSelection: 'Selection',
+  panelTile: 'Tile',
   panelColonist: 'Colonist',
   panelAnimal: 'Animal',
   panelColonists: 'Colonists',
@@ -1638,6 +1642,7 @@ const ja: Strings = {
     'キー：スペースで一時停止、1/2/3/4 で速度、Esc で選択。c 伐採、m 採掘、x 解体、q 指定解除、b 壁、f 床、r ドア、n ベッド、v 畑、z 備蓄、p 牧草地、e 取り消し、h 狩猟、t 飼い慣らし、k 屠殺。建設のキーはそのカテゴリも開く。',
 
   panelSelection: '選択中',
+  panelTile: 'タイル',
   panelColonist: '入植者',
   panelAnimal: '動物',
   panelColonists: '入植者',
