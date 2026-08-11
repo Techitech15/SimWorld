@@ -16,6 +16,7 @@ import type { GoalId } from '../core/goals';
 import type { MoodWord, ThoughtKey } from '../core/mood';
 import type { Season } from '../core/season';
 import type { TribeName } from '../core/tribes';
+import type { MapSizeName } from '../core/constants';
 import type { StatusKey } from '../store/gameStore';
 import type { BuildCategory } from './buildMenu';
 import type {
@@ -130,6 +131,8 @@ export interface Strings {
   newMapButton: string;
   languageToggleTitle: string;
   soundToggleTitle: string;
+  mapSizeLabels: Record<MapSizeName, string>;
+  mapSizeTitle: string;
   worldMapButton: string;
 
   // --- world map overlay (11章 フェーズ11 段階B, design-phase11-worldmap.md 5章) --
@@ -857,6 +860,8 @@ const en: Strings = {
   newMapButton: 'New map',
   languageToggleTitle: 'Language',
   soundToggleTitle: 'Sound effects on/off (off by default)',
+  mapSizeLabels: { vale: 'Vale (60)', frontier: 'Frontier (120)' },
+  mapSizeTitle: 'Board size for the next map',
   worldMapButton: 'World map',
 
   worldMapTitle: 'World map',
@@ -1539,6 +1544,8 @@ const ja: Strings = {
   newMapButton: '新しいマップ',
   languageToggleTitle: '言語',
   soundToggleTitle: '効果音のオン/オフ（既定はオフ）',
+  mapSizeLabels: { vale: '狭い谷（60）', frontier: '辺境（120）' },
+  mapSizeTitle: '次の地図の広さ',
   worldMapButton: '世界地図',
 
   worldMapTitle: '世界地図',

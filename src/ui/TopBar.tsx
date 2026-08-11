@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
+import { DEFAULT_MAP_SIZE, MAP_SIZE_NAMES, TICKS_PER_DAY, TICKS_PER_HOUR } from '../core/constants';
+import type { MapSizeName } from '../core/constants';
 import { colonyMood, moodLabel } from '../core/mood';
 import type { GameState } from '../core/types';
 import { DEFAULT_SCENARIO, SCENARIO_NAMES } from '../core/scenario';
@@ -26,6 +27,9 @@ type MapOverlayState = { mode: 'select' | 'view'; worldSeed: number } | null;
 
 export function TopBar(): React.JSX.Element {
   const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
+  // the board size for the *next* map (design-phase6-space.md 3.5 / A-4): a
+  // property of generation like the scenario, so it sits in the same select row
+  const [mapSize, setMapSize] = useState<MapSizeName>(DEFAULT_MAP_SIZE);
   const [mapOverlay, setMapOverlay] = useState<MapOverlayState>(null);
   const tick = useTick();
   const speed = useSpeed();
@@ -137,6 +141,20 @@ export function TopBar(): React.JSX.Element {
             </option>
           ))}
         </select>
+        {/* board size for the next map (フェーズ6 A-4): two sizes, measured -
+            the proposed 180x180 costs 27.9ms/tick and is deliberately absent */}
+        <select
+          className="topbar__scenario"
+          value={mapSize}
+          onChange={(event) => setMapSize(event.target.value as MapSizeName)}
+          title={strings.mapSizeTitle}
+        >
+          {MAP_SIZE_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {strings.mapSizeLabels[name]}
+            </option>
+          ))}
+        </select>
         {/* the world map, view-only during play (11章 段階B, 5章: "プレイ中は
             TopBar から閲覧だけできる"). Biome now comes from the cell the
             colony was started on, not a select here. */}
@@ -190,7 +208,7 @@ export function TopBar(): React.JSX.Element {
           onStart={
             mapOverlay.mode === 'select'
               ? (cell) => {
-                  newGame(scenario, mapOverlay.worldSeed, cell);
+                  newGame(scenario, mapOverlay.worldSeed, cell, mapSize);
                   setMapOverlay(null);
                 }
               : undefined

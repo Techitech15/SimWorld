@@ -20,6 +20,22 @@ import type {
  * seventy-odd call sites had to be looked at rather than silently keeping a
  * module constant that had stopped being true.
  */
+/**
+ * The map sizes the player can pick at generation (design-phase6-space.md 3.5,
+ * A-4). The design table proposed a third size, Wilds 180x180, on a linear
+ * extrapolation of ~6 ms/tick; measured (seed 4242, 600 ticks after warm-up)
+ * it costs 27.9 ms/tick against 5.96 at 120 and 0.96 at 60 - 10x speed cannot
+ * hold that, so Wilds is not shipped and the measurement is the reason
+ * (design-notes.md).
+ */
+export const MAP_SIZE_NAMES = ['vale', 'frontier'] as const;
+export type MapSizeName = (typeof MAP_SIZE_NAMES)[number];
+export const MAP_SIZES: Record<MapSizeName, number> = {
+  vale: 60, // the original board: every pre-phase-6 measurement lives here
+  frontier: 120, // the shipped default
+};
+export const DEFAULT_MAP_SIZE: MapSizeName = 'frontier';
+
 export const DEFAULT_MAP_WIDTH = 120;
 export const DEFAULT_MAP_HEIGHT = 120;
 export const TILE_SIZE = 32;

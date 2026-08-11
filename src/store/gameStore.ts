@@ -12,6 +12,8 @@ import { clearTradeDeal, setTradeDeal } from '../core/trade';
 import type { ManaNetworks } from '../core/mana';
 import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
+import { DEFAULT_MAP_SIZE, MAP_SIZES } from '../core/constants';
+import type { MapSizeName } from '../core/constants';
 import { generateWorld } from '../core/worldgen';
 import { DEFAULT_SCENARIO } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
@@ -155,7 +157,12 @@ export interface GameStore {
    * is picked the same way `seed` is randomised when omitted, so a caller that
    * only wants "a new map" needs to pass nothing new at all.
    */
-  newGame: (scenario?: ScenarioName, seed?: number, worldCell?: { x: number; y: number }) => void;
+  newGame: (
+    scenario?: ScenarioName,
+    seed?: number,
+    worldCell?: { x: number; y: number },
+    size?: MapSizeName,
+  ) => void;
   save: () => Promise<void>;
   load: (slot?: string) => Promise<void>;
   autosave: () => Promise<void>;
@@ -324,12 +331,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   applyProfession: (colonistId, primary) =>
     set({ state: actions.applyProfession(get().state, colonistId, primary) }),
 
-  newGame: (scenario, seed, worldCell) => {
+  newGame: (scenario, seed, worldCell, size) => {
     const chosen = scenario ?? DEFAULT_SCENARIO;
+    const side = MAP_SIZES[size ?? DEFAULT_MAP_SIZE];
     const state = generateWorld({
       seed: seed ?? randomSeed(),
       scenario: chosen,
       worldCell: worldCell ?? randomWorldCell(),
+      width: side,
+      height: side,
     });
     simContext = createSimContext(state);
     set({
