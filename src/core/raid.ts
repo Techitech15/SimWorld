@@ -36,6 +36,7 @@ import { chase, chaseRaider } from './movement';
 import { fleeStep } from './animals';
 import { isWalkable } from './pathfinding';
 import { mulberry32 } from './rng';
+import { attackMultiplierOf, defenseMultiplierOf, useEquipment } from './equipment';
 import { skillLevel } from './skills';
 import { addLog, nextId, tileIdOf, updateBuilding, updateColonist, updateTile } from './state';
 import type { Colonist, GameState, Raider, RaiderId, Vector2 } from './types';
@@ -282,7 +283,10 @@ function strikeColonist(
 ): void {
   const colonist = state.colonists[colonistId];
   if (!colonist) return;
-  const health = colonist.health - amount;
+  // armor blunts the blow and wears for it (フェーズ8 E-6)
+  const taken = amount * defenseMultiplierOf(state, colonistId);
+  useEquipment(state, colonistId, 'body');
+  const health = colonist.health - taken;
   if (health <= 0) {
     killColonist(state, colonistId, { key: 'colonistKilledByRaider', params: { raider: raider.name } });
     return;
@@ -352,8 +356,13 @@ export function runDefenders(state: GameState, ctx: SimContext): void {
       }
       if (state.tick % COLONIST_ATTACK_INTERVAL_TICKS === 0) {
         // a practised hunter hits harder: the same skill that brings down a boar
-        const damage = COLONIST_MELEE_DAMAGE * (1 + skillLevel(colonist, 'hunt') * 0.1);
+        // the sword multiplies exactly where skill already does (フェーズ8 E-6)
+        const damage =
+          COLONIST_MELEE_DAMAGE *
+          (1 + skillLevel(colonist, 'hunt') * 0.1) *
+          attackMultiplierOf(state, colonist.id);
         damageRaider(state, raider.id, damage, colonist.name);
+        useEquipment(state, colonist.id, 'hand');
       }
       continue;
     }

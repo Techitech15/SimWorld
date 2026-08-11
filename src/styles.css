@@ -1001,3 +1001,16 @@ button.active {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* --- workbench orders (11章 フェーズ8) ------------------------------------ */
+.workbench-orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.workbench-orders button {
+  font-size: 12px;
+  padding: 3px 6px;
+}

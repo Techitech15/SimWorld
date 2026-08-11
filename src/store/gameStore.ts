@@ -13,6 +13,7 @@ import type { ManaNetworks } from '../core/mana';
 import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
 import { DEFAULT_MAP_SIZE, MAP_SIZES } from '../core/constants';
+import { orderEquipmentAt } from '../core/equipment';
 import type { MapSizeName } from '../core/constants';
 import { generateWorld } from '../core/worldgen';
 import { DEFAULT_SCENARIO } from '../core/scenario';
@@ -32,6 +33,7 @@ import type {
   TileId,
   Vector2,
   ZoneId,
+  EquipmentKind,
 } from '../core/types';
 import { AUTOSAVE_SLOT, DEFAULT_SLOT, hasSave, loadGame, saveGame } from '../persistence/indexeddb';
 
@@ -142,6 +144,7 @@ export interface GameStore {
   // player actions (section 3: UI writes to the store, the tick reacts to it)
   setJobPriority: (colonistId: ColonistId, jobType: JobType, priority: number) => void;
   setZoneAccepts: (zoneId: ZoneId, type: ResourceType, allowed: boolean) => void;
+  orderEquipment: (benchId: string, kind: EquipmentKind) => void;
   setTradeDeal: (traderId: string, give: ResourceType, take: ResourceType) => void;
   clearTradeDeal: (traderId: string) => void;
   assignWorkBySkill: () => void;
@@ -285,6 +288,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setZoneAccepts: (zoneId, type, allowed) =>
     set({ state: actions.setZoneAccepts(get().state, zoneId, type, allowed) }),
+
+  orderEquipment: (benchId, kind) => {
+    const state = { ...get().state };
+    orderEquipmentAt(state, benchId, kind);
+    set({ state });
+  },
 
   setTradeDeal: (traderId, give, take) =>
     set({ state: setTradeDeal(get().state, traderId, give, take) }),

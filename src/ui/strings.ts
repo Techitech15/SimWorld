@@ -17,6 +17,7 @@ import type { MoodWord, ThoughtKey } from '../core/mood';
 import type { Season } from '../core/season';
 import type { TribeName } from '../core/tribes';
 import type { MapSizeName } from '../core/constants';
+import type { EquipmentKind } from '../core/types';
 import type { StatusKey } from '../store/gameStore';
 import type { BuildCategory } from './buildMenu';
 import type {
@@ -133,6 +134,11 @@ export interface Strings {
   soundToggleTitle: string;
   mapSizeLabels: Record<MapSizeName, string>;
   mapSizeTitle: string;
+  equipmentLabels: Record<EquipmentKind, string>;
+  rowEquipment: string;
+  /** the workbench order buttons (フェーズ8): label(kind) and the queue line */
+  orderEquipment: (kind: string) => string;
+  craftQueue: (entries: string) => string;
   worldMapButton: string;
 
   // --- world map overlay (11章 フェーズ11 段階B, design-phase11-worldmap.md 5章) --
@@ -827,6 +833,9 @@ const en: Strings = {
       `traded ${p.gaveQuantity} ${EN_RESOURCES[p.gave as ResourceType]} for ${p.tookQuantity} ${EN_RESOURCES[p.took as ResourceType]}`,
     researchUnlocked: (p) => `${en.techLabels[p.tech as TechName]} research completed`,
     mealsCooked: (p) => `${p.count} meals cooked at the workbench`,
+    equipmentCrafted: (p) => `${en.equipmentLabels[p.kind as EquipmentKind]} finished at the workbench`,
+    equipmentBroke: (p) =>
+      `${en.equipmentLabels[p.kind as EquipmentKind]} broke — a replacement was ordered`,
   },
   jobFailReasons: {
     interrupted: 'interrupted by a need',
@@ -862,6 +871,17 @@ const en: Strings = {
   soundToggleTitle: 'Sound effects on/off (off by default)',
   mapSizeLabels: { vale: 'Vale (60)', frontier: 'Frontier (120)' },
   mapSizeTitle: 'Board size for the next map',
+  equipmentLabels: {
+    axe: 'Axe',
+    pickaxe: 'Pickaxe',
+    huntingBow: 'Hunting bow',
+    huntingSpear: 'Hunting spear',
+    sword: 'Sword',
+    ironArmor: 'Iron armor',
+  },
+  rowEquipment: 'Gear',
+  orderEquipment: (kind) => `Order: ${kind}`,
+  craftQueue: (entries) => `Queue: ${entries}`,
   worldMapButton: 'World map',
 
   worldMapTitle: 'World map',
@@ -1511,6 +1531,9 @@ const ja: Strings = {
       `${JA_RESOURCES[p.gave as ResourceType]}${p.gaveQuantity}を${JA_RESOURCES[p.took as ResourceType]}${p.tookQuantity}と交換した`,
     researchUnlocked: (p) => `${ja.techLabels[p.tech as TechName]}の研究が完了した`,
     mealsCooked: (p) => `作業台で${p.count}食の料理ができた`,
+    equipmentCrafted: (p) => `作業台で${ja.equipmentLabels[p.kind as EquipmentKind]}ができた`,
+    equipmentBroke: (p) =>
+      `${ja.equipmentLabels[p.kind as EquipmentKind]}が壊れた — 作り直しを注文した`,
   },
   jobFailReasons: {
     interrupted: '欲求による中断',
@@ -1546,6 +1569,17 @@ const ja: Strings = {
   soundToggleTitle: '効果音のオン/オフ（既定はオフ）',
   mapSizeLabels: { vale: '狭い谷（60）', frontier: '辺境（120）' },
   mapSizeTitle: '次の地図の広さ',
+  equipmentLabels: {
+    axe: '斧',
+    pickaxe: '鶴嘴',
+    huntingBow: '狩猟弓',
+    huntingSpear: '狩猟槍',
+    sword: '剣',
+    ironArmor: '鉄の鎧',
+  },
+  rowEquipment: '装備',
+  orderEquipment: (kind) => `注文: ${kind}`,
+  craftQueue: (entries) => `列: ${entries}`,
   worldMapButton: '世界地図',
 
   worldMapTitle: '世界地図',

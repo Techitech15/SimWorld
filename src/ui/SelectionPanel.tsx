@@ -4,6 +4,7 @@ import { herdSize, isAdult, isPredator, pastureCapacity } from '../core/animals'
 import { CROP_GROWTH_BY_SEASON, seasonOf } from '../core/season';
 import type { GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
+import { EQUIPMENT, EQUIPMENT_KINDS } from '../core/equipment';
 import { useStrings } from './language';
 import type { Strings } from './strings';
 
@@ -188,6 +189,48 @@ function StorageFilters(): React.JSX.Element | null {
   );
 }
 
+/**
+ * The workbench's order buttons (フェーズ8 E-1): one per equipment kind, and a
+ * line showing what is queued. Rendered only when the selected tile carries a
+ * finished workbench - the meal batch needs no button, it runs itself.
+ */
+function WorkbenchOrders({ tileId }: { tileId: string }): React.JSX.Element | null {
+  const strings = useStrings();
+  const orderEquipment = useGameStore((s) => s.orderEquipment);
+  const bench = useGameStore((s) => {
+    const buildingId = s.state.tiles[tileId]?.buildingId;
+    const building = buildingId ? s.state.buildings[buildingId] : undefined;
+    return building && building.type === 'workbench' && !building.isBlueprint ? building : null;
+  });
+  const queue = useGameStore((s) => {
+    const buildingId = s.state.tiles[tileId]?.buildingId;
+    const building = buildingId ? s.state.buildings[buildingId] : undefined;
+    return (building?.craftOrders ?? []).map((kind) => strings.equipmentLabels[kind]).join(', ');
+  });
+  if (!bench) return null;
+  return (
+    <div className="workbench-orders">
+      {EQUIPMENT_KINDS.map((kind) => (
+        <button
+          key={kind}
+          type="button"
+          title={costLine(strings, kind)}
+          onClick={() => orderEquipment(bench.id, kind)}
+        >
+          {strings.orderEquipment(strings.equipmentLabels[kind])}
+        </button>
+      ))}
+      {queue ? <p className="muted small">{strings.craftQueue(queue)}</p> : null}
+    </div>
+  );
+}
+
+function costLine(strings: Strings, kind: (typeof EQUIPMENT_KINDS)[number]): string {
+  return EQUIPMENT[kind].cost
+    .map((need) => `${strings.resourceLabels[need.type]} ${need.quantity}`)
+    .join(' + ');
+}
+
 export function SelectionPanel(): React.JSX.Element | null {
   const strings = useStrings();
   const rows = useGameStore(useShallow((s) => describeTile(s.state, s.selectedTileId, strings)));
@@ -222,6 +265,7 @@ export function SelectionPanel(): React.JSX.Element | null {
           );
         })}
       </dl>
+      <WorkbenchOrders tileId={tileId} />
       <StorageFilters />
     </section>
   );

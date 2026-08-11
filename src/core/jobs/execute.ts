@@ -14,7 +14,6 @@ import {
   FOOD_PER_BERRY_HARVEST,
   FOOD_PER_FROSTBLOOM_HARVEST,
   FOOD_PER_HARVEST,
-  HUNT_RANGE,
   MAX_RETRIES,
   SPECIES,
   TAME_FAIL_FLEE_TICKS,
@@ -24,6 +23,7 @@ import {
   WOOD_PER_TREE,
   WORK_TICKS,
 } from '../constants';
+import { createEquipment, equipmentWorkMultiplier, huntRangeOf, useEquipment, EQUIPMENT } from '../equipment';
 import { clearColonistPath, invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
 import { advanceTowards, chase } from '../movement';
@@ -128,7 +128,8 @@ function putInWork(
   const colonist = state.colonists[colonistId];
   const rate = workRate(colonist, workType, moodOf(state, colonist, refreshNetworks(ctx, state)));
   grantWorkExperience(state, colonistId, workType);
-  return rate;
+  // the tool multiplies where skill and mood already do (フェーズ8 E-2)
+  return rate * equipmentWorkMultiplier(state, colonistId, workType);
 }
 
 function applyJobEffect(
@@ -143,6 +144,7 @@ function applyJobEffect(
       const tile = state.tiles[job.targetTileId!];
       updateTile(state, tile.id, { terrain: 'grass', designation: null });
       addItem(state, 'wood', WOOD_PER_TREE, tile.x, tile.y);
+      useEquipment(state, colonistId, 'hand'); // the axe wears (E-4)
       break;
     }
     case 'mine': {
@@ -162,6 +164,7 @@ function applyJobEffect(
       }
       // walkability changed: regions are stale, cached paths through it are not
       invalidateTile(ctx, state, tile.id);
+      useEquipment(state, colonistId, 'hand'); // the pickaxe wears (E-4)
       break;
     }
     case 'farm': {
@@ -265,11 +268,23 @@ function applyJobEffect(
       break;
     }
     case 'craft': {
-      // The batch was delivered into the bench (its food line sits at 0);
-      // the finished meals appear beside it and the line is cleared so the
-      // generator can open the next batch. Nothing multiplies: ten in, ten out.
+      // The batch was delivered into the bench; what comes out depends on what
+      // was asked: the head of the order queue (equipment, フェーズ8), or the
+      // meal batch. Either way the lines clear so the generator can open the
+      // next one.
       const bench = state.buildings[job.targetEntityId!];
       const tile = state.tiles[bench.tileId];
+      const order = bench.craftOrders?.[0];
+      if (order) {
+        const costTypes = new Set(EQUIPMENT[order].cost.map((need) => need.type));
+        updateBuilding(state, bench.id, {
+          requiredResources: bench.requiredResources.filter((r) => !costTypes.has(r.type)),
+          craftOrders: (bench.craftOrders ?? []).slice(1),
+        });
+        createEquipment(state, order, { x: tile.x, y: tile.y });
+        addLog(state, 'equipmentCrafted', { kind: order });
+        break;
+      }
       updateBuilding(state, bench.id, {
         requiredResources: bench.requiredResources.filter((r) => r.type !== 'food'),
       });
@@ -337,7 +352,8 @@ function executeAnimalJob(
     return;
   }
 
-  const range = job.type === 'hunt' ? HUNT_RANGE : 1;
+  // the bow's whole point (フェーズ8 E-3): strike from outside the charge
+  const range = job.type === 'hunt' ? huntRangeOf(state, colonistId) : 1;
   const move = chase(state, ctx, colonistId, animal.position, range);
   if (move === 'blocked') {
     failJob(state, ctx, jobId, colonistId, 'animalUnreachable');
@@ -353,6 +369,7 @@ function executeAnimalJob(
 
   if (job.type === 'hunt' || animal.designation === 'slaughter') {
     killAnimal(state, animal.id, { key: job.type === 'hunt' ? 'animalHunted' : 'animalSlaughtered' }, true);
+    if (job.type === 'hunt') useEquipment(state, colonistId, 'hand'); // bow/spear wear (E-4)
     completeJob(state, jobId, colonistId);
     return;
   }

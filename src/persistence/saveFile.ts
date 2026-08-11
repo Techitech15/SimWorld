@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -415,6 +415,16 @@ export const migrations: Record<number, Migration> = {
       };
     }
     return { ...state, colonists };
+  },
+
+  /**
+   * 23 -> 24: equipment (11章 フェーズ8). No save from before this can hold
+   * any gear, so an empty record says exactly that. `Building.craftOrders`
+   * is optional (absent = no orders) and needs nothing here.
+   */
+  23: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, equipment: state.equipment ?? {} };
   },
 };
 

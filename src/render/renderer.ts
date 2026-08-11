@@ -4,7 +4,7 @@
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, SPECIES, TICKS_PER_STEP, TILE_SIZE } from '../core/constants';
 import { tileIdOf } from '../core/state';
-import type { Building, Colonist, GameState, Item, Tile } from '../core/types';
+import type { Building, Colonist, Equipment, GameState, Item, Tile } from '../core/types';
 import { getNetworks, useGameStore } from '../store/gameStore';
 import { EMPTY_NETWORKS, isPowered } from '../core/mana';
 import type { ManaNetworks } from '../core/mana';
@@ -45,6 +45,7 @@ export class GameRenderer {
   private nightLayer = new Container();
   private nightOverlay = new Graphics();
   private lampSprites: Sprite[] = [];
+  private equipmentSprites = new Map<string, Sprite>();
   private lightTexture: Texture | null = null;
   private buildingLayer = new Container();
   private itemLayer = new Container();
@@ -403,6 +404,49 @@ export class GameRenderer {
       if (seen.has(id)) continue;
       sprite.destroy();
       this.itemSprites.delete(id);
+    }
+  }
+
+  // --- equipment on the ground (フェーズ8) ----------------------------------
+  private equipmentTexture(kind: Equipment['kind']): Texture {
+    const t = this.textures.tiles;
+    switch (kind) {
+      case 'axe':
+        return t.equipAxe;
+      case 'pickaxe':
+        return t.equipPickaxe;
+      case 'huntingBow':
+        return t.equipHuntingBow;
+      case 'huntingSpear':
+        return t.equipHuntingSpear;
+      case 'sword':
+        return t.equipSword;
+      default:
+        return t.equipIronArmor;
+    }
+  }
+
+  private syncEquipment(state: GameState): void {
+    const seen = new Set<string>();
+    for (const id in state.equipment) {
+      const piece = state.equipment[id];
+      if (!piece.position) continue; // worn gear rides its wearer, not the map
+      seen.add(id);
+      let sprite = this.equipmentSprites.get(id);
+      if (!sprite) {
+        sprite = new Sprite(this.equipmentTexture(piece.kind));
+        sprite.anchor.set(0.5);
+        sprite.scale.set(0.7);
+        this.itemLayer.addChild(sprite);
+        this.equipmentSprites.set(id, sprite);
+      }
+      sprite.x = piece.position.x * TILE_SIZE + TILE_SIZE / 2;
+      sprite.y = piece.position.y * TILE_SIZE + TILE_SIZE / 2;
+    }
+    for (const [id, sprite] of this.equipmentSprites) {
+      if (seen.has(id)) continue;
+      sprite.destroy();
+      this.equipmentSprites.delete(id);
     }
   }
 
@@ -804,6 +848,7 @@ export class GameRenderer {
       this.syncTerrain(state);
       this.syncBuildings(state);
       this.syncItems(state);
+      this.syncEquipment(state);
       this.syncDesignationOverlay(state);
     }
     this.syncAnimals(state, deltaMs);

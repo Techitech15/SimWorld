@@ -1574,6 +1574,71 @@ function iconCraft() {
   return c;
 }
 
+
+/** Equipment lying on the ground (フェーズ8): small, readable at item scale. */
+function equipAxeItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(14, 8, 4, 18, P.plankDark); // handle
+  c.rect(10, 6, 12, 6, P.iconMetal); // head
+  c.hline(10, 11, 12, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+function equipPickaxeItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(14, 8, 4, 18, P.plankDark);
+  // curved pick head: two slanted arms
+  c.rect(6, 8, 20, 3, P.iconMetal);
+  c.set(6, 11, P.iconMetalDark);
+  c.set(25, 11, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+function equipBowItem() {
+  const c = new Canvas(TILE, TILE);
+  // the stave: an arc of wood
+  for (let i = 0; i < 16; i++) {
+    const x = 10 + Math.round(6 * Math.sin((i / 15) * Math.PI));
+    c.rect(x, 8 + i, 3, 1, P.plankMid);
+  }
+  c.vline(11, 8, 16, '#ded1b8'); // the string
+  c.outline(P.outline);
+  return c;
+}
+
+function equipSpearItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(15, 8, 3, 20, P.plankDark);
+  c.rect(14, 4, 5, 6, P.iconMetal); // stone tip
+  c.set(16, 3, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+function equipSwordItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(15, 5, 3, 15, P.iconMetal); // blade
+  c.vline(15, 5, 15, '#e8ecf4');
+  c.rect(12, 20, 9, 3, P.plankDark); // guard
+  c.rect(15, 23, 3, 6, P.plankMid); // grip
+  c.outline(P.outline);
+  return c;
+}
+
+function equipArmorItem() {
+  const c = new Canvas(TILE, TILE);
+  // a cuirass: chest plate with shoulder notches
+  c.rect(9, 8, 14, 16, P.iconMetal);
+  c.rect(9, 8, 3, 4, P.iconMetalDark);
+  c.rect(20, 8, 3, 4, P.iconMetalDark);
+  c.hline(9, 16, 14, P.iconMetalDark);
+  c.vline(16, 8, 16, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
 /** A raider: the colonist silhouette in dark colours with a blade. */
 function raiderSheet() {
   const sheet = new Canvas(TILE * 2, TILE);
@@ -1713,6 +1778,12 @@ written.push(save('buildings/armchair.png', armchairTile()));
 written.push(save('buildings/statue.png', statueTile()));
 written.push(save('buildings/research_desk.png', researchDeskTile()));
 written.push(save('buildings/workbench.png', workbenchTile()));
+written.push(save('equipment/axe.png', equipAxeItem()));
+written.push(save('equipment/pickaxe.png', equipPickaxeItem()));
+written.push(save('equipment/hunting_bow.png', equipBowItem()));
+written.push(save('equipment/hunting_spear.png', equipSpearItem()));
+written.push(save('equipment/sword.png', equipSwordItem()));
+written.push(save('equipment/iron_armor.png', equipArmorItem()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));

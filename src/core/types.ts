@@ -97,6 +97,37 @@ export interface Item {
   reservedByJobId: JobId | null;
 }
 
+export type EquipmentId = string;
+
+/**
+ * [ext] The gear the workbench can turn out (フェーズ8). The warm coat the
+ * design案 lists is deliberately absent: its material was left undecided there
+ * (8章「決めた顔をしないほうがよい」) and stays undecided here - E-5 is on
+ * hold until cloth exists. The sword and armor are E-6, materials from the
+ * existing four resources (iron carries both).
+ */
+export type EquipmentKind =
+  | 'axe'
+  | 'pickaxe'
+  | 'huntingBow'
+  | 'huntingSpear'
+  | 'sword'
+  | 'ironArmor';
+
+/** One per colonist per slot; the hand doubles as tool and weapon. */
+export type EquipmentSlot = 'hand' | 'body';
+
+export interface Equipment {
+  id: EquipmentId;
+  kind: EquipmentKind;
+  /** who wears it, or null while it lies somewhere */
+  wornBy: ColonistId | null;
+  /** where it lies, or null while worn - exactly one of the two is ever set */
+  position: Vector2 | null;
+  /** 0..1, worn down by use; at 0 it breaks and is gone (loudly - E-4) */
+  condition: number;
+}
+
 export type NeedType = 'hunger' | 'sleep';
 
 export interface ColonistNeeds {
@@ -344,6 +375,12 @@ export interface Building {
    * what running the network spends - so it is stored and saved.
    */
   manaFuel: number;
+  /**
+   * [ext] The workbench's order queue (フェーズ8 E-1): equipment the player
+   * asked for, crafted before any meal batch. Absent on every building from
+   * before the field existed and on everything that is not a workbench.
+   */
+  craftOrders?: EquipmentKind[];
   /**
    * [ext] How far an extractor has got into the rock face it is cutting. Stored
    * rather than derived from the tick because progress has to stop when the
@@ -637,6 +674,14 @@ export interface GameState {
    * empty almost always: a visit is an event with an end, not a population.
    */
   traders: Record<TraderId, Trader>;
+  /**
+   * [ext] Tools and gear (11章 フェーズ8, docs/design-phase8-equipment.md 4章).
+   * Individuals rather than stacks - a bow has a condition of its own - so
+   * they live beside `items`, not in them, and `ResourceType` does not grow.
+   * The reference runs one way only: `wornBy` here, never a list on the
+   * colonist, so "who wears what" cannot disagree with itself.
+   */
+  equipment: Record<EquipmentId, Equipment>;
   reservations: Record<string, Reservation>;
   /**
    * [ext] How much woodland this map supports: the number of forest tiles it
@@ -765,7 +810,9 @@ export type LogKey =
   | 'traderLeft' // { name }
   | 'tradeSettled' // { gaveQuantity, gave, tookQuantity, took }
   | 'researchUnlocked' // { tech }
-  | 'mealsCooked'; // { count } (design-next 提案3)
+  | 'mealsCooked' // { count } (design-next 提案3)
+  | 'equipmentCrafted' // { kind } (フェーズ8)
+  | 'equipmentBroke'; // { kind } (フェーズ8 E-4: a broken tool is never silent)
 
 /**
  * [ext] Why a job was given up on; rendered per language like everything else.

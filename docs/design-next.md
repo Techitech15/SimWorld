@@ -14,9 +14,9 @@
 | [design-notes.md](design-notes.md) | 実装したものの理由と実測値 |
 | [design-phase2.5-animals.md](design-phase2.5-animals.md) | 生物レイヤーの設計案（提案時のまま） |
 | [design-phase5-trade.md](design-phase5-trade.md) | 交易とファンタジー層の設計案（実装済み。行商・幻想生物・幻想植生） |
-| [design-phase6-space.md](design-phase6-space.md) | マップ拡張と画面の再配置の設計案（A-1〜A-3・B-1〜B-3 実装済み。マップサイズの選択のみ未着手） |
+| [design-phase6-space.md](design-phase6-space.md) | マップ拡張と画面の再配置の設計案（**全段階実装済み**。A-4 の第3サイズのみ実測で不採用） |
 | [design-phase7-time.md](design-phase7-time.md) | 昼夜の表現・なめらかな移動の設計案（**実装済み**） |
-| [design-phase8-equipment.md](design-phase8-equipment.md) | 服と武器の設計案（未着手） |
+| [design-phase8-equipment.md](design-phase8-equipment.md) | 服と武器の設計案（**E-1〜E-4・E-6 実装済み**。E-5 防寒着のみ保留） |
 | [design-phase9-language.md](design-phase9-language.md) | 日本語表示と言語切り替えの設計案（**実装済み**） |
 | [design-phase10-ores.md](design-phase10-ores.md) | 鉱石と家具・建築メニュー階層化の設計案（**実装済み**） |
 | [design-phase11-worldmap.md](design-phase11-worldmap.md) | ワールドマップ・バイオーム・部族の設計案（**実装済み**） |
@@ -192,8 +192,7 @@ design-notes.md は鉱脈を「8世界を実測すると1世界あたり 4〜57 
 
 - (b) はフェーズ5実装後の見直し（下記）のとおり**優先度を下げたまま**でよい——再生経路が
   2本（晶商・晶角鹿）あり、しかも晶角鹿の産出は炉の消費を下回る（希少性は保たれている）
-- 次に動かすなら、むしろ設計案が凍結済みのフェーズ8（装備。作業台が入ったので前提が揃った）と
-  フェーズ6の残り「マップサイズの選択」が先
+- フェーズ8（装備）とフェーズ6の残り（マップサイズの選択）は**実装済みになった**
 
 **フェーズ5 実装後の見直し**（[design-phase5-trade.md](design-phase5-trade.md) 9 章が「F-C の実測後に
 確定させる」としていた判断）:
@@ -208,9 +207,9 @@ design-notes.md は鉱脈を「8世界を実測すると1世界あたり 4〜57 
 
 ## 実装済みになった項目
 
-**フェーズ6 は A-1〜A-3・B-1〜B-3 実装済み**（地図は既定 120×120、寸法は `GameState` が持つ、
-画面は左上／右上のオーバーレイと折り畳めるサイドバー）。残るのは
-「マップサイズの選択」だけで、寸法が state に入った今は表と UI を足すだけになっている。
+**フェーズ6 は全段階実装済み**（地図は既定 120×120、寸法は `GameState` が持つ、画面は
+左上／右上のオーバーレイと折り畳めるサイドバー、マップサイズは生成時に2種から選べる。
+A-4 の第3サイズ180×180のみ実測27.9ms/tickで不採用——design-notes.md「マップサイズ」）。
 
 **フェーズ5 は全段階（交易 T-A・T-B とファンタジー層 F-A〜F-D）実装済み**。
 現況は [design.md](design.md) 11章、決め手と実測は [design-notes.md](design-notes.md)。

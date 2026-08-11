@@ -10,6 +10,7 @@
 // the job layer need it, and routing it through either one would make the two
 // import each other.
 import { STACK_MAX } from './constants';
+import { dropEquipmentOf } from './equipment';
 import { recordDeath } from './relationships';
 import { addLog, removeColonist, updateColonist, updateJob } from './state';
 import { releaseByColonist, releaseJobTarget } from './jobs/reservations';
@@ -47,6 +48,8 @@ export function killColonist(state: GameState, colonistId: ColonistId, cause: De
 
   // whatever they were carrying falls where they stood
   depositCarried(state, colonistId, colonist.position.x, colonist.position.y);
+  // and so does whatever they wore (フェーズ8 E-1: no gear rides into the grave)
+  dropEquipmentOf(state, colonistId, colonist.position);
 
   if (colonist.currentJobId) {
     const job = state.jobs[colonist.currentJobId];

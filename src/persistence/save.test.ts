@@ -502,6 +502,25 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 23 save into the equipment record', () => {
+    const harness = createHarness(113);
+    harness.run(50);
+    const v23 = JSON.parse(JSON.stringify(harness.state)) as Partial<GameState>;
+    delete v23.equipment;
+
+    const migrated = migrateSave({
+      schemaVersion: 23,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v23 as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.state.equipment).toEqual({});
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

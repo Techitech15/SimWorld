@@ -22,6 +22,7 @@ import {
   xpForLevel,
 } from '../core/skills';
 import type { Colonist, ColonistId, GameState } from '../core/types';
+import { wornBy } from '../core/equipment';
 import { useGameStore } from '../store/gameStore';
 import { useStrings } from './language';
 import type { NeedWord, Strings } from './strings';
@@ -90,6 +91,16 @@ export function describeColonist(
   add(strings.rowDoing, doingLabel(strings, state, colonist));
   add(strings.rowWhere, `${colonist.position.x}, ${colonist.position.y}`);
   add(strings.rowHealth, `${Math.round(colonist.health)} / 100`);
+  // what they hold and wear (フェーズ8): derived from wornBy, never stored here
+  const worn = wornBy(state, colonist.id);
+  for (const slot of ['hand', 'body'] as const) {
+    const piece = worn[slot];
+    if (!piece) continue;
+    add(
+      strings.rowEquipment,
+      `${strings.equipmentLabels[piece.kind]} (${Math.round(piece.condition * 100)}%)`,
+    );
+  }
   add(
     strings.rowHunger,
     strings.needLine(

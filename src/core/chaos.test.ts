@@ -128,6 +128,16 @@ function assertDescribable(state: GameState): void {
     if (animal.reservedByJobId) expect(state.jobs[animal.reservedByJobId]).toBeDefined();
   }
 
+  // equipment (フェーズ8 E-1): exactly one of wornBy/position, and a wearer
+  // that actually exists - the one-way reference must never dangle
+  for (const id in state.equipment ?? {}) {
+    const piece = state.equipment[id];
+    expect(piece.wornBy === null).not.toBe(piece.position === null);
+    if (piece.wornBy) expect(state.colonists[piece.wornBy]).toBeDefined();
+    expect(piece.condition).toBeGreaterThan(0);
+    expect(piece.condition).toBeLessThanOrEqual(1);
+  }
+
   // the three records that hold a lock have to agree, always
   for (const entityId in state.reservations) {
     const reservation = state.reservations[entityId];
