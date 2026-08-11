@@ -30,11 +30,19 @@ export interface WindGust {
   strength: number;
 }
 
-/** A brightness ripple, not a light source: stays faint enough to read as
- *  grass catching the light while wind passes over it, not as a lit patch of
- *  ground. Deliberately weaker than CLOUD_ALPHA_MAX (clouds.ts, 0.18) so the
- *  two layers do not compete for attention - wind is the subtler of the two. */
-export const WIND_STRENGTH_MAX = 0.08;
+/**
+ * A brightness ripple, not a light source: faint enough to read as grass
+ * catching the light while wind passes over, not as a lit patch of ground.
+ *
+ * This started at 0.08, chosen to sit under CLOUD_ALPHA_MAX (0.18) so wind
+ * would be the subtler of the two layers. Looking at the built game showed
+ * that reasoning was wrong twice over. The number was invisible in play, and
+ * the comparison it was based on does not hold: a cloud alpha blends a *dark*
+ * texture over the ground and this one adds a *white* one, so the two scales
+ * are not the same scale. 0.22 is what reads as a ripple without reading as
+ * light. See wind.test.ts for what replaced the old assertion.
+ */
+export const WIND_STRENGTH_MAX = 0.22;
 
 /** Every gust travels the same way - one wind, not a wind per gust (mirrors
  *  clouds.ts's WIND_DIR). Mostly horizontal, since that reads best for gusts
@@ -65,15 +73,30 @@ interface GustDef {
 }
 
 /**
- * Four gusts, spread out so they do not clump on one side of the map at
- * t = 0. `x0`/`y0` are just a starting point for the drift below, not a
- * position tied to any particular map size (same caveat as CLOUDS).
+ * Ten gusts, spread out so they do not clump on one side of the map at t = 0.
+ * `x0`/`y0` are just a starting point for the drift below, not a position tied
+ * to any particular map size (same caveat as CLOUDS).
+ *
+ * This was four gusts of 18x4 tiles running at 0.0048-0.0065 tiles/ms. On the
+ * shipping 120x120 map that meant a viewport of roughly 16 tiles saw a band
+ * for about three seconds at a time and, most of the time, saw nothing at all
+ * - the layer was effectively absent from the game. Ten longer, wider, slower
+ * bands (1.8-2.6 tiles/s, still faster than the 0.8-1.5 of CLOUDS, because a
+ * gust that moves like a cloud is not a gust) put the effect on screen often
+ * enough to exist. Cost is unchanged in kind: ten sprites, still independent
+ * of how many tiles the map has.
  */
 const GUSTS: GustDef[] = [
-  { x0: 8, y0: 12, speed: 0.006, length: 18, width: 4, strengthScale: 1.0 },
-  { x0: 45, y0: 30, speed: 0.0048, length: 22, width: 3, strengthScale: 0.75 },
-  { x0: 25, y0: 55, speed: 0.0065, length: 15, width: 5, strengthScale: 0.85 },
-  { x0: 75, y0: 18, speed: 0.0052, length: 20, width: 4, strengthScale: 0.6 },
+  { x0: 8, y0: 12, speed: 0.0022, length: 30, width: 8, strengthScale: 1.0 },
+  { x0: 45, y0: 30, speed: 0.0018, length: 36, width: 7, strengthScale: 0.75 },
+  { x0: 25, y0: 55, speed: 0.0026, length: 26, width: 9, strengthScale: 0.85 },
+  { x0: 75, y0: 18, speed: 0.002, length: 32, width: 8, strengthScale: 0.6 },
+  { x0: 15, y0: 88, speed: 0.0024, length: 28, width: 7, strengthScale: 0.9 },
+  { x0: 95, y0: 70, speed: 0.0019, length: 34, width: 9, strengthScale: 0.7 },
+  { x0: 55, y0: 100, speed: 0.0025, length: 27, width: 8, strengthScale: 0.8 },
+  { x0: 105, y0: 45, speed: 0.0021, length: 31, width: 7, strengthScale: 0.65 },
+  { x0: 35, y0: 5, speed: 0.0023, length: 29, width: 9, strengthScale: 0.95 },
+  { x0: 85, y0: 112, speed: 0.002, length: 33, width: 8, strengthScale: 0.75 },
 ];
 
 /**
