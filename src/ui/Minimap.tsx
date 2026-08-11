@@ -65,6 +65,34 @@ function put(
   data[at + 3] = 255;
 }
 
+/**
+ * Turn a pointer position - in CSS pixels from the minimap canvas's own
+ * top-left corner - into a tile coordinate. The canvas's CSS display size is
+ * independent of the map's tile dimensions (the backing store is one pixel
+ * per tile; the browser just scales it), so the ratio has to come from the
+ * rect actually on screen rather than from TILE_SIZE or any build constant.
+ *
+ * Out-of-range points are clamped to the nearest edge tile rather than
+ * rejected with null. That choice is for dragging: `setPointerCapture` lets
+ * the pointer wander outside the minimap's rect while a drag is in progress
+ * (issue #14), and a scrollbar-style clamp keeps the camera sliding to the
+ * map edge instead of freezing the moment the cursor leaves the small canvas.
+ */
+export function tileAtMinimapPoint(
+  pointX: number,
+  pointY: number,
+  rectWidth: number,
+  rectHeight: number,
+  mapWidth: number,
+  mapHeight: number,
+): { x: number; y: number } | null {
+  if (rectWidth <= 0 || rectHeight <= 0 || mapWidth <= 0 || mapHeight <= 0) return null;
+  const clampTile = (value: number, size: number) => Math.min(size - 1, Math.max(0, value));
+  const x = clampTile(Math.floor((pointX / rectWidth) * mapWidth), mapWidth);
+  const y = clampTile(Math.floor((pointY / rectHeight) * mapHeight), mapHeight);
+  return { x, y };
+}
+
 /** One pass over the world, painted bottom layer first. */
 export function paintMinimap(state: GameState, data: Uint8ClampedArray): void {
   const { width, height } = state;
@@ -116,6 +144,10 @@ export function Minimap(): React.JSX.Element {
   const strings = useStrings();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<ImageData | null>(null);
+  // Component-local only (CLAUDE.md: GameState stays plain data) - whether a
+  // drag is in progress is not something a save file, or anything outside this
+  // canvas, ever needs to know.
+  const draggingRef = useRef(false);
   const state = useGameStore((s) => s.state);
   const viewport = useGameStore(
     useShallow((s) => [s.viewport?.x ?? 0, s.viewport?.y ?? 0, s.viewport?.w ?? 0, s.viewport?.h ?? 0]),
@@ -146,6 +178,20 @@ export function Minimap(): React.JSX.Element {
     }
   }, [state, viewport]);
 
+  // Reads the pointer's current tile, from the canvas rect at the moment of
+  // the event - not cached, since the rect can change under a resize.
+  const tileFromEvent = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    return tileAtMinimapPoint(
+      event.clientX - box.left,
+      event.clientY - box.top,
+      box.width,
+      box.height,
+      state.width,
+      state.height,
+    );
+  };
+
   // Bare content: the Fold in App.tsx owns the section and heading (13章 段階B).
   return (
     <>
@@ -155,13 +201,42 @@ export function Minimap(): React.JSX.Element {
         width={state.width}
         height={state.height}
         title={strings.minimapTitle}
-        onClick={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          const x = Math.floor(((event.clientX - box.left) / box.width) * state.width);
-          const y = Math.floor(((event.clientY - box.top) / box.height) * state.height);
-          if (x < 0 || y < 0 || x >= state.width || y >= state.height) return;
-          focusOnTile({ x, y });
-          selectTile(`${x},${y}`);
+        // pointerdown/move/up replace what used to be a single onClick, so the
+        // camera can follow a drag rather than only jumping once per click
+        // (issue #14). setPointerCapture keeps the drag alive even once the
+        // cursor leaves this small canvas, matching renderer.ts's map-drag
+        // handling (attachInput).
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          draggingRef.current = true;
+          const tile = tileFromEvent(event);
+          if (tile) focusOnTile(tile);
+        }}
+        onPointerMove={(event) => {
+          if (!draggingRef.current) return;
+          const tile = tileFromEvent(event);
+          if (tile) focusOnTile(tile);
+        }}
+        onPointerUp={(event) => {
+          if (!draggingRef.current) return;
+          draggingRef.current = false;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+          // Selection fires once, here, rather than on every pointermove like
+          // focusOnTile does: the inspection panel reading a new tile on
+          // every pixel of a drag would make it flicker through whatever the
+          // drag crossed, instead of settling on the tile the player actually
+          // meant to pick. A plain click (down then up without moving) still
+          // ends up selecting the one tile it always did.
+          const tile = tileFromEvent(event);
+          if (tile) selectTile(`${tile.x},${tile.y}`);
+        }}
+        onPointerCancel={(event) => {
+          draggingRef.current = false;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
         }}
       />
       <div className="minimap__key">

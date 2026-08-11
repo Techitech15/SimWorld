@@ -11,8 +11,9 @@ import type { ManaNetworks } from '../core/mana';
 import { paceMultiplierOf } from '../core/pace';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
 import { NIGHT_ALPHA, litLamps, shadeAt } from './daylight';
-import { interpolationSpeed } from './pace';
+import { interpolationSpeed, isTeleport } from './pace';
 import { damageStep, damageTint } from './damage';
+import { pickAt } from './pick';
 import type { Camera } from './camera';
 import { loadTextures } from './textures';
 import type { GameTextures } from './textures';
@@ -470,8 +471,16 @@ export class GameRenderer {
         this.animalViews.set(id, view);
       }
 
-      const dx = animal.position.x - view.displayX;
-      const dy = animal.position.y - view.displayY;
+      let dx = animal.position.x - view.displayX;
+      let dy = animal.position.y - view.displayY;
+      // a hunt-flee teleport or a save reload can put a survivor's logical
+      // position far from where its old view sat: snap, don't glide
+      if (isTeleport(dx, dy)) {
+        view.displayX = animal.position.x;
+        view.displayY = animal.position.y;
+        dx = 0;
+        dy = 0;
+      }
       const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
       // per species: a chicken (4 ticks a step) visibly waddles behind a deer
       const speed =
@@ -542,8 +551,16 @@ export class GameRenderer {
         this.raiderViews.set(id, view);
       }
 
-      const dx = raider.position.x - view.displayX;
-      const dy = raider.position.y - view.displayY;
+      let dx = raider.position.x - view.displayX;
+      let dy = raider.position.y - view.displayY;
+      // same teleport case as animals: a raider driven off and repositioned,
+      // or a reloaded save, should not glide across the map to catch up
+      if (isTeleport(dx, dy)) {
+        view.displayX = raider.position.x;
+        view.displayY = raider.position.y;
+        dx = 0;
+        dy = 0;
+      }
       const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
       const speed = interpolationSpeed(TICKS_PER_STEP, state.speed) * deltaMs;
       view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
@@ -611,12 +628,14 @@ export class GameRenderer {
     // 2.2), so no gap between steps and no lag at 10x. Paused, nothing slides.
     const speed =
       interpolationSpeed(TICKS_PER_STEP, state.speed, paceMultiplierOf(state, colonist)) * deltaMs;
-    const dx = colonist.position.x - view.displayX;
-    const dy = colonist.position.y - view.displayY;
+    let dx = colonist.position.x - view.displayX;
+    let dy = colonist.position.y - view.displayY;
     // an eviction or a load can move someone across the map: snap, don't glide
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+    if (isTeleport(dx, dy)) {
       view.displayX = colonist.position.x;
       view.displayY = colonist.position.y;
+      dx = 0;
+      dy = 0;
     }
     const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
     view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
@@ -983,18 +1002,37 @@ export class GameRenderer {
   }
 
   /**
-   * Select tool: click a colonist to select, click elsewhere to order a move.
-   * Either way the clicked tile becomes what the inspection panel describes.
+   * Select tool: click a colonist or an animal to select it, click elsewhere
+   * to order a move. Either way the clicked tile becomes what the inspection
+   * panel describes.
+   *
+   * Priority is colonist, then animal, then a move order, then deselect -
+   * `pickAt` already resolves the colonist/animal tie, so this only has to
+   * decide what an empty animal-less tile means.
+   *
+   * One case needs its own call: a colonist is selected and the player clicks
+   * an animal. This picks the animal (selecting it) rather than issuing a move
+   * order onto its tile. The alternative - treat it as a move order, since the
+   * animal is "just" what's occupying that tile - would make animals that
+   * never leave a spot (a stalled hunt target, a cornered predator) permanently
+   * unreachable by click, because every click there would walk a colonist into
+   * it instead of selecting it. The cost taken instead is the mirror image: a
+   * player who actually wanted to walk a colonist onto an animal's tile can no
+   * longer do that by clicking the animal directly (a click just past it still
+   * orders the move). Animals move and colonists path around them, so losing
+   * one click's worth of "walk there" is the smaller and rarer loss.
    */
   private handleSelectClick(tile: { x: number; y: number }): void {
     const store = useGameStore.getState();
     const state = store.state;
     store.selectTile(tileIdOf(tile.x, tile.y));
-    const clicked = Object.values(state.colonists).find(
-      (c) => c.position.x === tile.x && c.position.y === tile.y,
-    );
-    if (clicked) {
-      store.selectColonist(clicked.id);
+    const picked = pickAt(state, tile.x, tile.y);
+    if (picked?.kind === 'colonist') {
+      store.selectColonist(picked.colonist.id);
+      return;
+    }
+    if (picked?.kind === 'animal') {
+      store.selectAnimal(picked.animal.id);
       return;
     }
     if (store.selectedColonistId) {

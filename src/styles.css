@@ -168,6 +168,11 @@ button.active {
   background: var(--panel);
   border-right: 1px solid var(--line);
   overflow-y: auto;
+  /* Folds inside here open/close and swap build-tab content, so the content
+     height crosses the viewport height constantly; without a reserved gutter
+     the vertical scrollbar's own appear/disappear steals the content's
+     width, which reflows every line and reads as sidewise flicker (#11). */
+  scrollbar-gutter: stable;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -763,6 +768,11 @@ button.active {
 .log--scroll {
   max-height: 190px;
   overflow-y: auto;
+  /* Same wobble as .sidebar, one level down: this list grows one line at a
+     time as events happen, so it crosses its own max-height often while the
+     game is running, not just on open/close. Reserve the gutter so that
+     toggle does not reflow the log text (#11). */
+  scrollbar-gutter: stable;
   padding-right: 4px;
 }
 
@@ -892,6 +902,15 @@ button.active {
   padding: 16px;
   max-width: min(92vw, 620px);
   max-height: 90vh;
+  /* No scrollbar-gutter here on purpose (unlike .sidebar / .log--scroll,
+     #11): the world-map modal's height only depends on the viewport it was
+     opened into, not on interaction while it is open (its one variable bit,
+     .worldmap__summary, already carries a min-height for exactly this
+     reason), so its scrollbar never toggles mid-session and there is no
+     wobble to guard against. It also has no fixed width of its own - it
+     shrinks to content up to max-width - so reserving a gutter here would
+     itself nudge that width every time the modal opens at a size below the
+     scroll threshold. */
   overflow-y: auto;
   display: flex;
   flex-direction: column;

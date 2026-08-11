@@ -6,6 +6,7 @@
 import { killAnimal } from '../animals';
 import {
   BLOCKS_MOVEMENT,
+  BOAR_CHARGE_RANGE,
   BUILDING_COSTS,
   COOLDOWN_TICKS,
   CRAFT_MEAL_OUTPUT,
@@ -14,6 +15,7 @@ import {
   FOOD_PER_BERRY_HARVEST,
   FOOD_PER_FROSTBLOOM_HARVEST,
   FOOD_PER_HARVEST,
+  HUNT_APPROACH_MARGIN,
   MAX_RETRIES,
   SPECIES,
   TAME_FAIL_FLEE_TICKS,
@@ -333,6 +335,26 @@ function evictFromTile(state: GameState, ctx: SimContext, tileId: string): void 
 }
 
 /**
+ * The distance a hunter closes to *before* the first work tick (issue #9).
+ *
+ * Tighter than the actual hunt range by HUNT_APPROACH_MARGIN, so the prey's
+ * own one-tile wander has slack to absorb before it pushes the hunter back
+ * into `chase` - without that slack the hunter settled exactly on the hunt
+ * range boundary, where every wander step by the prey immediately put it back
+ * out of range.
+ *
+ * Clamped so a bow user never closes inside BOAR_CHARGE_RANGE: shrinking that
+ * gap would defeat the bow's reason to exist (E-3, `huntRangeOf`) - shooting
+ * from outside charge range. A melee hunter (huntRangeOf() <= BOAR_CHARGE_RANGE
+ * already) is unaffected by the clamp, same as today.
+ */
+function huntApproachRangeOf(state: GameState, colonistId: string): number {
+  const outer = huntRangeOf(state, colonistId);
+  const floor = outer > BOAR_CHARGE_RANGE ? BOAR_CHARGE_RANGE + 1 : 1;
+  return Math.max(outer - HUNT_APPROACH_MARGIN, floor);
+}
+
+/**
  * Hunting and animal handling (docs/design-phase2.5-animals.md 3).
  *
  * Both work the same way - close in on a creature that is moving, then put in
@@ -353,7 +375,12 @@ function executeAnimalJob(
   }
 
   // the bow's whole point (フェーズ8 E-3): strike from outside the charge
-  const range = job.type === 'hunt' ? huntRangeOf(state, colonistId) : 1;
+  const range =
+    job.type === 'hunt'
+      ? job.workProgress > 0
+        ? huntRangeOf(state, colonistId) // already working: HUNT_RANGE is enough to keep going
+        : huntApproachRangeOf(state, colonistId) // first close-in: get inside HUNT_RANGE with slack (issue #9)
+      : 1;
   const move = chase(state, ctx, colonistId, animal.position, range);
   if (move === 'blocked') {
     failJob(state, ctx, jobId, colonistId, 'animalUnreachable');

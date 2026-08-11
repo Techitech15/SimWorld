@@ -351,7 +351,13 @@ export function runDefenders(state: GameState, ctx: SimContext): void {
         Math.abs(raider.position.x - colonist.position.x) +
         Math.abs(raider.position.y - colonist.position.y);
       if (distance > 1) {
-        chase(state, ctx, colonistId, raider.position, 1);
+        // `persistDetour: false` keeps this on `chase`'s pre-issue-#9
+        // behaviour: a raider is re-aimed at every tick by `chaseRaider`, so
+        // committing to and finishing a detour computed from its old position
+        // (issue #9's fix for hunting a wandering animal) let it slip away to
+        // break a wall or land another hit while the defender finished
+        // walking a now-stale plan (see `ChaseOptions.persistDetour`).
+        chase(state, ctx, colonistId, raider.position, 1, { persistDetour: false });
         continue;
       }
       if (state.tick % COLONIST_ATTACK_INTERVAL_TICKS === 0) {

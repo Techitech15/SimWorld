@@ -789,6 +789,16 @@ export const BOAR_CHARGE_RANGE = 6;
 // hunting and handling
 /** Hunting is ranged, so prey does not need to be cornered (see design doc 3). */
 export const HUNT_RANGE = 5;
+/**
+ * How much closer than the hunt range the hunter closes in before the first
+ * work tick (issue #9). Settling exactly on the hunt-range boundary meant any
+ * one-tile wander step from the prey pushed it back out of range, so the
+ * hunter had to re-close every few ticks for the whole hunt - the "wanders
+ * around" symptom. Closing in this much further first gives that boundary
+ * some slack: the prey now has to drift this many tiles net before the
+ * hunter needs to move again at all.
+ */
+export const HUNT_APPROACH_MARGIN = 2;
 export const TAME_FAIL_FLEE_TICKS = 200;
 
 // breeding and pasture

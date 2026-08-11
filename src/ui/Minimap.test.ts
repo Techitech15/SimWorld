@@ -7,7 +7,7 @@ import { tileIdOf } from '../core/state';
 import { createHarness, nearestTilesWithTerrain } from '../core/testUtils';
 import { addBuilding, createAnimal } from '../core/worldgen';
 import type { GameState } from '../core/types';
-import { paintMinimap } from './Minimap';
+import { paintMinimap, tileAtMinimapPoint } from './Minimap';
 
 function paint(state: GameState): Uint8ClampedArray {
   const data = new Uint8ClampedArray(state.width * state.height * 4);
@@ -154,5 +154,63 @@ describe('minimap', () => {
     const perPaint = (performance.now() - started) / 20;
     // the frame budget is 200ms; a repaint has to be nowhere near it
     expect(perPaint).toBeLessThan(20);
+  });
+});
+
+// The click-to-tile arithmetic used to live inline in the canvas's onClick
+// handler; issue #14 pulled it out so a drag could call it every pointermove
+// without duplicating it, and so the corners and the scaling could be checked
+// without mounting the component (following the pattern of damage.ts /
+// damage.test.ts: verify the arithmetic, let the component just wire it up).
+describe('tileAtMinimapPoint', () => {
+  it('puts the top-left corner on tile (0,0) and the bottom-right on the last tile', () => {
+    const width = 60;
+    const height = 60;
+    expect(tileAtMinimapPoint(0, 0, width, height, width, height)).toEqual({ x: 0, y: 0 });
+    // exactly at the far edge of the rect is one tile past the last index if
+    // it is not clamped - the bug this guards is a drag pinning the camera to
+    // an off-map tile the instant the pointer reaches the minimap's own edge
+    expect(tileAtMinimapPoint(width, height, width, height, width, height)).toEqual({
+      x: width - 1,
+      y: height - 1,
+    });
+    // and comfortably outside the rect (the drag case, once pointer capture
+    // lets the cursor leave the small canvas) clamps rather than losing the
+    // camera off the map entirely
+    expect(tileAtMinimapPoint(-50, -50, width, height, width, height)).toEqual({ x: 0, y: 0 });
+    expect(tileAtMinimapPoint(width + 500, height + 500, width, height, width, height)).toEqual({
+      x: width - 1,
+      y: height - 1,
+    });
+  });
+
+  it('puts the centre of the rect on the centre tile', () => {
+    const width = 60;
+    const height = 60;
+    expect(tileAtMinimapPoint(width / 2, height / 2, width, height, width, height)).toEqual({
+      x: Math.floor(width / 2),
+      y: Math.floor(height / 2),
+    });
+  });
+
+  it('scales correctly when the canvas is displayed larger than the map (60x60 shown at 180px)', () => {
+    const mapSize = 60;
+    const rectSize = 180; // three CSS pixels per tile
+    // one tile in from the left edge, at the displayed scale
+    expect(tileAtMinimapPoint(3, 3, rectSize, rectSize, mapSize, mapSize)).toEqual({ x: 1, y: 1 });
+    expect(tileAtMinimapPoint(rectSize / 2, rectSize / 2, rectSize, rectSize, mapSize, mapSize)).toEqual({
+      x: mapSize / 2,
+      y: mapSize / 2,
+    });
+    expect(tileAtMinimapPoint(rectSize - 1, rectSize - 1, rectSize, rectSize, mapSize, mapSize)).toEqual({
+      x: mapSize - 1,
+      y: mapSize - 1,
+    });
+  });
+
+  it('handles a non-square map (width and height scaled independently)', () => {
+    expect(tileAtMinimapPoint(0, 0, 120, 90, 120, 90)).toEqual({ x: 0, y: 0 });
+    expect(tileAtMinimapPoint(119, 89, 120, 90, 120, 90)).toEqual({ x: 119, y: 89 });
+    expect(tileAtMinimapPoint(60, 45, 120, 90, 120, 90)).toEqual({ x: 60, y: 45 });
   });
 });
