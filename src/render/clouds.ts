@@ -59,7 +59,7 @@ interface CloudDef {
 }
 
 /**
- * Twenty-six clouds, each with its own speed/size/phase, spread out so they do
+ * Thirty-six clouds, each with its own speed/size/phase, spread out so they do
  * not clump on one side of the map at t = 0. `x0`/`y0` are just a starting
  * point for the drift below, not a position tied to any particular map size.
  *
@@ -69,9 +69,15 @@ interface CloudDef {
  * times out of seven the player is looking at ground with nothing crossing it,
  * which is exactly how it was reported ("雲の影が見えない"). The original five
  * were chosen when 60x60 was the default; the map got four times the area in
- * フェーズ6 and the table never followed. Eighteen took it to 51.0% and
- * twenty-six to **82.4%**, all three measured the same way at the current
+ * フェーズ6 and the table never followed. Twenty-six took it to 82.4% and
+ * thirty-six to **90.3%**, all measured the same way at the current
  * WRAP_MARGIN_TILES.
+ *
+ * 90% is deliberately not 100%: what is being bought is a sky that is usually
+ * doing something, not permanent overcast. The measure counts *any* shadow
+ * touching the viewport, and most of those are a soft edge crossing a corner
+ * rather than the ground going dark, so the gap between this number and how
+ * shaded it feels is wide.
  *
  * The first five entries are unchanged, so the clouds that were there before
  * still drift exactly as they did.
@@ -120,6 +126,20 @@ const CLOUDS: CloudDef[] = [
   { x0: 52, y0: 118, speed: 0.0005, radius: 25, alphaScale: 0.7 },
   { x0: 88, y0: 42, speed: 0.0006, radius: 19, alphaScale: 0.85 },
   { x0: 20, y0: 8, speed: 0.0007, radius: 23, alphaScale: 0.6 },
+  // Filling in. With composite silhouettes the shadows overlap into larger
+  // irregular masses rather than stacking into visibly rounder ones, which is
+  // what makes this density work where a table of circles would have turned
+  // the ground into polka dots.
+  { x0: 46, y0: 48, speed: 0.0009, radius: 11, alphaScale: 0.7 },
+  { x0: 78, y0: 88, speed: 0.0011, radius: 8, alphaScale: 0.8 },
+  { x0: 5, y0: 34, speed: 0.0012, radius: 9, alphaScale: 0.65 },
+  { x0: 62, y0: 32, speed: 0.0008, radius: 17, alphaScale: 0.7 },
+  { x0: 104, y0: 70, speed: 0.0007, radius: 18, alphaScale: 0.75 },
+  { x0: 34, y0: 90, speed: 0.001, radius: 12, alphaScale: 0.85 },
+  { x0: 92, y0: 118, speed: 0.0008, radius: 15, alphaScale: 0.6 },
+  { x0: 14, y0: 118, speed: 0.0009, radius: 13, alphaScale: 0.7 },
+  { x0: 118, y0: 92, speed: 0.0011, radius: 10, alphaScale: 0.8 },
+  { x0: 70, y0: 58, speed: 0.0006, radius: 21, alphaScale: 0.65 },
 ];
 
 /**

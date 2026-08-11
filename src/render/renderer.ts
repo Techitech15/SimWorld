@@ -56,7 +56,8 @@ export class GameRenderer {
    *  above everything they shade */
   private cloudLayer = new Container();
   private cloudSprites: Sprite[] = [];
-  private cloudTexture: Texture | null = null;
+  /** three silhouettes, handed out by index - see ensureCloudTextures */
+  private cloudTextures: Texture[] = [];
   /** real ms accumulated while unpaused - a paused world does not drift (see syncClouds) */
   private cloudElapsedMs = 0;
   /** the day/night tint and the lamp glows over it (docs/design-phase7-time.md 3) */
@@ -835,44 +836,112 @@ export class GameRenderer {
   }
 
   // --- cloud shadows (issue #15) --------------------------------------------
-  /** A soft dark blob, drawn once in code - the same zero-asset rule
-   *  ensureLightTexture follows, just dark instead of warm. */
-  private ensureCloudTexture(): Texture {
-    if (this.cloudTexture) return this.cloudTexture;
+
+  /**
+   * The three cloud silhouettes, as clusters of overlapping lobes in
+   * normalised (0..1) texture space. `r` is a radius in the same units.
+   *
+   * One perfect circle was what this drew before, and a sky of circles reads
+   * as a sky of circles - the more shadows there are, the more obviously they
+   * are all the same stamp. Each entry here is a handful of lobes with one
+   * dominant mass and smaller ones crowding it off-centre, which is enough to
+   * break the outline without any of them stopping looking like a cloud.
+   *
+   * Three rather than one because repetition is the thing being fixed, and
+   * three rather than twenty-six because they are seen minutes apart, drifting,
+   * at different scales, under a day/night tint - past a handful nobody is
+   * comparing silhouettes. Fixed tables, no randomness, same rule CLOUDS and
+   * STREAKS follow: the table is the asset.
+   *
+   * The cluster has to *fill* the texture, not sit in the middle of it. The
+   * single gradient this replaced had radius 0.5 and reached the edge, and
+   * syncClouds scales the sprite so 256px covers `radius * 2` tiles - so a
+   * cluster that only spans the middle silently shrinks every cloud in the
+   * table. The first attempt at these shapes topped out at r 0.28 and did
+   * exactly that: the shadows were roughly half the size they claimed and
+   * vanished off the ground. Lobes now reach ~0.95 at their furthest, which
+   * is as close to the edge as they can go while still landing on a soft
+   * gradient rim - a lobe clipped flat by the sprite's edge is the one
+   * artefact that would read as a bug rather than as weather.
+   */
+  private static readonly CLOUD_SHAPES: { cx: number; cy: number; r: number; a: number }[][] = [
+    [
+      { cx: 0.44, cy: 0.47, r: 0.33, a: 1.0 },
+      { cx: 0.65, cy: 0.42, r: 0.26, a: 0.92 },
+      { cx: 0.57, cy: 0.65, r: 0.27, a: 0.86 },
+      { cx: 0.29, cy: 0.6, r: 0.22, a: 0.74 },
+      { cx: 0.72, cy: 0.62, r: 0.19, a: 0.6 },
+    ],
+    [
+      { cx: 0.5, cy: 0.5, r: 0.35, a: 1.0 },
+      { cx: 0.27, cy: 0.45, r: 0.24, a: 0.88 },
+      { cx: 0.71, cy: 0.54, r: 0.25, a: 0.9 },
+      { cx: 0.45, cy: 0.72, r: 0.21, a: 0.66 },
+      { cx: 0.6, cy: 0.28, r: 0.2, a: 0.7 },
+    ],
+    [
+      { cx: 0.47, cy: 0.54, r: 0.31, a: 0.96 },
+      { cx: 0.66, cy: 0.45, r: 0.28, a: 1.0 },
+      { cx: 0.33, cy: 0.39, r: 0.23, a: 0.8 },
+      { cx: 0.55, cy: 0.73, r: 0.19, a: 0.62 },
+      { cx: 0.76, cy: 0.63, r: 0.17, a: 0.56 },
+      { cx: 0.24, cy: 0.62, r: 0.18, a: 0.62 },
+    ],
+  ];
+
+  /**
+   * The cloud shadow textures, drawn once in code - the same zero-asset rule
+   * ensureLightTexture follows.
+   *
+   * A light blue for MULTIPLY (see syncClouds), not a dark one for mixing.
+   * Two earlier versions were muddy, and both for the same reason: the sprite
+   * was alpha-blended, which drags every pixel it covers toward one flat
+   * colour. Whatever that colour is, the ground's own variation goes with it,
+   * and flattened colour is what "くすんだ" means. Multiply does not flatten -
+   * it scales each channel, so the grass keeps its own texture and only loses
+   * the light this filters out.
+   *
+   * Under multiply the colour to pick is what the light *becomes*, not what
+   * the shadow is: near-white keeps a channel, dark kills it. Red and green
+   * down to roughly a half and two-thirds with blue nearly intact is sunlight
+   * minus the sun - the ground keeps its hue, dims, and goes blue at once.
+   * They also had to go darker than the first multiply attempt (128,168,248),
+   * because keeping the ground's texture costs contrast: numbers that read as
+   * a shadow while they flattened the ground read as nothing once they stop.
+   *
+   * Each lobe holds near full opacity out to 55% of its radius before falling
+   * away. An even ramp from the centre gives a bright core and a long weak
+   * skirt, and the skirt is most of what ends up on screen; this gives the
+   * shadow a body instead of a highlight, without touching CLOUD_ALPHA_MAX
+   * (clouds.test.ts pins that under 0.3 and that ceiling still does its job).
+   */
+  private ensureCloudTextures(): Texture[] {
+    if (this.cloudTextures.length > 0) return this.cloudTextures;
     const size = 256;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext('2d')!;
-    const gradient = context.createRadialGradient(
-      size / 2,
-      size / 2,
-      0,
-      size / 2,
-      size / 2,
-      size / 2,
-    );
-    // A light blue for MULTIPLY (see syncClouds), not a dark one for mixing.
-    //
-    // Two versions of this were muddy, and both for the same reason: the
-    // sprite was alpha-blended, which drags every pixel it covers toward one
-    // flat colour. Whatever that colour is, the ground's own variation goes
-    // with it, and flattened colour is what "くすんだ" means. Multiply does not
-    // flatten - it scales each channel, so the grass keeps its own texture and
-    // only loses the light this filters out.
-    //
-    // Under multiply, the colour to pick is what the light becomes rather than
-    // what the shadow is: near-white keeps a channel, dark kills it. Red and
-    // green pulled down to ~0.5 and ~0.65 with blue left almost intact is what
-    // sunlight minus the sun looks like - the ground keeps its hue, dims, and
-    // goes blue, all at once, which is the vivid version of the same shadow.
-    gradient.addColorStop(0, 'rgba(128, 168, 248, 1)');
-    gradient.addColorStop(0.6, 'rgba(128, 168, 248, 0.5)');
-    gradient.addColorStop(1, 'rgba(128, 168, 248, 0)');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, size, size);
-    this.cloudTexture = Texture.from(canvas);
-    return this.cloudTexture;
+    for (const shape of GameRenderer.CLOUD_SHAPES) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d')!;
+      for (const lobe of shape) {
+        const cx = lobe.cx * size;
+        const cy = lobe.cy * size;
+        const r = lobe.r * size;
+        const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, r);
+        gradient.addColorStop(0, `rgba(36, 84, 196, ${lobe.a})`);
+        gradient.addColorStop(0.55, `rgba(36, 84, 196, ${lobe.a * 0.88})`);
+        gradient.addColorStop(0.8, `rgba(36, 84, 196, ${lobe.a * 0.45})`);
+        gradient.addColorStop(1, 'rgba(36, 84, 196, 0)');
+        context.fillStyle = gradient;
+        // Lobes are laid down with the default source-over, so where they
+        // overlap the shadow genuinely deepens. That is the point: an outline
+        // alone would still read as a stamp, and the density variation is what
+        // sells it as depth rather than a cut-out.
+        context.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+      this.cloudTextures.push(Texture.from(canvas));
+    }
+    return this.cloudTextures;
   }
 
   /**
@@ -988,10 +1057,14 @@ export class GameRenderer {
   private syncClouds(state: GameState, deltaMs: number): void {
     if (state.speed > 0) this.cloudElapsedMs += deltaMs;
     const shadows = cloudsAt(this.cloudElapsedMs, state.width, state.height);
+    const textures = this.ensureCloudTextures();
     while (this.cloudSprites.length < shadows.length) {
-      const sprite = new Sprite(this.ensureCloudTexture());
+      // Silhouette by index, so a given cloud in the CLOUDS table always wears
+      // the same shape - the assignment has to be stable or a cloud would
+      // change form whenever the pool grew.
+      const sprite = new Sprite(textures[this.cloudSprites.length % textures.length]);
       sprite.anchor.set(0.5);
-      // Multiply, not the default mix - see ensureCloudTexture for why. The
+      // Multiply, not the default mix - see ensureCloudTextures for why. The
       // texture is a *light* blue because of this; the two have to change
       // together or the shadow inverts into a bright patch.
       sprite.blendMode = 'multiply';
