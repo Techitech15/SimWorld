@@ -852,16 +852,23 @@ export class GameRenderer {
       size / 2,
       size / 2,
     );
-    // Slate blue rather than the near-black navy this started as. At the alpha
-    // a shadow actually gets, (20, 26, 45) was so close to black that it only
-    // subtracted brightness - the ground went grey-green and read as dirty
-    // rather than shaded. Real shadow on a lit day is not an absence of light,
-    // it is the sky's own colour reaching the ground where the sun does not, so
-    // lifting the blue channel well clear of the other two is what makes it
-    // look like weather instead of a smudge.
-    gradient.addColorStop(0, 'rgba(46, 74, 132, 1)');
-    gradient.addColorStop(0.6, 'rgba(46, 74, 132, 0.5)');
-    gradient.addColorStop(1, 'rgba(46, 74, 132, 0)');
+    // A light blue for MULTIPLY (see syncClouds), not a dark one for mixing.
+    //
+    // Two versions of this were muddy, and both for the same reason: the
+    // sprite was alpha-blended, which drags every pixel it covers toward one
+    // flat colour. Whatever that colour is, the ground's own variation goes
+    // with it, and flattened colour is what "くすんだ" means. Multiply does not
+    // flatten - it scales each channel, so the grass keeps its own texture and
+    // only loses the light this filters out.
+    //
+    // Under multiply, the colour to pick is what the light becomes rather than
+    // what the shadow is: near-white keeps a channel, dark kills it. Red and
+    // green pulled down to ~0.5 and ~0.65 with blue left almost intact is what
+    // sunlight minus the sun looks like - the ground keeps its hue, dims, and
+    // goes blue, all at once, which is the vivid version of the same shadow.
+    gradient.addColorStop(0, 'rgba(128, 168, 248, 1)');
+    gradient.addColorStop(0.6, 'rgba(128, 168, 248, 0.5)');
+    gradient.addColorStop(1, 'rgba(128, 168, 248, 0)');
     context.fillStyle = gradient;
     context.fillRect(0, 0, size, size);
     this.cloudTexture = Texture.from(canvas);
@@ -984,6 +991,10 @@ export class GameRenderer {
     while (this.cloudSprites.length < shadows.length) {
       const sprite = new Sprite(this.ensureCloudTexture());
       sprite.anchor.set(0.5);
+      // Multiply, not the default mix - see ensureCloudTexture for why. The
+      // texture is a *light* blue because of this; the two have to change
+      // together or the shadow inverts into a bright patch.
+      sprite.blendMode = 'multiply';
       this.cloudLayer.addChild(sprite);
       this.cloudSprites.push(sprite);
     }
