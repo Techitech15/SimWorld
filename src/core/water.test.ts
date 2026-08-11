@@ -9,9 +9,10 @@ import { placeBuildingBlueprint, setDesignation } from './actions';
 import { TICKS_PER_DAY } from './constants';
 import { isReachable, regionAt } from './derived';
 import { isWalkable } from './pathfinding';
-import { isWater } from './state';
-import { BIOME_NAMES } from './biome';
+import { isRock, isWater, tileIdOf } from './state';
+import { BIOME_NAMES, BIOMES } from './biome';
 import { createHarness, testWorld } from './testUtils';
+import { generateWorld } from './worldgen';
 import type { GameState, TileId } from './types';
 
 function tilesWithTerrain(state: GameState, terrain: 'shallowWater' | 'deepWater'): TileId[] {
@@ -173,6 +174,141 @@ describe('how much of the map is water', () => {
       const [lo, hi] = ranges[biome];
       expect(pct).toBeGreaterThanOrEqual(lo);
       expect(pct).toBeLessThanOrEqual(hi);
+    }
+  });
+});
+
+// 段階 W-2: rivers and the connectivity floor
+// (docs/design-phase14-water-medicine.md 3章). A river is always shallow
+// water, so it never has to be crossed by the connectivity guarantee below -
+// but crag's pre-existing rock fragmentation (measured separately: 7/20 seeds
+// under 90%, unrelated to water) does, and these tests hold both to account.
+describe('段階 W-2: rivers do not fragment the map, and the connectivity floor holds', () => {
+  it('reaches 10+ forest tiles, 1+ rock tile, and the mana vein from the camp region, across 30+ seeds', () => {
+    let checked = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const harness = createHarness(seed);
+      const camp = Object.values(harness.state.colonists)[0].position;
+      let forestReachable = 0;
+      let rockReachable = false;
+      let veinReachable = false;
+      for (const id in harness.state.tiles) {
+        const tile = harness.state.tiles[id];
+        if (tile.terrain === 'forest' && isReachable(harness.ctx, camp, tile, false)) {
+          forestReachable++;
+        }
+        if (isRock(tile.terrain) && isReachable(harness.ctx, camp, { x: tile.x, y: tile.y }, true)) {
+          rockReachable = true;
+        }
+        if (
+          (tile.terrain === 'crystal' || tile.terrain === 'ironVein') &&
+          isReachable(harness.ctx, camp, { x: tile.x, y: tile.y }, true)
+        ) {
+          veinReachable = true;
+        }
+      }
+      expect(forestReachable).toBeGreaterThanOrEqual(10);
+      expect(rockReachable).toBe(true);
+      expect(veinReachable).toBe(true);
+      checked++;
+    }
+    expect(checked).toBeGreaterThanOrEqual(30);
+  });
+
+  it('keeps 90%+ of walkable land in the camp region on every seed, crag included', () => {
+    const SEEDS = Array.from({ length: 20 }, (_, i) => 1 + i);
+    for (const biome of BIOME_NAMES) {
+      for (const seed of SEEDS) {
+        const harness = createHarness(seed, 60, biome);
+        const camp = Object.values(harness.state.colonists)[0].position;
+        const campRegion = regionAt(harness.ctx, camp.x, camp.y);
+        let walkable = 0;
+        let inCampRegion = 0;
+        for (const id in harness.state.tiles) {
+          const tile = harness.state.tiles[id];
+          if (!tile.walkable) continue;
+          walkable++;
+          if (regionAt(harness.ctx, tile.x, tile.y) === campRegion) inCampRegion++;
+        }
+        const pct = inCampRegion / walkable;
+        expect(pct).toBeGreaterThanOrEqual(0.9);
+      }
+    }
+  });
+
+  it('crosses the map with a river on at least one seed (the connectivity floor has not erased every river)', () => {
+    // A river reading as "crossing" means a connected band of shallow water
+    // touches within 2 tiles of one edge and within 2 tiles of the opposite
+    // edge - a lake alone (which sits inside the distToCamp>6 ring, nowhere
+    // near a border on a 60x60 map) cannot produce this by itself.
+    function crossesMap(state: GameState): boolean {
+      const seen = new Set<TileId>();
+      for (const id in state.tiles) {
+        if (state.tiles[id].terrain !== 'shallowWater' || seen.has(id)) continue;
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        const stack = [id];
+        seen.add(id);
+        while (stack.length > 0) {
+          const cur = stack.pop()!;
+          const tile = state.tiles[cur];
+          minX = Math.min(minX, tile.x);
+          maxX = Math.max(maxX, tile.x);
+          minY = Math.min(minY, tile.y);
+          maxY = Math.max(maxY, tile.y);
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nId = tileIdOf(tile.x + dx, tile.y + dy);
+            const n = state.tiles[nId];
+            if (n && n.terrain === 'shallowWater' && !seen.has(nId)) {
+              seen.add(nId);
+              stack.push(nId);
+            }
+          }
+        }
+        const crossesX = minX <= 2 && maxX >= state.width - 3;
+        const crossesY = minY <= 2 && maxY >= state.height - 3;
+        if (crossesX || crossesY) return true;
+      }
+      return false;
+    }
+
+    let found = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const state = testWorld({ seed });
+      if (crossesMap(state)) found++;
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
+  it('never drops crystal below the biome floor, and never wipes ironVein out, with rivers and the connectivity floor both active', () => {
+    const SEEDS = Array.from({ length: 15 }, (_, i) => 10 + i);
+    for (const biome of BIOME_NAMES) {
+      let ironSeen = 0;
+      for (const seed of SEEDS) {
+        const state = testWorld({ seed, biome });
+        let crystal = 0;
+        let iron = 0;
+        for (const id in state.tiles) {
+          if (state.tiles[id].terrain === 'crystal') crystal++;
+          if (state.tiles[id].terrain === 'ironVein') iron++;
+        }
+        expect(crystal).toBeGreaterThanOrEqual(BIOMES[biome].minCrystalTiles);
+        if (iron > 0) ironSeen++;
+      }
+      // iron has no floor of its own (only crystal does), but it should not
+      // have been silently wiped out across every seed by the new terrain steps
+      expect(ironSeen).toBeGreaterThan(0);
+    }
+  });
+
+  it('is deterministic: the same seed generates the same terrain twice', () => {
+    for (const seed of [3, 101, 20260726]) {
+      const a = generateWorld({ seed, width: 60, height: 60 });
+      const b = generateWorld({ seed, width: 60, height: 60 });
+      const terrainOf = (state: GameState) =>
+        Object.keys(state.tiles)
+          .sort()
+          .map((id) => state.tiles[id].terrain);
+      expect(terrainOf(a)).toEqual(terrainOf(b));
     }
   });
 });

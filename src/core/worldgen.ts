@@ -20,7 +20,7 @@ import type { BiomeName } from './biome';
 import { cellSeed, worldBiomeAt } from './worldmap';
 import { rollStartingSkills } from './skills';
 import { rollTraits } from './traits';
-import { createEmptyState, nextId, own, tileIdOf, updateTile, isRock } from './state';
+import { createEmptyState, manhattan, nextId, own, tileIdOf, updateTile, isRock, isWater } from './state';
 import { JOB_TYPES } from './types';
 import type {
   Animal,
@@ -33,6 +33,7 @@ import type {
   JobType,
   ResourceType,
   Tile,
+  TileId,
   Zone,
 } from './types';
 
@@ -245,8 +246,19 @@ export function generateWorld(options: WorldOptions = {}): GameState {
 
   enforceCrystalFloor(state, biome.minCrystalTiles, stoneNoiseByTile);
 
+  // 段階 W-2 (docs/design-phase14-water-medicine.md 3章): rivers first, so a
+  // river never has to be threaded back through a stone tile the crystal
+  // floor just claimed - then the connectivity floor, which has to run last
+  // among the terrain-shaping steps since it is the backstop for whatever
+  // shape the noise, the crystal floor and the rivers left behind.
+  scatterRivers(state, genSeed, { x: cx, y: cy });
+  enforceConnectivity(state, { x: cx, y: cy });
+
   // what this map supports in woodland: regrowth heals back towards it and no
-  // further, so the forest can return but cannot take the grassland
+  // further, so the forest can return but cannot take the grassland. Measured
+  // after rivers and the connectivity floor, since both can turn a forest or
+  // a stone tile into water - the ceiling should match what the map actually
+  // has left, not a pre-water count regrowth could never reach anyway.
   state.forestCapacity = Object.values(state.tiles).filter((t) => t.terrain === 'forest').length;
 
   // storage zone: 5x4 patch just south of the camp centre
@@ -357,6 +369,300 @@ function enforceCrystalFloor(
     updateTile(state, candidate.id, { terrain: 'crystal' });
     needed--;
   }
+}
+
+/**
+ * Rivers (フェーズ14 段階 W-2, docs/design-phase14-water-medicine.md 3.1). A
+ * river's body is always shallow water, never deep, so it is walkable ground
+ * by construction and the connectivity floor below never has to fight a river
+ * it just drew. Anchors are existing water tiles (a lake's shore) or a random
+ * point on the map edge, so a river reads as connecting a lake to another
+ * lake or to the edge - and on a biome with no lake at all (crag can roll
+ * one), it still falls back to edge-to-edge, which is why `riverCount` is
+ * never zero in the biome table.
+ *
+ * Deterministic: one `mulberry32` stream seeded off `genSeed`, the same shape
+ * as `scatterBerryBushes` (`+8123`) and `scatterFrostblooms` (`+6421`) - an
+ * offset none of the existing noise fields or scatter passes already use.
+ */
+function scatterRivers(state: GameState, seed: number, camp: { x: number; y: number }): void {
+  const riverCount = biomeOf(state).riverCount;
+  if (riverCount <= 0) return;
+  const rnd = mulberry32(seed + 9137);
+
+  const inClearing = (x: number, y: number) =>
+    Math.max(Math.abs(x - camp.x), Math.abs(y - camp.y)) <= 6;
+
+  function edgePoint(): { x: number; y: number } {
+    switch (Math.floor(rnd() * 4)) {
+      case 0:
+        return { x: Math.floor(rnd() * state.width), y: 0 };
+      case 1:
+        return { x: Math.floor(rnd() * state.width), y: state.height - 1 };
+      case 2:
+        return { x: 0, y: Math.floor(rnd() * state.height) };
+      default:
+        return { x: state.width - 1, y: Math.floor(rnd() * state.height) };
+    }
+  }
+
+  const waterTiles = Object.values(state.tiles).filter((t) => isWater(t.terrain));
+  function anchorPoint(): { x: number; y: number } {
+    if (waterTiles.length > 0 && rnd() < 0.6) {
+      const t = waterTiles[Math.floor(rnd() * waterTiles.length)];
+      return { x: t.x, y: t.y };
+    }
+    return edgePoint();
+  }
+
+  for (let i = 0; i < riverCount; i++) {
+    const from = anchorPoint();
+    let to = anchorPoint();
+    // a river that starts and ends almost on top of itself does not read as
+    // one - give it up to four tries to land somewhere far enough away
+    for (let retry = 0; retry < 4 && manhattan(from, to) < 10; retry++) to = anchorPoint();
+    carveRiver(state, from, to, rnd, inClearing);
+  }
+}
+
+/** Walks `from` toward `to` with a rightward-biased drift, laying river tiles as it goes. */
+function carveRiver(
+  state: GameState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  rnd: () => number,
+  inClearing: (x: number, y: number) => boolean,
+): void {
+  let x = from.x;
+  let y = from.y;
+  // enough steps to cross the map even with drift built in; the walk simply
+  // stops early once it reaches `to`
+  const maxSteps = (state.width + state.height) * 2;
+  for (let step = 0; step < maxSteps; step++) {
+    layRiverTile(state, x, y, inClearing);
+    // widen to two tiles about a third of the way, so the band is not
+    // uniformly one tile wide everywhere
+    if (rnd() < 0.35) {
+      if (rnd() < 0.5) layRiverTile(state, x + 1, y, inClearing);
+      else layRiverTile(state, x, y + 1, inClearing);
+    }
+    if (x === to.x && y === to.y) break;
+    const dx = to.x - x;
+    const dy = to.y - y;
+    const towardX = Math.abs(dx) >= Math.abs(dy);
+    if (rnd() < 0.75) {
+      // mostly step toward the target on whichever axis is further off
+      if (towardX && dx !== 0) x += Math.sign(dx);
+      else if (dy !== 0) y += Math.sign(dy);
+      else if (dx !== 0) x += Math.sign(dx);
+    } else if (rnd() < 0.5 && dx !== 0) {
+      x += Math.sign(dx);
+    } else if (dy !== 0) {
+      y += Math.sign(dy);
+    }
+    x = Math.max(0, Math.min(state.width - 1, x));
+    y = Math.max(0, Math.min(state.height - 1, y));
+  }
+}
+
+/** One river tile: shallow water, unless the rule says to leave this one alone. */
+function layRiverTile(
+  state: GameState,
+  x: number,
+  y: number,
+  inClearing: (x: number, y: number) => boolean,
+): void {
+  if (x < 0 || y < 0 || x >= state.width || y >= state.height) return;
+  if (inClearing(x, y)) return; // never cut through the starting camp (design doc 3.1)
+  const tile = state.tiles[tileIdOf(x, y)];
+  if (!tile) return;
+  if (tile.terrain === 'crystal' || tile.terrain === 'ironVein') return; // never destroy a vein
+  if (isWater(tile.terrain)) return; // already a lake tile; leave it as it was placed
+  updateTile(state, tile.id, { terrain: 'shallowWater', walkable: true });
+}
+
+/**
+ * The connectivity floor (フェーズ14 段階 W-2, docs/design-phase14-water-medicine.md
+ * 3.2). Same shape as `enforceCrystalFloor` above: generate first, then top up
+ * only if generation happened to fall short. Here "falls short" means less
+ * than 90% of the map's walkable land shares the camp's region - crag's
+ * pre-existing rock fragmentation (measured: 7/20 seeds under 90%, nothing to
+ * do with water) is exactly what this backstops, on top of whatever a lake or
+ * river might have split off.
+ *
+ * Each pass floods the camp's region, finds the largest other region, and
+ * breaches the thinnest wall between them (deep water dropped to shallow,
+ * plain stone dropped to grass - crystal and ironVein are never candidates,
+ * the same rule the rivers above follow). Repeats until the floor is met or
+ * the iteration cap is hit, so a pathological map cannot loop forever.
+ */
+function enforceConnectivity(state: GameState, camp: { x: number; y: number }): void {
+  const FLOOR = 0.9;
+  const MAX_ITERATIONS = 40;
+  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    const { regions, sizes, campRegion } = floodFillWalkable(state, camp);
+    if (campRegion === -1) return; // the camp tile itself is not walkable - nothing sane to do
+    let totalWalkable = 0;
+    for (const size of Object.values(sizes)) totalWalkable += size;
+    if (totalWalkable === 0) return;
+    const campSize = sizes[campRegion] ?? 0;
+    if (campSize / totalWalkable >= FLOOR) return;
+
+    // the largest other region, ties broken by the lowest label (which is
+    // itself assigned in a fixed row-major scan order, so this is
+    // deterministic regardless of how many regions exist)
+    let targetRegion = -1;
+    let targetSize = 0;
+    for (const label of Object.keys(sizes).map(Number).sort((a, b) => a - b)) {
+      if (label === campRegion) continue;
+      if (sizes[label] > targetSize) {
+        targetSize = sizes[label];
+        targetRegion = label;
+      }
+    }
+    if (targetRegion === -1) return; // nothing left to connect to
+
+    const breach = shortestBreach(state, regions, campRegion, targetRegion);
+    if (!breach || breach.length === 0) return; // no crossable wall at all - bail rather than spin
+
+    for (const tileId of breach) {
+      const tile = state.tiles[tileId];
+      const terrain: Tile['terrain'] = tile.terrain === 'deepWater' ? 'shallowWater' : 'grass';
+      updateTile(state, tileId, { terrain, walkable: true });
+    }
+  }
+}
+
+/**
+ * A self-contained flood fill over `state.tiles[*].walkable`, the same
+ * algorithm `derived.ts`'s `RegionIndex` runs at simulation time - but this
+ * file cannot use that one: `SimContext` does not exist yet during
+ * generation (`createSimContext` runs after `generateWorld` returns).
+ */
+function floodFillWalkable(
+  state: GameState,
+  camp: { x: number; y: number },
+): { regions: Int32Array; sizes: Record<number, number>; campRegion: number } {
+  const w = state.width;
+  const h = state.height;
+  const regions = new Int32Array(w * h).fill(-1);
+  const sizes: Record<number, number> = {};
+  let label = 0;
+  const queue = new Int32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const start = y * w + x;
+      if (regions[start] !== -1) continue;
+      if (!state.tiles[tileIdOf(x, y)].walkable) continue;
+      let head = 0;
+      let tail = 0;
+      queue[tail++] = start;
+      regions[start] = label;
+      let size = 0;
+      while (head < tail) {
+        const idx = queue[head++];
+        size++;
+        const cx = idx % w;
+        const cy = (idx / w) | 0;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const nIdx = ny * w + nx;
+          if (regions[nIdx] !== -1) continue;
+          if (!state.tiles[tileIdOf(nx, ny)].walkable) continue;
+          regions[nIdx] = label;
+          queue[tail++] = nIdx;
+        }
+      }
+      sizes[label] = size;
+      label++;
+    }
+  }
+  const campRegion = regions[camp.y * w + camp.x];
+  return { regions, sizes, campRegion };
+}
+
+/**
+ * The fewest breachable (non-vein) tiles that need to flip to walkable to
+ * connect any tile already in `fromRegion` to `toRegion` - a 0-1 BFS (Dial's
+ * algorithm with integer buckets, since every edge costs 0 or 1) seeded from
+ * every `fromRegion` tile at once. Crystal and ironVein tiles are excluded
+ * from the graph entirely, so the search always routes around them rather
+ * than ever proposing one as a breach tile.
+ *
+ * Returns the breach tiles in root-to-target order, or `null` if `toRegion`
+ * cannot be reached at all (every route to it is walled by veins).
+ */
+function shortestBreach(
+  state: GameState,
+  regions: Int32Array,
+  fromRegion: number,
+  toRegion: number,
+): TileId[] | null {
+  const w = state.width;
+  const h = state.height;
+  const n = w * h;
+  const dist = new Array<number>(n).fill(Infinity);
+  const parent = new Int32Array(n).fill(-1);
+  const buckets: number[][] = [[]];
+  for (let idx = 0; idx < n; idx++) {
+    if (regions[idx] === fromRegion) {
+      dist[idx] = 0;
+      buckets[0].push(idx);
+    }
+  }
+
+  let found = -1;
+  for (let d = 0; d < buckets.length && found === -1; d++) {
+    const bucket = buckets[d];
+    while (bucket.length > 0) {
+      const idx = bucket.pop()!;
+      if (dist[idx] !== d) continue; // stale entry from a cheaper update later
+      if (regions[idx] === toRegion) {
+        found = idx;
+        break;
+      }
+      const x = idx % w;
+      const y = (idx / w) | 0;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const nIdx = ny * w + nx;
+        const nTile = state.tiles[tileIdOf(nx, ny)];
+        if (nTile.terrain === 'crystal' || nTile.terrain === 'ironVein') continue; // never a breach candidate
+        const cost = nTile.walkable ? 0 : 1;
+        const nd = d + cost;
+        if (nd < dist[nIdx]) {
+          dist[nIdx] = nd;
+          parent[nIdx] = idx;
+          while (buckets.length <= nd) buckets.push([]);
+          buckets[nd].push(nIdx);
+        }
+      }
+    }
+  }
+  if (found === -1) return null;
+
+  const breach: TileId[] = [];
+  for (let at = found; parent[at] !== -1; at = parent[at]) {
+    const x = at % w;
+    const y = (at / w) | 0;
+    const tile = state.tiles[tileIdOf(x, y)];
+    if (!tile.walkable) breach.push(tile.id);
+  }
+  return breach;
 }
 
 const ANIMAL_NAMES = [
