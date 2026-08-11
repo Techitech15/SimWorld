@@ -132,6 +132,10 @@ export interface Strings {
   newMapButton: string;
   languageToggleTitle: string;
   soundToggleTitle: string;
+  /** the volume slider next to the mute toggle (段階 S-1, GitHub issue #17) */
+  soundVolumeTitle: string;
+  /** e.g. "Volume 50%" - read by the number next to the slider, not a tooltip alone */
+  soundVolumeLabel: (percent: number) => string;
   mapSizeLabels: Record<MapSizeName, string>;
   mapSizeTitle: string;
   equipmentLabels: Record<EquipmentKind, string>;
@@ -195,6 +199,9 @@ export interface Strings {
 
   // --- panel chrome ---------------------------------------------------------
   panelSelection: string;
+  /** the bottom-left overlay's Fold heading (段階 U-1): names the tile panel,
+   *  distinct from `tileTitle`, which is the panel's own "Tile x, y" heading */
+  panelTile: string;
   panelColonist: string;
   panelAnimal: string;
   panelColonists: string;
@@ -244,6 +251,10 @@ export interface Strings {
   bloomInFlower: string;
   bloomOpening: (percent: number) => string;
   bloomDormant: (percent: number) => string;
+  /** herb (フェーズ14 段階 H-1): same shape as the berry bush's row */
+  rowHerb: string;
+  herbReady: string;
+  herbGrowing: (percent: number) => string;
   cropNotSown: string;
   cropReady: string;
   cropDormant: (percent: number) => string;
@@ -263,6 +274,9 @@ export interface Strings {
   rowName: string;
   rowWhere: string;
   rowHealth: string;
+  /** フェーズ14 段階 M-1: shown only while `illnessTicks > 0` */
+  rowIllness: string;
+  illnessSick: string;
   rowRest: string;
   rowTrait: string;
   rowPace: string;
@@ -376,6 +390,7 @@ const EN_RESOURCES: Record<ResourceType, string> = {
   food: 'food',
   manaCrystal: 'mana crystal',
   iron: 'iron',
+  herb: 'herb',
 };
 
 const EN_SPECIES: Record<AnimalSpecies, string> = {
@@ -421,6 +436,7 @@ const EN_BUILDINGS: Record<BuildingType, string> = {
   manaTurret: 'Mana turret',
   tradingPost: 'Trading post',
   frostbloom: 'Frostbloom',
+  herb: 'Herb',
   table: 'Table',
   stool: 'Stool',
   dresser: 'Dresser',
@@ -440,6 +456,7 @@ const EN_SKILLS: Record<SkillName, string> = {
   handle: 'Animals',
   research: 'Research',
   craft: 'Crafting',
+  treat: 'Medicine',
 };
 
 const EN_TECHS: Record<TechName, string> = {
@@ -460,6 +477,7 @@ const EN_TITLES: Record<SkillName, string> = {
   craft: 'Cook',
   handle: 'Handler',
   research: 'Researcher',
+  treat: 'Healer',
 };
 
 const EN_SEASONS: Record<Season, string> = {
@@ -544,6 +562,8 @@ const en: Strings = {
     stone: 'Rock face',
     crystal: 'Mana crystal vein',
     ironVein: 'Iron vein',
+    shallowWater: 'Shallows',
+    deepWater: 'Deep water',
   },
   buildingLabels: EN_BUILDINGS,
   designationLabels: {
@@ -600,6 +620,7 @@ const en: Strings = {
     repair: 'repair',
     research: 'research',
     craft: 'craft',
+    treat: 'treat',
   },
   techLabels: EN_TECHS,
   titleLabels: EN_TITLES,
@@ -656,6 +677,7 @@ const en: Strings = {
     knowsNobody: () => 'Nobody here they are close to',
     grieving: (p) => `Grieving for ${p.name}`,
     winterDrags: () => 'Winter drags on',
+    sick: () => 'Feeling ill',
   },
 
   alerts: {
@@ -666,6 +688,8 @@ const en: Strings = {
     foodLow: (p) => `Food is running low (${p.food})`,
     colonistsHurt: (p) =>
       `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} badly hurt`,
+    colonistsIll: (p) =>
+      `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} ill — needs treating`,
     predatorNear: (p) => `Predator near the camp (${enSpeciesList(p.species)})`,
     nowhereToStore: (p) =>
       `Nowhere to store ${enResourceList(p.resources)} — the stacks are lying where they fell`,
@@ -774,6 +798,7 @@ const en: Strings = {
       `A herd of ${en.speciesCounted(p.species as AnimalSpecies, p.count as number)} moved through`,
     incidentLostSupplies: (p) =>
       `Someone abandoned ${p.quantity} ${EN_RESOURCES[p.resource as ResourceType]} on the road nearby`,
+    incidentIllness: (p) => `${p.name} has fallen ill`,
     incidentRaid: (p) => {
       const tribe = p.tribe ? en.tribeLabels[p.tribe as TribeName] : null;
       if (tribe) {
@@ -836,6 +861,7 @@ const en: Strings = {
     equipmentCrafted: (p) => `${en.equipmentLabels[p.kind as EquipmentKind]} finished at the workbench`,
     equipmentBroke: (p) =>
       `${en.equipmentLabels[p.kind as EquipmentKind]} broke — a replacement was ordered`,
+    colonistTreated: (p) => `${p.healer} treated ${p.name}`,
   },
   jobFailReasons: {
     interrupted: 'interrupted by a need',
@@ -869,6 +895,8 @@ const en: Strings = {
   newMapButton: 'New map',
   languageToggleTitle: 'Language',
   soundToggleTitle: 'Sound effects on/off (off by default)',
+  soundVolumeTitle: 'Sound volume',
+  soundVolumeLabel: (percent) => `Volume ${percent}%`,
   mapSizeLabels: { vale: 'Vale (60)', frontier: 'Frontier (120)' },
   mapSizeTitle: 'Board size for the next map',
   equipmentLabels: {
@@ -941,6 +969,7 @@ const en: Strings = {
     'Keys: space pauses, 1/2/3/4 set speed, Esc selects. c chop, m mine, x deconstruct, q clear, b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame, k slaughter. A build key also opens its category.',
 
   panelSelection: 'Selection',
+  panelTile: 'Tile',
   panelColonist: 'Colonist',
   panelAnimal: 'Animal',
   panelColonists: 'Colonists',
@@ -988,6 +1017,9 @@ const en: Strings = {
   bloomInFlower: 'in flower',
   bloomOpening: (percent) => `opening (${percent}%)`,
   bloomDormant: (percent) => `${percent}% — dormant until winter`,
+  rowHerb: 'Herb',
+  herbReady: 'ready to harvest',
+  herbGrowing: (percent) => `growing (${percent}%)`,
   cropNotSown: 'not sown',
   cropReady: 'ready to harvest',
   cropDormant: (percent) => `${percent}% — dormant until spring`,
@@ -1006,6 +1038,8 @@ const en: Strings = {
   rowName: 'Name',
   rowWhere: 'Where',
   rowHealth: 'Health',
+  rowIllness: 'Illness',
+  illnessSick: 'Sick — needs a healer',
   rowRest: 'Rest',
   rowTrait: 'Trait',
   rowPace: 'Pace',
@@ -1114,6 +1148,7 @@ const JA_RESOURCES: Record<ResourceType, string> = {
   food: '食料',
   manaCrystal: '魔力結晶',
   iron: '鉄',
+  herb: '薬草',
 };
 
 const JA_SPECIES: Record<AnimalSpecies, string> = {
@@ -1145,6 +1180,7 @@ const JA_BUILDINGS: Record<BuildingType, string> = {
   manaTurret: '防衛タレット',
   tradingPost: '交易柱',
   frostbloom: '霜花',
+  herb: '薬草',
   table: '食卓',
   stool: '腰掛け',
   dresser: '戸棚',
@@ -1164,6 +1200,7 @@ const JA_SKILLS: Record<SkillName, string> = {
   handle: '世話',
   research: '研究',
   craft: '加工',
+  treat: '治療',
 };
 
 const JA_TECHS: Record<TechName, string> = {
@@ -1184,6 +1221,7 @@ const JA_TITLES: Record<SkillName, string> = {
   handle: '世話係',
   research: '研究者',
   craft: '料理人',
+  treat: '治療師',
 };
 
 const JA_SEASONS: Record<Season, string> = {
@@ -1262,6 +1300,8 @@ const ja: Strings = {
     stone: '岩壁',
     crystal: '魔力結晶の鉱脈',
     ironVein: '鉄の鉱脈',
+    shallowWater: '浅瀬',
+    deepWater: '深み',
   },
   buildingLabels: JA_BUILDINGS,
   designationLabels: {
@@ -1317,6 +1357,7 @@ const ja: Strings = {
     repair: '修理',
     research: '研究',
     craft: '加工',
+    treat: '治療',
   },
   techLabels: JA_TECHS,
   titleLabels: JA_TITLES,
@@ -1373,6 +1414,7 @@ const ja: Strings = {
     knowsNobody: () => '親しい人がいない',
     grieving: (p) => `${p.name}を悼んでいる`,
     winterDrags: () => '冬が長い',
+    sick: () => '体調が悪い',
   },
 
   alerts: {
@@ -1381,6 +1423,7 @@ const ja: Strings = {
     noFood: () => '植民地のどこにも食料がない',
     foodLow: (p) => `食料が残り少ない（${p.food}）`,
     colonistsHurt: (p) => `${p.count}人の入植者が重傷を負っている`,
+    colonistsIll: (p) => `${p.count}人の入植者が病気だ — 治療が要る`,
     predatorNear: (p) => `野営地の近くに肉食獣（${jaSpeciesList(p.species)}）`,
     nowhereToStore: (p) =>
       `${jaResourceList(p.resources)}の置き場がない — 落ちた場所に積まれたまま`,
@@ -1478,6 +1521,7 @@ const ja: Strings = {
       `${ja.speciesCounted(p.species as AnimalSpecies, p.count as number)}の群れが通り過ぎていった`,
     incidentLostSupplies: (p) =>
       `誰かが${JA_RESOURCES[p.resource as ResourceType]}${p.quantity}を近くの道端に置き捨てていった`,
+    incidentIllness: (p) => `${p.name}が体調を崩した`,
     incidentRaid: (p) => {
       const tribe = p.tribe ? ja.tribeLabels[p.tribe as TribeName] : null;
       if (tribe) {
@@ -1534,6 +1578,7 @@ const ja: Strings = {
     equipmentCrafted: (p) => `作業台で${ja.equipmentLabels[p.kind as EquipmentKind]}ができた`,
     equipmentBroke: (p) =>
       `${ja.equipmentLabels[p.kind as EquipmentKind]}が壊れた — 作り直しを注文した`,
+    colonistTreated: (p) => `${p.healer}が${p.name}を治療した`,
   },
   jobFailReasons: {
     interrupted: '欲求による中断',
@@ -1567,6 +1612,8 @@ const ja: Strings = {
   newMapButton: '新しいマップ',
   languageToggleTitle: '言語',
   soundToggleTitle: '効果音のオン/オフ（既定はオフ）',
+  soundVolumeTitle: '音量',
+  soundVolumeLabel: (percent) => `音量 ${percent}%`,
   mapSizeLabels: { vale: '狭い谷（60）', frontier: '辺境（120）' },
   mapSizeTitle: '次の地図の広さ',
   equipmentLabels: {
@@ -1638,6 +1685,7 @@ const ja: Strings = {
     'キー：スペースで一時停止、1/2/3/4 で速度、Esc で選択。c 伐採、m 採掘、x 解体、q 指定解除、b 壁、f 床、r ドア、n ベッド、v 畑、z 備蓄、p 牧草地、e 取り消し、h 狩猟、t 飼い慣らし、k 屠殺。建設のキーはそのカテゴリも開く。',
 
   panelSelection: '選択中',
+  panelTile: 'タイル',
   panelColonist: '入植者',
   panelAnimal: '動物',
   panelColonists: '入植者',
@@ -1684,6 +1732,9 @@ const ja: Strings = {
   bloomInFlower: '咲いている',
   bloomOpening: (percent) => `開きつつある（${percent}%）`,
   bloomDormant: (percent) => `${percent}% — 冬まで休眠`,
+  rowHerb: '薬草',
+  herbReady: '収穫できる',
+  herbGrowing: (percent) => `生育中（${percent}%）`,
   cropNotSown: '未播種',
   cropReady: '収穫できる',
   cropDormant: (percent) => `${percent}% — 春まで休眠`,
@@ -1702,6 +1753,8 @@ const ja: Strings = {
   rowName: '名前',
   rowWhere: '位置',
   rowHealth: '体力',
+  rowIllness: '病気',
+  illnessSick: '病気 — 治療が必要',
   rowRest: '休息',
   rowTrait: '特性',
   rowPace: '作業速度',

@@ -91,6 +91,11 @@ export function describeColonist(
   add(strings.rowDoing, doingLabel(strings, state, colonist));
   add(strings.rowWhere, `${colonist.position.x}, ${colonist.position.y}`);
   add(strings.rowHealth, `${Math.round(colonist.health)} / 100`);
+  // shown only while sick (フェーズ14 段階 M-1): a healthy colonist has
+  // nothing to say here, the same way rowPace stays quiet at 1.00x
+  if ((colonist.illnessTicks ?? 0) > 0) {
+    add(strings.rowIllness, strings.illnessSick);
+  }
   // what they hold and wear (フェーズ8): derived from wornBy, never stored here
   const worn = wornBy(state, colonist.id);
   for (const slot of ['hand', 'body'] as const) {

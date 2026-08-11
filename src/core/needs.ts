@@ -8,6 +8,7 @@ import {
   DRESSER_RADIUS,
   DRESSER_REST_MULTIPLIER,
   EAT_TICKS,
+  ILLNESS_HEALTH_DECAY_PER_TICK,
   RECREATION_ALONE_MULTIPLIER,
   RECREATION_PER_TICK,
   RECREATION_RESTORED_PER_TICK,
@@ -54,10 +55,33 @@ export function runNeeds(state: GameState, ctx: SimContext): void {
   for (const colonistId in state.colonists) {
     decayNeeds(state, colonistId);
     if (!state.colonists[colonistId]) continue; // starved to death this tick
+    applyIllness(state, colonistId);
+    if (!state.colonists[colonistId]) continue; // died of illness this tick
     startNeedBehaviour(state, ctx, colonistId);
     runMoodBreak(state, ctx, colonistId);
     runNeedBehaviour(state, ctx, colonistId);
   }
+}
+
+/**
+ * Illness's whole effect on `health` (フェーズ14 段階 M-1,
+ * docs/design-phase14-water-medicine.md 5.2): the same health-then-killColonist
+ * shape starvation uses just above, on its own gate rather than folded into
+ * `decayNeeds` - starvation's own damage only runs once hunger has already
+ * maxed out and returns early otherwise, and illness has to keep draining
+ * health on every tick regardless of hunger. Reusing `colonistKilled` (rather
+ * than a new cause) is deliberate: CLAUDE.md forbids a new way to die, and this
+ * is the one death log key that was already generic.
+ */
+function applyIllness(state: GameState, colonistId: string): void {
+  const colonist = state.colonists[colonistId];
+  if ((colonist.illnessTicks ?? 0) <= 0) return;
+  const health = colonist.health - ILLNESS_HEALTH_DECAY_PER_TICK;
+  if (health <= 0) {
+    killColonist(state, colonistId, { key: 'colonistKilled' });
+    return;
+  }
+  updateColonist(state, colonistId, { health });
 }
 
 /**

@@ -1,16 +1,20 @@
-// One frame for whatever is selected (docs/design-phase6-space.md 4.1).
+// One frame for whatever creature is selected (docs/design-phase6-space.md
+// 4.1, split further in 段階 U-1).
 //
-// The tile, colonist and animal details were three independent panels stacked
-// in the sidebar, and the store already guarantees they are mutually exclusive:
-// `selectColonist` clears the selected animal and `selectAnimal` clears the
-// selected colonist. Three boxes that can never be filled at the same time is
-// three boxes' worth of vertical space spent on one.
+// This used to hold the tile panel too, but `selectedTileId` is not exclusive
+// with the colonist/animal selection - clicking a colonist also selects the
+// tile under it (handleSelectClick, src/render/renderer.ts) - so a colonist
+// and its tile can be selected at the same time. Stacking all three in one
+// box meant a selected colonist standing on notable ground pushed its own
+// sheet off screen. `App.tsx` now renders this frame bottom-right and the
+// tile panel bottom-left, so the two can show at once instead of fighting for
+// the same corner. `ColonistDetail` and `AnimalDetail` stay together here
+// because the store already keeps those two mutually exclusive.
 import { AnimalDetail } from './AnimalDetail';
 import { ColonistDetail } from './ColonistDetail';
-import { SelectionPanel } from './SelectionPanel';
 
 export function SelectionFrame(): React.JSX.Element {
-  // Each of the three renders null when it has nothing to say, so this is a
+  // Each of the two renders null when it has nothing to say, so this is a
   // frame rather than a switch: whichever one has something in it is the one
   // that appears, and the exclusivity is enforced where selection happens
   // rather than re-stated here.
@@ -18,7 +22,6 @@ export function SelectionFrame(): React.JSX.Element {
     <div className="selection-frame">
       <ColonistDetail />
       <AnimalDetail />
-      <SelectionPanel />
     </div>
   );
 }

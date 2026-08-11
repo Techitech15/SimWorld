@@ -14,16 +14,18 @@
 // colony still has to react to it, which is the part that matters.
 import {
   FOOD_PER_HARVEST,
+  ILLNESS_ONSET_TICKS,
   RAID_FIRST_DAY,
   TICKS_PER_DAY,
   WOOD_PER_TREE,
 } from './constants';
+import { MOOD_BASE, colonyMood } from './mood';
 import { isUnderAttack, raidSize, spawnRaid } from './raid';
 import { perSpan } from './scenario';
 import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
-import { addLog, updateBuilding } from './state';
+import { addLog, updateBuilding, updateColonist } from './state';
 import { tribalInfluence } from './tribes';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
 import type { AnimalSpecies, GameState, LogKey, LogParams, Vector2 } from './types';
@@ -41,7 +43,8 @@ export type IncidentName =
   | 'migratingHerd'
   | 'lostSupplies'
   | 'raid'
-  | 'berryGlut';
+  | 'berryGlut'
+  | 'illness';
 
 /** What an incident did, as a log key plus its parameters (11章 フェーズ9). */
 export interface IncidentReport {
@@ -169,6 +172,37 @@ export const INCIDENTS: Incident[] = [
   },
 
   /**
+   * Illness (11章 フェーズ14 段階 M-1, docs/design-phase14-water-medicine.md
+   * 5章). No new probability machine: it is another row in this same table,
+   * picked by the same season-weighted roll as everything else here. Its own
+   * weight climbs in winter, the season every other health cost in the game
+   * already leans on (`winterDrags`, the forage curve, frostbloom). The
+   * *rate* the season weight is scaled against - how likely a struggling
+   * colony is to catch it at all - is `illnessWeightMultiplier` below, which
+   * reads the mood and hunger the colony already has rather than rolling a
+   * second time for them (design doc: "頻度は既存の乗数（季節・気分・空腹）
+   * を引く").
+   *
+   * One already-healthy colonist is picked uniformly - not the unhappiest or
+   * hungriest one - which is what keeps this from reading as a second, quieter
+   * mood system: who is picked is chance, only whether anyone is picked at all
+   * answers to the colony's condition.
+   */
+  {
+    name: 'illness',
+    weight: { spring: 1, summer: 0.6, autumn: 1, winter: 1.6 },
+    apply: (state, rnd) => {
+      const eligible = Object.keys(state.colonists).filter(
+        (id) => (state.colonists[id].illnessTicks ?? 0) <= 0,
+      );
+      if (eligible.length === 0) return null;
+      const patientId = eligible[Math.floor(rnd() * eligible.length)];
+      updateColonist(state, patientId, { illnessTicks: ILLNESS_ONSET_TICKS });
+      return { key: 'incidentIllness', params: { name: state.colonists[patientId].name } };
+    },
+  },
+
+  /**
    * The one incident that comes for the colony rather than happening to it
    * (11章 フェーズ4). Held back until day 8: a colony with no walls, no hunter
    * and three people is not a story, it is a wipe.
@@ -193,6 +227,26 @@ export const INCIDENTS: Incident[] = [
     },
   },
 ];
+
+/**
+ * How likely the colony is to catch something, on top of the season
+ * (フェーズ14 段階 M-1). Reuses two numbers the game already keeps -
+ * `colonyMood` and each colonist's own `needs.hunger` - rather than adding a
+ * third roll: a colony eating well and sleeping soundly sits at 1 (no more
+ * likely than the season weight alone says), and a hungry or miserable one
+ * climbs from there. Population is folded in too - more people is more
+ * chances for one of them to fall ill, the same reasoning the design doc's
+ * "1人あたり20日に1回" starting point is stated in.
+ */
+function illnessWeightMultiplier(state: GameState): number {
+  const colonists = Object.values(state.colonists);
+  if (colonists.length === 0) return 0;
+  const avgHunger = colonists.reduce((sum, c) => sum + c.needs.hunger, 0) / colonists.length;
+  const mood = colonyMood(state);
+  const hungerFactor = 1 + Math.max(0, avgHunger - 30) / 70;
+  const moodFactor = 1 + Math.max(0, MOOD_BASE - mood) / 50;
+  return colonists.length * hungerFactor * moodFactor;
+}
 
 /**
  * Pick by season weight. Returns null when nothing can happen this season.
@@ -240,6 +294,7 @@ export function runIncidents(state: GameState): void {
   const tribal = tribalInfluence(state);
   const incident = chooseIncident(seasonOf(state.tick), rnd(), {
     raid: tribal.parched.raidWeightMultiplier,
+    illness: illnessWeightMultiplier(state),
   });
   if (!incident) return;
   const report = incident.apply(state, rnd);

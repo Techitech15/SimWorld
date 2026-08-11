@@ -28,6 +28,7 @@ export type AlertKey =
   | 'noFood'
   | 'foodLow' // { food }
   | 'colonistsHurt' // { count }
+  | 'colonistsIll' // { count } (フェーズ14 段階 M-1)
   | 'predatorNear' // { species }
   | 'nowhereToStore' // { resources }
   | 'storageFull'
@@ -124,6 +125,20 @@ export function collectAlerts(state: GameState): Alert[] {
       key: 'colonistsHurt',
       params: { count: hurt.length },
       at: { ...hurt[0].position },
+    });
+  }
+
+  // Illness (フェーズ14 段階 M-1). Not optional (design doc 5.4, CLAUDE.md's
+  // "プレイヤーに見えない失敗"): it is a change that shows up nowhere else
+  // unless the player opens the colonist sheet, so it gets the one alert every
+  // other silently-worsening condition already has.
+  const ill = colonists.filter((c) => (c.illnessTicks ?? 0) > 0);
+  if (ill.length > 0) {
+    alerts.push({
+      level: 'warning',
+      key: 'colonistsIll',
+      params: { count: ill.length },
+      at: { ...ill[0].position },
     });
   }
 

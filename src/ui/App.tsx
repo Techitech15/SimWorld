@@ -14,6 +14,7 @@ import { ResearchPanel } from './ResearchPanel';
 import { TradePanel } from './TradePanel';
 import { ResourcePanel } from './ResourcePanel';
 import { SelectionFrame } from './SelectionFrame';
+import { SelectionPanel } from './SelectionPanel';
 import { Toolbar } from './Toolbar';
 import { TopBar } from './TopBar';
 import { WorkPriorityTable } from './WorkPriorityTable';
@@ -31,8 +32,11 @@ import { useStrings } from './language';
  *   out of the corner of the eye
  * - **top-right overlay** — the minimap. A map of the map, in a fixed place the
  *   eye learns
- * - **bottom-left overlay** — whatever is selected, near where it was selected
+ * - **bottom-left overlay** — the selected tile, near where it was clicked
  *   (13章 段階B: フェーズ6の「目は地図、答えは右端」の完了形)
+ * - **bottom-right overlay** — the selected colonist or animal (段階 U-1:
+ *   split from the bottom-left overlay so a creature's sheet does not crowd
+ *   out the ground it is standing on - the two are not mutually exclusive)
  * - **sidebar** — the whole-colony views, each one foldable
  *
  * The corner overlays fold too (13章 段階B), with one deliberate exception:
@@ -45,9 +49,12 @@ export function App(): React.JSX.Element {
   useEffect(() => wireSfx(), []);
   useKeyboardShortcuts();
   const strings = useStrings();
-  const hasSelection = useGameStore(
-    (s) => s.selectedColonistId !== null || s.selectedAnimalId !== null || s.selectedTileId !== null,
-  );
+  // selectedTileId is not exclusive with the other two (handleSelectClick in
+  // src/render/renderer.ts always selects a tile too), so a creature and its
+  // tile can both be selected at once - hence two independent selectors
+  // rather than one hasSelection.
+  const hasCreature = useGameStore((s) => s.selectedColonistId !== null || s.selectedAnimalId !== null);
+  const hasTile = useGameStore((s) => s.selectedTileId !== null);
 
   return (
     <div className="app">
@@ -74,9 +81,16 @@ export function App(): React.JSX.Element {
           </div>
           {/* nothing selected, nothing rendered: an empty frame would spend the
               corner on a chip that says "selection: none" */}
-          {hasSelection ? (
+          {hasTile ? (
             <div className="overlay overlay--bl">
-              <Fold id="selection" title={strings.panelSelection}>
+              <Fold id="selection" title={strings.panelTile}>
+                <SelectionPanel />
+              </Fold>
+            </div>
+          ) : null}
+          {hasCreature ? (
+            <div className="overlay overlay--br">
+              <Fold id="selectionCreature" title={strings.panelSelection}>
                 <SelectionFrame />
               </Fold>
             </div>

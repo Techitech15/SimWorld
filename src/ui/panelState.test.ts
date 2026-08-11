@@ -46,6 +46,9 @@ describe('the fold state', () => {
     expect(defaultOpen('resources', harness.state)).toBe(true);
     expect(defaultOpen('map', harness.state)).toBe(true);
     expect(defaultOpen('selection', harness.state)).toBe(true);
+    // the bottom-right creature overlay (段階 U-1) starts open too, same as
+    // its bottom-left tile sibling
+    expect(defaultOpen('selectionCreature', harness.state)).toBe(true);
 
     // tame something and the animal panel has a reason to be open
     const [id] = Object.keys(harness.state.animals);

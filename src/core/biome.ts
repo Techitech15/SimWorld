@@ -32,6 +32,24 @@ export interface BiomeProfile {
   /** worldgen.ts: the noise cutoff a shallow-rock tile clears to become iron */
   ironNoiseThreshold: number;
   /**
+   * worldgen.ts: `w > waterThreshold` turns a clearing tile into shallow
+   * water, `w > waterThreshold + 0.08` into deep water (フェーズ14 段階 W-1,
+   * docs/design-phase14-water-medicine.md 2.4 / 7章). Water is decided before
+   * stone or forest, so this threshold is the one lever for "how much of this
+   * biome is lake" - lower means more water, the same direction as
+   * `stoneThreshold` and `forestThreshold`.
+   */
+  waterThreshold: number;
+  /**
+   * worldgen.ts: how many river bands (フェーズ14 段階 W-2,
+   * docs/design-phase14-water-medicine.md 3.1) to carve per map, each 1-2
+   * tiles of shallow water long enough to connect a lake to another lake or
+   * to the map edge. Independent of `waterThreshold` - a biome with almost no
+   * lake (crag) still gets a thin trickle or two rather than none, since a
+   * river's anchor falls back to the map edge when there is no lake to reach.
+   */
+  riverCount: number;
+  /**
    * Floor on reachable crystal tiles after generation (design-next.md 提案
    * 1(a), taken over by this biome table per design-phase11-worldmap.md 3.3).
    * Generation tops up to this count from existing rock when a world rolls
@@ -70,6 +88,16 @@ export const BIOMES: Record<BiomeName, BiomeProfile> = {
     stoneThreshold: 0.72,
     crystalNoiseThreshold: 0.62,
     ironNoiseThreshold: 0.57,
+    // measured, seeds 1-20 through testWorld at 60x60. Lakes alone: 3.04%
+    // (2.47% shallow / 0.57% deep). With 段階 W-2's rivers on top: 5.65%
+    // (5.08 / 0.57), inside the 4-6% the design doc's 7章 estimated. The
+    // threshold was deliberately left under target while only lakes existed,
+    // so the pair could be tuned once rather than twice.
+    waterThreshold: 0.85,
+    // grassland gets the most river: open ground with the least to route
+    // around (design doc 3章's own "草原は多め" starting point). Started at
+    // 3, measured 6.99% total water - over the 4-6% target - so it is 2.
+    riverCount: 2,
     minCrystalTiles: 8,
     berryDensityMultiplier: 1,
     forageRegrowMultiplier: 1,
@@ -86,6 +114,11 @@ export const BIOMES: Record<BiomeName, BiomeProfile> = {
     // other)
     crystalNoiseThreshold: 0.68,
     ironNoiseThreshold: 0.63,
+    // measured, seeds 1-20 through testWorld at 60x60: 2.33% water total
+    // (2.00% shallow / 0.33% deep) - "medium" against meadow's 3.04%, the
+    // doc's own word for it (7章)
+    waterThreshold: 0.865,
+    riverCount: 2,
     minCrystalTiles: 4,
     // 40 bushes against meadow's 26 at 60x60 (design-phase11-worldmap.md
     // 7章), carried forward as a multiplier so it scales with map area
@@ -106,6 +139,15 @@ export const BIOMES: Record<BiomeName, BiomeProfile> = {
     stoneThreshold: 0.62,
     crystalNoiseThreshold: 0.56,
     ironNoiseThreshold: 0.51,
+    // measured, seeds 1-20 through testWorld at 60x60: 0.27% water total
+    // (0.27% shallow / 0.00% deep) - "almost none" (7章). No deep water at
+    // all across those twenty seeds, and several land on zero ponds, which
+    // is the point: a crag world may simply have no lake
+    waterThreshold: 0.95,
+    // rock and the least lake to route between: a crag world may have no
+    // lake at all (7章 実装メモ), so this stays low (design doc 3章's own
+    // "岩尾根は少なく" starting point)
+    riverCount: 1,
     minCrystalTiles: 16,
     // 12 bushes against meadow's 26 at 60x60
     berryDensityMultiplier: 12 / 26,
@@ -120,6 +162,10 @@ export const BIOMES: Record<BiomeName, BiomeProfile> = {
     stoneThreshold: 0.7,
     crystalNoiseThreshold: 0.4,
     ironNoiseThreshold: 0.35,
+    // measured, seeds 1-20 through testWorld at 60x60: 1.44% water total
+    // (1.31% shallow / 0.12% deep) - "a bit less" than meadow's 3.04% (7章)
+    waterThreshold: 0.89,
+    riverCount: 2,
     minCrystalTiles: 32,
     // 20 bushes against meadow's 26 at 60x60
     berryDensityMultiplier: 20 / 26,

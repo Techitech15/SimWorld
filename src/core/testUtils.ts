@@ -185,6 +185,15 @@ export function nearestTilesWithTerrain(
  * came first and passes or fails for reasons that have nothing to do with it.
  * This searches for a block that is actually clear and insists the drag made
  * exactly one pen.
+ *
+ * The search used to probe four fixed spokes out of the camp (right, left,
+ * down, up) at each radius, which is not a search so much as four guesses:
+ * it found a pen only when one happened to sit on a spoke. Phase 14's water
+ * moved the terrain a little and seed 4201 stopped having a block on any of
+ * the four, so the helper threw and a test about storage filters failed for
+ * a reason that had nothing to do with storage filters. It now sweeps every
+ * offset in the box, nearest first, so it fails only when the map genuinely
+ * has nowhere to put a pen.
  */
 export function placePastureNear(harness: Harness, size: number): ZoneId {
   const centre = Object.values(harness.state.colonists)[0]?.position ?? { x: 30, y: 30 };
@@ -193,15 +202,24 @@ export function placePastureNear(harness: Harness, size: number): ZoneId {
     return tile?.terrain === 'grass' && !tile.buildingId;
   };
 
-  for (let radius = 3; radius < 16; radius++) {
-    for (const [dx, dy] of [
-      [radius, -2],
-      [-radius - size, -2],
-      [-2, radius],
-      [-2, -radius - size],
-    ]) {
-      const x0 = centre.x + dx;
-      const y0 = centre.y + dy;
+  // every top-left corner within the box, ordered by Chebyshev distance from
+  // the camp and then by (dy, dx) - closest pen wins, ties broken the same way
+  // every run so the choice is deterministic
+  const REACH = 16;
+  const corners: [number, number][] = [];
+  for (let dy = -REACH; dy <= REACH; dy++) {
+    for (let dx = -REACH; dx <= REACH; dx++) corners.push([dx, dy]);
+  }
+  corners.sort((a, b) => {
+    const da = Math.max(Math.abs(a[0]), Math.abs(a[1]));
+    const db = Math.max(Math.abs(b[0]), Math.abs(b[1]));
+    return da - db || a[1] - b[1] || a[0] - b[0];
+  });
+
+  for (const [dx, dy] of corners) {
+    {
+      const x0 = Math.round(centre.x) + dx;
+      const y0 = Math.round(centre.y) + dy;
       const ids: TileId[] = [];
       let solid = true;
       for (let y = 0; y < size && solid; y++) {

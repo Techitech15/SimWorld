@@ -149,6 +149,17 @@ button.active {
   font: inherit;
 }
 
+/* volume slider beside the mute toggle (段階 S-1). Small and fixed-width so
+   it does not compete with the rest of topbar__actions for space. */
+.topbar__volume {
+  width: 72px;
+}
+
+.topbar__volume-label {
+  font-size: 12px;
+  min-width: 3.5em;
+}
+
 /* A permanent slot in the first row (13章 段階A). The old `width: 100%` made
    the flex row wrap a second line the moment a message appeared, shoving the
    whole board down; this one takes the leftover width and clips instead. */
@@ -814,6 +825,20 @@ button.active {
   bottom: 8px;
   top: auto;
   max-width: 260px;
+}
+
+/* the selected colonist or animal (段階 U-1), mirroring .overlay--bl on the
+   other side of the board. selectedTileId is not exclusive with a creature
+   selection, so this can be on screen at the same time as .overlay--bl. Sits
+   under .overlay--tr (the minimap, 220px wide), so its own max-height is
+   capped rather than the full board height - otherwise a tall colonist sheet
+   would grow up into the minimap. */
+.overlay--br {
+  right: 8px;
+  bottom: 8px;
+  top: auto;
+  max-width: 260px;
+  max-height: calc(50% - 16px);
 }
 
 /* Over the map, so the panels behind them need to be readable rather than

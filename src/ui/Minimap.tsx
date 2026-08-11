@@ -24,6 +24,11 @@ const TERRAIN: Record<string, Rgb> = {
   crystal: [138, 95, 214],
   // rust against the grey, for the same reason
   ironVein: [172, 102, 58],
+  // blue family, apart from every existing colour: the two need to read
+  // apart from each other too, so shallow gets a lighter, greener cast and
+  // deep goes darker and more saturated
+  shallowWater: [76, 138, 176],
+  deepWater: [34, 72, 122],
 };
 
 const BUILDING: Record<string, Rgb> = {
@@ -36,6 +41,9 @@ const BUILDING: Record<string, Rgb> = {
   farmPlot: [122, 82, 50],
   berryBush: [138, 58, 82],
   frostbloom: [168, 200, 226],
+  // green against the berry bush's red and the frostbloom's blue-white, so a
+  // shoreline reads apart from the other two wild plants at a glance
+  herb: [92, 168, 96],
   storageZoneMarker: [92, 108, 132],
 };
 

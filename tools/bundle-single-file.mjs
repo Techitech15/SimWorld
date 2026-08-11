@@ -35,6 +35,28 @@ if (scripts.length !== 1) {
       'Was the build run with SIMWORLD_SINGLE_FILE=1?',
   );
 }
+/**
+ * Nothing may be left behind in dist/assets except the JS and CSS we are about
+ * to inline. Vite inlines an asset only while it is under
+ * `build.assetsInlineLimit`; anything over it becomes a file the bundle
+ * *references*, and a referenced file turns "opens anywhere, zero external
+ * requests" into an HTML that silently 404s the moment it is moved. That is
+ * cheap to introduce (one BGM track past the ceiling does it) and invisible
+ * until someone opens the file somewhere else, so it is asserted here rather
+ * than assumed - the same reason the script count above is asserted.
+ */
+const assetsDir = path.join(DIST, 'assets');
+const strays = fs.existsSync(assetsDir)
+  ? fs.readdirSync(assetsDir).filter((name) => !/\.(js|css)$/.test(name))
+  : [];
+if (strays.length > 0) {
+  throw new Error(
+    `${strays.length} asset(s) were emitted as separate files instead of being inlined: ` +
+      `${strays.join(', ')}. The single-file build would reference them over the network. ` +
+      'Raise build.assetsInlineLimit in vite.config.ts (single-file branch) past their size.',
+  );
+}
+
 // `</script>` inside a string literal would end the inline script early. The
 // bundle is never re-parsed as HTML beyond this point, so nothing else needs
 // escaping - and note both outputs are assembled from these parts rather than

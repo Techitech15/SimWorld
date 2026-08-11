@@ -22,6 +22,7 @@ import { FROSTBLOOM_GROWTH_BY_SEASON, SEASONS, TICKS_PER_SEASON, seasonOf } from
 import { killAnimal } from './animals';
 import { regionAt } from './derived';
 import { isRock, tileIdOf } from './state';
+import { countResource, countStoredResource } from './storage';
 import { createHarness, placePastureNear, recordLog, recordLogEntries } from './testUtils';
 import type { Harness } from './testUtils';
 import type { BuildingType, GameState } from './types';
@@ -107,27 +108,42 @@ describe('frostbloom (段階 F-A)', () => {
     // plots are dormant and the berry bushes have stopped
     const harness = createHarness(5107);
     jumpToSeason(harness, 'winter');
-    const before = Object.values(harness.state.items)
-      .filter((i) => i.type === 'food')
-      .reduce((n, i) => n + i.quantity, 0);
+    const storedBefore = countStoredResource(harness.state, 'food');
 
     // A harvest is counted as "this bloom was ripe and now it is not". Watching
     // for a completed job does not work: cleanupJobs drops completed jobs in
     // the same tick they finish, so an observer between ticks never sees one.
+    //
+    // The two food measurements are cumulative rather than start-versus-end,
+    // because the colony eats out of the same pile it is filling. This test
+    // originally compared the total at the end against the total at the
+    // start, which asks "did the colony end the winter richer" - a question
+    // about the whole food economy, not about this plant. Phase 14's water
+    // shifted seed 5107 enough that the winter's harvest exactly covered the
+    // winter's eating and the totals matched, so the assertion failed while
+    // the plant it was testing worked perfectly. Counting the rises instead
+    // asks what the name promises: food arrived, and it reached the store.
     let harvested = 0;
+    let gained = 0;
+    let storedPeak = storedBefore;
+    let previousFood = countResource(harness.state, 'food');
     const ripe = new Set<string>();
     harness.run(TICKS_PER_SEASON - 100, (state) => {
       for (const id of frostblooms(state)) {
         if (state.buildings[id].growth >= 1) ripe.add(id);
         else if (ripe.delete(id)) harvested++;
       }
+      const food = countResource(state, 'food');
+      if (food > previousFood) gained += food - previousFood;
+      previousFood = food;
+      storedPeak = Math.max(storedPeak, countStoredResource(state, 'food'));
     });
-    const after = Object.values(harness.state.items)
-      .filter((i) => i.type === 'food')
-      .reduce((n, i) => n + i.quantity, 0);
 
+    // blooms were picked, the picking put food into the world, and the haul
+    // chain carried it all the way into a storage zone
     expect(harvested).toBeGreaterThan(0);
-    expect(after).toBeGreaterThan(before);
+    expect(gained).toBeGreaterThanOrEqual(FOOD_PER_FROSTBLOOM_HARVEST);
+    expect(storedPeak).toBeGreaterThan(storedBefore);
   });
 
   it('never out-yields a berry bush, or winter would be the good season', () => {

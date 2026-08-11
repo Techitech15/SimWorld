@@ -3,7 +3,7 @@
 //
 // Duplicate suppression uses a reverse index keyed by "what this job is about",
 // so a designated tree never grows a second chop job while the first is alive.
-import { CRAFT_FOOD_RESERVE, CRAFT_MEAL_INPUT, DEFAULT_JOB_PRIORITY } from '../constants';
+import { CRAFT_FOOD_RESERVE, CRAFT_MEAL_INPUT, DEFAULT_JOB_PRIORITY, wildPlantOf } from '../constants';
 import { EQUIPMENT } from '../equipment';
 import { wantsFuel } from '../mana';
 import { deskReadyToResearch, researchResourceCost } from '../research';
@@ -17,6 +17,9 @@ function jobKey(job: Job): string {
   switch (job.type) {
     case 'hunt':
     case 'handle':
+    case 'treat':
+      // keyed on the patient/animal, not the tile: both wander while the job
+      // is pending, and the tile at generation time is not where they end up
       return `${job.type}:${job.targetEntityId}`;
     case 'haul':
       // a delivery is identified by "this blueprint still needs this resource",
@@ -121,9 +124,9 @@ export function runJobGenerator(state: GameState): void {
   for (const buildingId in state.buildings) {
     const building = state.buildings[buildingId];
     if (building.isBlueprint) continue;
-    // a ripe bush is harvest work and nothing else: there is no sowing to do,
-    // and a frostbloom is a bush that keeps a different calendar
-    if (building.type === 'berryBush' || building.type === 'frostbloom') {
+    // a ripe wild plant is harvest work and nothing else: there is no sowing
+    // to do (WILD_PLANTS, constants.ts - フェーズ14 段階 H-1 4.3)
+    if (wildPlantOf(building.type)) {
       if (building.growth < 1) continue;
       const key = `farm:${building.tileId}`;
       if (has(key)) continue;
@@ -361,6 +364,27 @@ export function runJobGenerator(state: GameState): void {
     claim(key);
   }
 
+  // --- illness: someone needs a healer ---------------------------------------
+  // The same single-shot shape every other job in this function takes: pending
+  // unless one already exists for this patient, generated only while herb is
+  // actually reachable (フェーズ14 段階 M-1, design-phase14-water-medicine.md
+  // 5.3). Checking for herb here rather than at execution time is what makes
+  // "薬草が無ければ治療は成立しない" true - a job never starts a walk it
+  // cannot finish, the same reason a haul is not created without a source.
+  for (const colonistId in state.colonists) {
+    const patient = state.colonists[colonistId];
+    if ((patient.illnessTicks ?? 0) <= 0) continue;
+    const key = `treat:${colonistId}`;
+    if (has(key)) continue;
+    const herb = findNearestItem(state, 'herb', patient.position, { preferStorage: true });
+    if (!herb) continue;
+    createJob(state, 'treat', {
+      targetTileId: tileIdOf(patient.position.x, patient.position.y),
+      targetEntityId: colonistId,
+    });
+    claim(key);
+  }
+
   // --- a standing trade deal -> haul the goods to the post -------------------
   // The same haul job again, pointed at the post. Making a deal is hauling
   // work, so it competes with everything else on that column: a colony that
@@ -465,7 +489,7 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
     case 'farm': {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       if (!building || building.isBlueprint) return false;
-      if (building.type === 'berryBush' || building.type === 'frostbloom') {
+      if (wildPlantOf(building.type)) {
         return building.growth >= 1;
       }
       return !building.sown || building.growth >= 1;
@@ -503,6 +527,13 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
       }
       const line = bench.requiredResources.find((r) => r.type === 'food');
       return !!line && line.quantity <= 0;
+    }
+    case 'treat': {
+      // valid while the patient is still sick and there is still herb
+      // somewhere reachable to spend on them (5.3, above)
+      const patient = job.targetEntityId ? state.colonists[job.targetEntityId] : undefined;
+      if (!patient || (patient.illnessTicks ?? 0) <= 0) return false;
+      return !!findNearestItem(state, 'herb', patient.position, { preferStorage: true });
     }
     case 'hunt':
     case 'handle': {

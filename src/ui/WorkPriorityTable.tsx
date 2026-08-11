@@ -59,6 +59,7 @@ const JOB_ICON: Record<JobType, string> = {
   handle: icons.handle,
   research: icons.research,
   craft: icons.craft,
+  treat: icons.treat,
 };
 
 /**

@@ -116,6 +116,10 @@ export const TRADE_BASE_VALUE: Record<ResourceType, number> = {
   // between the commodities and the crystal: rarer than stone, but a vein of
   // it holds more than a crystal vein does (design-phase10-ores.md 7.1)
   iron: 3,
+  // a foraged good like food, not tuned beyond that (フェーズ14 段階 H-1 was
+  // not scoped to trade balance; this is here only because TRADE_BASE_VALUE
+  // is a Record and every ResourceType needs a row)
+  herb: 2,
 };
 export const TRADE_BUY_RATE = 0.7;
 export const TRADE_SELL_RATE = 1.4;
@@ -158,6 +162,9 @@ export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   // matter; grouped with haul so it never jumps the queue by accident
   research: 3,
   craft: 3, // same reasoning as research: cooking is deliberate work
+  // same reasoning again (フェーズ14 段階 M-1, design-phase14-water-medicine.md
+  // 5.3): nobody drifts into nursing until the player raises the column
+  treat: 3,
 };
 
 /** Work ticks required once the colonist stands in place. */
@@ -173,6 +180,7 @@ export const WORK_TICKS: Record<JobType, number> = {
   repair: 30,
   research: 50, // heavier than farm(25), lighter than mine(60)
   craft: 50, // one batch of meals is a research cycle's worth of standing work
+  treat: 40, // between chop and mine: a visit, not a sitting
 };
 
 /**
@@ -246,7 +254,7 @@ export const FOREST_REGROW_INTERVAL_TICKS = TICKS_PER_DAY;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
-export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal', 'iron'];
+export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal', 'iron', 'herb'];
 
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
@@ -260,6 +268,7 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
   farmPlot: [],
   berryBush: [], // wild: nobody builds one
   frostbloom: [], // likewise: it grows where the map put it (11章 フェーズ5)
+  herb: [], // likewise: it grows by the water (フェーズ14 段階 H-1)
   storageZoneMarker: [],
   // The mana layer (11章 フェーズ2). A furnace is the expensive one on purpose:
   // it is the decision the player commits to, and conduit runs are what they
@@ -333,6 +342,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   farmPlot: 30,
   berryBush: 20,
   frostbloom: 20,
+  herb: 20,
   storageZoneMarker: 10,
   manaFurnace: 200,
   manaConduit: 40,
@@ -363,6 +373,7 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   farmPlot: false,
   berryBush: false,
   frostbloom: false,
+  herb: false,
   storageZoneMarker: false,
   // A furnace is a solid installation you walk around; a conduit is laid into
   // the floor and a lamp stands out of the way, so both stay walkable - a power
@@ -559,7 +570,9 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
-    initialCount: 6,
+    // Halved from 6 (issue #10): measured, see docs/design-notes.md
+    // 「野生動物の密度（#10）」.
+    initialCount: 3,
   },
   boar: {
     diet: 'omnivore',
@@ -571,7 +584,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
-    initialCount: 4,
+    // Halved from 4 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 2,
   },
   rabbit: {
     diet: 'herbivore',
@@ -583,7 +597,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY, // and quick to mature, so the herd rebuilds fast
-    initialCount: 10,
+    // Halved from 10 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 5,
   },
   chicken: {
     diet: 'herbivore',
@@ -595,7 +610,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 1500,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY,
-    initialCount: 8,
+    // Halved from 8 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 4,
   },
   /**
    * The reason to build a pen. A pasture tile holds the same one animal
@@ -619,7 +635,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 1200,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 2,
-    initialCount: 5,
+    // Halved from 5 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 3,
   },
   wolf: {
     diet: 'carnivore',
@@ -654,7 +671,11 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 2400,
     produceType: 'manaCrystal',
     adultAtTicks: TICKS_PER_DAY * 3,
-    initialCount: 3,
+    // Halved from 3 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    // This is the standing cap, not the supply rate - WILDLIFE_RESPAWN_INTERVAL_TICKS
+    // tops the wild herd up by one head a day regardless of this number, so
+    // taming two elk still takes about the same number of days either way.
+    initialCount: 2,
   },
   /**
    * Eats the map (11章 フェーズ5). Not a predator - it never touches a colonist
@@ -672,7 +693,8 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     produceIntervalTicks: 0,
     produceType: 'food',
     adultAtTicks: TICKS_PER_DAY * 3,
-    initialCount: 2,
+    // Halved from 2 (issue #10): see docs/design-notes.md 「野生動物の密度（#10）」.
+    initialCount: 1,
   },
 };
 
@@ -700,6 +722,108 @@ export const FROSTBLOOM_COUNT = 14;
  * small herd through the winter rather than a better pasture than a meadow.
  */
 export const LIGHTMOSS_REGROW_FACTOR = 0.6;
+
+/**
+ * Herb (11章 フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md 4章と
+ * 7章). Fewer than a frostbloom (14) per map, because it only grows on grass
+ * beside a shore - the effective count is lower still once that placement
+ * rule is applied. A harvest yields three (a treatment costs one `herb`, so a
+ * single plant is three treatments), and it regrows over two days: faster
+ * than a berry bush (four days), slower than a frostbloom (a day and a half).
+ * All three are starting points, adjusted from the measurements in
+ * design-notes.md.
+ */
+export const HERB_PER_HARVEST = 3;
+export const HERB_REGROW_PER_TICK = 1 / 6000;
+export const HERB_COUNT = 10;
+
+/**
+ * The wild plants (11章 フェーズ5 と フェーズ14 段階 H-1). Berries, frostbloom
+ * and herb used to be a `type === 'berryBush' || type === 'frostbloom'` check
+ * repeated at four call sites (jobs/generator.ts twice, jobs/execute.ts,
+ * simulation.ts's growCrops); herb would have made that three branches in
+ * three files, so - the same move `VEIN_YIELD` made for ore (フェーズ10) -
+ * the branch became this table instead. Adding a fourth wild plant is now one
+ * row here plus one placement rule in worldgen, not a fourth `||`.
+ *
+ * `seasonTable` names which season curve applies (src/core/season.ts) rather
+ * than carrying the table object itself: season.ts already imports this file
+ * for `TICKS_PER_DAY`, so the reverse import would be a load-order cycle.
+ * `'crop'` is the curve farm plots and berry bushes already share
+ * (`CROP_GROWTH_BY_SEASON`, winter included) - herb reads the same curve, so
+ * it is not a new table, just a new user of the existing one. `'frostbloomInverse'`
+ * is frostbloom's own table, the crop curve upside down.
+ */
+export type WildPlantType = 'berryBush' | 'frostbloom' | 'herb';
+
+export const WILD_PLANT_TYPES: WildPlantType[] = ['berryBush', 'frostbloom', 'herb'];
+
+export interface WildPlantProfile {
+  /** what a `farm` job harvesting this plant hands over */
+  resource: ResourceType;
+  /** quantity handed over per harvest */
+  harvestYield: number;
+  /** growth added per tick, before the season multiplier */
+  regrowPerTick: number;
+  seasonTable: 'crop' | 'frostbloomInverse';
+}
+
+export const WILD_PLANTS: Record<WildPlantType, WildPlantProfile> = {
+  berryBush: {
+    resource: 'food',
+    harvestYield: FOOD_PER_BERRY_HARVEST,
+    regrowPerTick: BERRY_REGROW_PER_TICK,
+    seasonTable: 'crop',
+  },
+  frostbloom: {
+    resource: 'food',
+    harvestYield: FOOD_PER_FROSTBLOOM_HARVEST,
+    regrowPerTick: FROSTBLOOM_REGROW_PER_TICK,
+    seasonTable: 'frostbloomInverse',
+  },
+  herb: {
+    resource: 'herb',
+    harvestYield: HERB_PER_HARVEST,
+    regrowPerTick: HERB_REGROW_PER_TICK,
+    // does not grow in winter, same as the crop curve (design-phase14 4章)
+    seasonTable: 'crop',
+  },
+};
+
+/** The single place that answers "is this building type a wild plant". */
+export function wildPlantOf(type: BuildingType): WildPlantProfile | undefined {
+  return (WILD_PLANTS as Partial<Record<BuildingType, WildPlantProfile>>)[type];
+}
+
+/**
+ * Illness (11章 フェーズ14 段階 M-1, docs/design-phase14-water-medicine.md 5章
+ * と7章). `illnessTicks` never counts itself down - only a `treat` job does -
+ * so the number it is set to on onset is not a duration in the usual sense; it
+ * is simply "not cured yet". One completed `treat` job clears it outright,
+ * which is what makes `HERB_PER_HARVEST`'s existing comment ("a single plant
+ * is three treatments") exactly true: one `herb` buys one full cure.
+ *
+ * `ILLNESS_HEALTH_DECAY_PER_TICK` is measured, not derived on paper -
+ * `healColonists` (animals.ts) regenerates health at
+ * `COLONIST_HEALTH_REGEN_PER_TICK` whenever a colonist sleeps, which fights
+ * this decay every night, so the net rate depends on how much of the day is
+ * spent asleep.
+ *
+ * 100/8000 was the first value tried and it was too steep: measured over 3
+ * seeds with the treat column switched off, it killed the patient outright on
+ * day 3.7-4.6, so the "about five days to a danger zone" 7章 asks for was
+ * never a danger zone at all - the colonist was dead before the player had
+ * any window to react, and the alert existed only to announce a death. At
+ * 100/11000 the same measurement reaches the danger zone (health 20) on day
+ * 4.5-5.9 and kills on day 5.5-5.6 in two of three seeds, with the third
+ * bottoming out at 20 and recovering: neglect still ends in a grave, but it
+ * ends there *after* the warning rather than instead of it. Treated at the
+ * default priority the patient never drops below 64. See design-notes.md.
+ */
+export const ILLNESS_ONSET_TICKS = TICKS_PER_DAY * 5;
+export const ILLNESS_HEALTH_DECAY_PER_TICK = 100 / 11000;
+/** What one `treat` job spends; `HERB_PER_HARVEST` is sized around this being 1. */
+export const TREAT_HERB_COST = 1;
 
 /**
  * Rockeater: ticks to work through one tile of stone, and how far it will look

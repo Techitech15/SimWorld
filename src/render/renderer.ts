@@ -10,6 +10,7 @@ import { EMPTY_NETWORKS, isPowered } from '../core/mana';
 import type { ManaNetworks } from '../core/mana';
 import { paceMultiplierOf } from '../core/pace';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
+import { cloudsAt } from './clouds';
 import { NIGHT_ALPHA, litLamps, shadeAt } from './daylight';
 import { interpolationSpeed, isTeleport } from './pace';
 import { damageStep, damageTint } from './damage';
@@ -17,6 +18,7 @@ import { pickAt } from './pick';
 import type { Camera } from './camera';
 import { loadTextures } from './textures';
 import type { GameTextures } from './textures';
+import { variantAt } from './tileVariant';
 
 const DIR_DOWN = 0;
 const DIR_LEFT = 1;
@@ -42,6 +44,13 @@ export class GameRenderer {
   private app = new Application();
   private world = new Container();
   private terrainLayer = new Container();
+  /** cloud shadows drifting over the ground (issue #15) - below the night tint,
+   *  above everything they shade */
+  private cloudLayer = new Container();
+  private cloudSprites: Sprite[] = [];
+  private cloudTexture: Texture | null = null;
+  /** real ms accumulated while unpaused - a paused world does not drift (see syncClouds) */
+  private cloudElapsedMs = 0;
   /** the day/night tint and the lamp glows over it (docs/design-phase7-time.md 3) */
   private nightLayer = new Container();
   private nightOverlay = new Graphics();
@@ -127,6 +136,7 @@ export class GameRenderer {
       this.overlay,
       this.animalLayer,
       this.colonistLayer,
+      this.cloudLayer,
       this.nightLayer,
       this.selectionOverlay,
     );
@@ -199,20 +209,39 @@ export class GameRenderer {
   }
 
   private terrainTexture(tile: Tile): Texture {
+    const t = this.textures.tiles;
     switch (tile.terrain) {
-      case 'forest':
-        // two variants keyed off the tile position so forests are not uniform
-        return (tile.x * 7 + tile.y * 13) % 2 === 0
-          ? this.textures.tiles.forest1
-          : this.textures.tiles.forest2;
-      case 'stone':
-        return this.textures.tiles.stone;
+      case 'forest': {
+        // three variants keyed off tile position so forests are not uniform.
+        // This used to be an inline `(tile.x * 7 + tile.y * 13) % 2` here;
+        // widening that same expression to `% 3` would have collapsed to
+        // `(x + y) % 3` (both 7 and 13 are ≡1 mod 3), which is constant along
+        // every diagonal and draws as a diagonal stripe across the map.
+        // `variantAt` mixes bits instead of relying on the multipliers'
+        // residues, so it survives being widened past 2 (see
+        // tileVariant.test.ts for the regression check).
+        const variant = variantAt(tile.x, tile.y, 3);
+        return variant === 0 ? t.forest1 : variant === 1 ? t.forest2 : t.forest3;
+      }
+      case 'stone': {
+        const variant = variantAt(tile.x, tile.y, 2);
+        return variant === 0 ? t.stone : t.stone2;
+      }
       case 'crystal':
-        return this.textures.tiles.crystal;
+        return t.crystal;
       case 'ironVein':
-        return this.textures.tiles.ironVein;
-      default:
-        return this.textures.tiles.grass;
+        return t.ironVein;
+      case 'shallowWater':
+        // two variants for the same reason grass has three: a lake is a big
+        // block of one terrain, and one stamp repeated across it reads as a
+        // grid rather than as water
+        return variantAt(tile.x, tile.y, 2) === 0 ? t.shallowWater : t.shallowWater2;
+      case 'deepWater':
+        return variantAt(tile.x, tile.y, 2) === 0 ? t.deepWater : t.deepWater2;
+      default: {
+        const variant = variantAt(tile.x, tile.y, 3);
+        return variant === 0 ? t.grass : variant === 1 ? t.grass2 : t.grass3;
+      }
     }
   }
 
@@ -298,8 +327,10 @@ export class GameRenderer {
         return building.growth >= 1 ? t.berryRipe : t.berryBare;
       case 'frostbloom':
         return building.growth >= 1 ? t.frostbloomBloom : t.frostbloomBare;
+      case 'herb':
+        return building.growth >= 1 ? t.herbRipe : t.herbBare;
       case 'farmPlot':
-        if (!building.sown) return t.farm0;
+        if (!building.sown) return t.farmTilled;
         return building.growth >= 1 ? t.farm2 : building.growth > 0.35 ? t.farm1 : t.farm0;
       case 'storageZoneMarker':
         return t.storage;
@@ -376,6 +407,8 @@ export class GameRenderer {
         return t.manaCrystal;
       case 'iron':
         return t.ironItem;
+      case 'herb':
+        return t.herbItem;
       default:
         return t.food;
     }
@@ -792,6 +825,68 @@ export class GameRenderer {
     }
   }
 
+  // --- cloud shadows (issue #15) --------------------------------------------
+  /** A soft dark blob, drawn once in code - the same zero-asset rule
+   *  ensureLightTexture follows, just dark instead of warm. */
+  private ensureCloudTexture(): Texture {
+    if (this.cloudTexture) return this.cloudTexture;
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d')!;
+    const gradient = context.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+    gradient.addColorStop(0, 'rgba(20, 26, 45, 1)');
+    gradient.addColorStop(0.6, 'rgba(20, 26, 45, 0.5)');
+    gradient.addColorStop(1, 'rgba(20, 26, 45, 0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+    this.cloudTexture = Texture.from(canvas);
+    return this.cloudTexture;
+  }
+
+  /**
+   * Ground shadows drifting overhead. `cloudElapsedMs` is real time, not tick
+   * time, and only advances while the world is actually running - paused
+   * (`state.speed === 0`), the clouds hold still along with everything else.
+   * Sprites darken buildings, animals and colonists (drawn under this layer)
+   * but sit below the night tint (drawn above it), same order the layer list
+   * in `init` puts them in.
+   */
+  private syncClouds(state: GameState, deltaMs: number): void {
+    if (state.speed > 0) this.cloudElapsedMs += deltaMs;
+    const shadows = cloudsAt(this.cloudElapsedMs, state.width, state.height);
+    while (this.cloudSprites.length < shadows.length) {
+      const sprite = new Sprite(this.ensureCloudTexture());
+      sprite.anchor.set(0.5);
+      this.cloudLayer.addChild(sprite);
+      this.cloudSprites.push(sprite);
+    }
+    for (let i = 0; i < this.cloudSprites.length; i++) {
+      const sprite = this.cloudSprites[i];
+      const shadow = shadows[i];
+      if (!shadow) {
+        sprite.visible = false;
+        continue;
+      }
+      sprite.visible = true;
+      // texture is 256px across for radius*2 tiles of coverage - same
+      // scaling `syncNight` uses for the lamp glow
+      const scale = (shadow.radius * 2 * TILE_SIZE) / 256;
+      sprite.scale.set(scale);
+      sprite.x = shadow.x * TILE_SIZE + TILE_SIZE / 2;
+      sprite.y = shadow.y * TILE_SIZE + TILE_SIZE / 2;
+      sprite.alpha = shadow.alpha;
+    }
+  }
+
   // --- day and night (docs/design-phase7-time.md 3) ------------------------
   /** A soft radial light, drawn once in code - the same zero-asset rule the
    *  sprites follow. */
@@ -874,6 +969,7 @@ export class GameRenderer {
     this.syncRaiders(state, deltaMs);
     this.syncTraders(state);
     this.syncColonists(state, deltaMs);
+    this.syncClouds(state, deltaMs);
     this.syncNight(state);
     this.consumeFocusRequest();
     this.syncSelectionOverlay(state);

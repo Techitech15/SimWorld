@@ -50,6 +50,8 @@ export function TopBar(): React.JSX.Element {
   const setLanguage = useLanguageStore((s) => s.setLanguage);
   const muted = useSoundStore((s) => s.muted);
   const toggleMuted = useSoundStore((s) => s.toggleMuted);
+  const volume = useSoundStore((s) => s.volume);
+  const setVolume = useSoundStore((s) => s.setVolume);
 
   // The status text lives in a slot that exists whether or not there is a
   // message (13章 段階A): the old `width: 100%` line wrapped the flex row and
@@ -187,6 +189,26 @@ export function TopBar(): React.JSX.Element {
         >
           {muted ? '🔇' : '🔊'}
         </button>
+        {/* the volume slider (段階 S-1, GitHub issue #17). Disabled while
+            muted rather than auto-unmuting on drag: unmuting is a deliberate
+            act (it is also the user gesture the autoplay policy wants), so
+            dragging a disabled slider should not have the side effect of
+            turning sound on - the mute button stays the one control for that. */}
+        <input
+          className="topbar__volume"
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(volume * 100)}
+          disabled={muted}
+          title={strings.soundVolumeTitle}
+          aria-label={strings.soundVolumeTitle}
+          onChange={(event) => setVolume(Number(event.target.value) / 100)}
+        />
+        <span className="topbar__volume-label muted" title={strings.soundVolumeTitle}>
+          {strings.soundVolumeLabel(Math.round(volume * 100))}
+        </span>
         {/* "New map" opens the world-map overlay rather than generating on the
             spot (11章 段階B, 5章): the old one-click ease is kept by the
             overlay's own "start anywhere" button, not by skipping the overlay. */}

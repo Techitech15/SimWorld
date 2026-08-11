@@ -64,6 +64,16 @@ const P = {
   iron: ['#6b3a26', '#9c5030', '#c26a3c', '#e08d55'],
   iconWood: '#a9764a',
   iconWoodDark: '#7d5432',
+  // shallow water: light enough to read as "you can see the bottom", and
+  // apart from grass/stone/crystal so the minimap and the tile both stay
+  // legible (フェーズ14 段階 W-1)
+  waterShallow: ['#2f6488', '#3d7ba3', '#4f92ba', '#7fc1dc'],
+  // deep water: darker and cooler, the far end of the same blue family
+  waterDeep: ['#132842', '#1a3a5c', '#234f78', '#2f6694'],
+  // herb (フェーズ14 段階 H-1): a medicinal green, apart from grass/forest and
+  // from the berry bush's red and the frostbloom's ice blue-white, so a
+  // shoreline plant reads apart from both of the other wild plants
+  herb: ['#264d2a', '#3c7a41', '#5aa25a', '#eef2c9'],
 };
 
 function save(name, canvas) {
@@ -82,23 +92,80 @@ function tileEdge(c, color) {
 }
 
 // --- terrain ---------------------------------------------------------------
-function grassTile() {
+/**
+ * Grass, in three variants (issue #19). Variant 1 is byte-identical to the
+ * original single grassTile() - same seed (1001), same draw order - so
+ * `npm run sprites` does not touch the shipped terrain/grass.png. Variants 2
+ * and 3 reuse the same 4-colour P.grass palette but shift which entry is the
+ * base fill and how many tufts are drawn, so the brightness/density differ
+ * a little without introducing a colour that would read as a different
+ * terrain next to variant 1.
+ */
+function grassTile(variant) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(1001);
-  c.fill(P.grass[1]);
-  for (let y = 0; y < TILE; y++) {
-    for (let x = 0; x < TILE; x++) {
-      const r = rnd();
-      if (r < 0.14) c.set(x, y, P.grass[0]);
-      else if (r < 0.26) c.set(x, y, P.grass[2]);
+  const rnd = mulberry32(variant === 1 ? 1001 : variant === 2 ? 1002 : 1003);
+  if (variant === 1) {
+    c.fill(P.grass[1]);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const r = rnd();
+        if (r < 0.14) c.set(x, y, P.grass[0]);
+        else if (r < 0.26) c.set(x, y, P.grass[2]);
+      }
     }
-  }
-  for (let i = 0; i < 14; i++) {
-    const x = Math.floor(rnd() * TILE);
-    const y = Math.floor(rnd() * (TILE - 3)) + 2;
-    c.set(x, y, P.grass[3]);
-    c.set(x, y - 1, P.grass[3]);
-    c.set(x + 1, y - 1, P.grass[2]);
+    for (let i = 0; i < 14; i++) {
+      const x = Math.floor(rnd() * TILE);
+      const y = Math.floor(rnd() * (TILE - 3)) + 2;
+      c.set(x, y, P.grass[3]);
+      c.set(x, y - 1, P.grass[3]);
+      c.set(x + 1, y - 1, P.grass[2]);
+    }
+  } else if (variant === 2) {
+    // Every variant keeps variant 1's base fill. The first attempt gave each
+    // one its own fill a palette step apart, which looked right in isolation
+    // and was wrong on the map: a 32x32 block of flat colour shifting between
+    // neighbours draws the tile grid itself, and a visible grid is a worse
+    // problem than the monotony the variants exist to fix (issue #19 asks for
+    // colour variation, not for the seams to show). Screenshots of the real
+    // build are what caught it; the sprites look fine one at a time. So the
+    // variation lives entirely in the speckle mix and the tufts - texture,
+    // not brightness.
+    c.fill(P.grass[1]);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const r = rnd();
+        if (r < 0.1) c.set(x, y, P.grass[0]);
+        else if (r < 0.24) c.set(x, y, P.grass[2]);
+        else if (r < 0.27) c.set(x, y, P.grass[3]);
+      }
+    }
+    // fewer, taller tufts than variant 1
+    for (let i = 0; i < 9; i++) {
+      const x = Math.floor(rnd() * TILE);
+      const y = Math.floor(rnd() * (TILE - 4)) + 3;
+      c.set(x, y, P.grass[3]);
+      c.set(x, y - 1, P.grass[3]);
+      c.set(x, y - 2, P.grass[2]);
+      c.set(x + 1, y - 1, P.grass[2]);
+    }
+  } else {
+    // same fill again; this one is the busiest - denser speckle and the most
+    // tufts, so it reads as thicker growth rather than as a darker tile
+    c.fill(P.grass[1]);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const r = rnd();
+        if (r < 0.17) c.set(x, y, P.grass[0]);
+        else if (r < 0.32) c.set(x, y, P.grass[2]);
+      }
+    }
+    for (let i = 0; i < 19; i++) {
+      const x = Math.floor(rnd() * TILE);
+      const y = Math.floor(rnd() * (TILE - 3)) + 2;
+      c.set(x, y, P.grass[2]);
+      c.set(x, y - 1, P.grass[3]);
+      c.set(x + 1, y - 1, P.grass[2]);
+    }
   }
   tileEdge(c, P.grass[0]);
   return c;
@@ -131,18 +198,31 @@ function forestTile(variant) {
     tree(c, 16, 22, 9, false);
     tree(c, 6, 11, 5, true);
     tree(c, 26, 13, 5, true);
-  } else {
+  } else if (variant === 2) {
     // sparser variant so forests do not look like one repeated stamp
     tree(c, 10, 24, 7, false);
     tree(c, 24, 17, 6, true);
+  } else {
+    // third variant: a denser small cluster with yet another silhouette
+    tree(c, 8, 21, 6, false);
+    tree(c, 21, 25, 7, true);
+    tree(c, 23, 10, 5, false);
+    tree(c, 9, 8, 4, true);
   }
   tileEdge(c, '#16331a');
   return c;
 }
 
-function stoneTile() {
+/**
+ * Rock, in two variants (issue #19). Variant 1 is byte-identical to the
+ * original single stoneTile() - same seed (3001), same chunk layout - so
+ * `npm run sprites` does not touch the shipped terrain/stone.png. Variant 2
+ * uses a different seed and a different chunk layout so adjacent stone tiles
+ * do not look like one repeated stamp.
+ */
+function stoneTile(variant) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(3001);
+  const rnd = mulberry32(variant === 1 ? 3001 : 3002);
   c.fill(P.stone[2]);
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
@@ -152,12 +232,21 @@ function stoneTile() {
     }
   }
   // rock chunks with highlight / shadow to read as an un-mined ore face
-  const chunks = [
-    [8, 9, 7],
-    [21, 13, 6],
-    [13, 23, 6],
-    [26, 25, 4],
-  ];
+  const chunks =
+    variant === 1
+      ? [
+          [8, 9, 7],
+          [21, 13, 6],
+          [13, 23, 6],
+          [26, 25, 4],
+        ]
+      : [
+          [24, 8, 6],
+          [10, 12, 5],
+          [19, 22, 7],
+          [6, 26, 4],
+          [28, 27, 3],
+        ];
   for (const [cx, cy, r] of chunks) {
     c.disc(cx, cy, r, P.stone[1]);
     c.disc(cx - 1, cy - 1, r - 2, P.stone[3]);
@@ -169,6 +258,46 @@ function stoneTile() {
     c.line(x, y, x + 3 - Math.floor(rnd() * 6), y + 4, P.stone[0]);
   }
   tileEdge(c, '#3c3c43');
+  return c;
+}
+
+/**
+ * Water, shallow or deep (フェーズ14 段階 W-1). Same statement both times -
+ * "flecked with ripples" - but deep water is darker, cooler and sparser with
+ * light so it reads as farther from the surface; shallow water carries a
+ * couple of pale glints near the edge, standing in for a visible bottom.
+ */
+function waterTile(deep, variant = 1) {
+  const c = new Canvas(TILE, TILE);
+  // Same base colour for every variant, for the reason grassTile records: a
+  // per-tile fill shift draws the grid instead of hiding it. Only the ripple
+  // seed changes, so a lake reads as one surface with moving water on it
+  // rather than as one stamp repeated - which is what a single water tile
+  // looked like on a large lake.
+  const rnd = mulberry32((deep ? 6000 : 5000) + variant);
+  const p = deep ? P.waterDeep : P.waterShallow;
+  c.fill(p[1]);
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      const r = rnd();
+      if (r < 0.16) c.set(x, y, p[0]);
+      else if (r < 0.28) c.set(x, y, p[2]);
+    }
+  }
+  // horizontal ripple bands, offset a little per row so they do not tile into
+  // an obvious repeating stripe
+  for (let i = 0; i < (deep ? 4 : 6); i++) {
+    const y = Math.floor(rnd() * TILE);
+    const x0 = Math.floor(rnd() * (TILE - 10));
+    c.hline(x0, y, 6 + Math.floor(rnd() * 6), p[3]);
+  }
+  if (!deep) {
+    // a few bright glints near the surface, the visible-bottom read
+    for (let i = 0; i < 4; i++) {
+      c.set(Math.floor(rnd() * TILE), Math.floor(rnd() * TILE), '#bfe6f5');
+    }
+  }
+  tileEdge(c, deep ? '#0a1c30' : '#254f6b');
   return c;
 }
 
@@ -345,6 +474,49 @@ function frostbloom(bloomed) {
   return c;
 }
 
+/**
+ * Herb (フェーズ14 段階 H-1). It has to read apart from both existing wild
+ * plants at a glance: a low fan of narrow leaves like the frostbloom's
+ * rosette (so the family reads as "another shoreline plant"), but green
+ * rather than icy, and topped with small pale-cream flowers rather than the
+ * berry bush's red beads or the frostbloom's violet-hearted bloom.
+ */
+function herbPlant(ripe) {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(ripe ? 0x9a21 : 0x9a20);
+  const leaf = P.herb[1];
+  const leafDark = P.herb[0];
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 7) * Math.PI - Math.PI;
+    const length = 9 + Math.floor(rnd() * 4);
+    const ex = 16 + Math.round(Math.cos(angle) * length);
+    const ey = 26 + Math.round(Math.sin(angle) * (length * 0.7));
+    c.line(16, 27, ex, ey, i % 2 === 0 ? leaf : leafDark);
+    c.set(ex, ey, leafDark);
+    c.set(ex, ey - 1, P.herb[2]);
+  }
+  c.vline(16, 19, 9, leafDark); // stem
+  if (ripe) {
+    // small clustered flowers, pale cream against the green
+    const clusters = [
+      [16, 12],
+      [12, 15],
+      [20, 15],
+      [16, 18],
+    ];
+    for (const [px, py] of clusters) {
+      c.disc(px, py, 2, P.herb[3]);
+      c.set(px, py - 1, '#ffffff');
+    }
+  } else {
+    // dormant: a tight green bud on the stem
+    c.disc(16, 16, 3, leafDark);
+    c.disc(16, 15, 2, leaf);
+  }
+  c.outline(P.outline);
+  return c;
+}
+
 function doorTile(open) {
   const c = new Canvas(TILE, TILE);
   // stone jambs on both sides
@@ -381,9 +553,14 @@ function bedTile() {
   return c;
 }
 
+/**
+ * Farm plot ground. `stage` is 'tilled' (sown === false: bare tilled earth,
+ * no sprouts - issue #19) or 0/1/2 (sown, keyed the same way growth already
+ * splits farm0/farm1/farm2 in renderer.ts).
+ */
 function farmTile(stage) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(4000 + stage);
+  const rnd = mulberry32(stage === 'tilled' ? 4003 : 4000 + stage);
   c.fill(P.soil[1]);
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
@@ -392,26 +569,30 @@ function farmTile(stage) {
       else if (r < 0.26) c.set(x, y, P.soil[2]);
     }
   }
-  // furrows
-  for (let y = 3; y < TILE; y += 8) {
+  // furrows: a dark trench beside a lit ridge every 4px, so tilled ground
+  // reads as tilled at a glance instead of getting lost under the speckle
+  // (the previous 1+1px line every 8px was almost invisible under it)
+  for (let y = 0; y < TILE; y += 4) {
     c.hline(0, y, TILE, P.soil[0]);
     c.hline(0, y + 1, TILE, P.soil[2]);
   }
-  const rows = [6, 14, 22, 30];
-  for (const y of rows) {
-    for (let x = 4; x < TILE - 2; x += 7) {
-      if (stage === 0) {
-        c.set(x, y - 1, P.sprout);
-        c.set(x, y - 2, P.sprout);
-      } else if (stage === 1) {
-        c.vline(x, y - 5, 5, P.crop);
-        c.set(x - 1, y - 4, P.crop);
-        c.set(x + 1, y - 3, P.crop);
-      } else {
-        c.vline(x, y - 7, 7, P.cropRipeDark);
-        c.rect(x - 1, y - 9, 3, 4, P.cropRipe);
-        c.set(x - 2, y - 7, P.cropRipeDark);
-        c.set(x + 2, y - 7, P.cropRipeDark);
+  if (stage !== 'tilled') {
+    const rows = [6, 14, 22, 30];
+    for (const y of rows) {
+      for (let x = 4; x < TILE - 2; x += 7) {
+        if (stage === 0) {
+          c.set(x, y - 1, P.sprout);
+          c.set(x, y - 2, P.sprout);
+        } else if (stage === 1) {
+          c.vline(x, y - 5, 5, P.crop);
+          c.set(x - 1, y - 4, P.crop);
+          c.set(x + 1, y - 3, P.crop);
+        } else {
+          c.vline(x, y - 7, 7, P.cropRipeDark);
+          c.rect(x - 1, y - 9, 3, 4, P.cropRipe);
+          c.set(x - 2, y - 7, P.cropRipeDark);
+          c.set(x + 2, y - 7, P.cropRipeDark);
+        }
       }
     }
   }
@@ -1231,6 +1412,23 @@ function crystalIcon() {
   return c;
 }
 
+/** The harvested resource icon: a small bundled sprig, apart from the plant sprite. */
+function herbIcon() {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(0x9a30);
+  for (let i = 0; i < 3; i++) {
+    const bx = 10 + i * 6;
+    const tx = bx - 2 + Math.floor(rnd() * 4);
+    const ty = 8 + Math.floor(rnd() * 4);
+    c.line(bx, 27, tx, ty, P.herb[0]);
+    c.disc(tx, ty, 3, P.herb[2]);
+  }
+  c.rect(9, 25, 14, 4, '#8a6a3c'); // the tie binding the bundle
+  c.hline(9, 26, 14, '#6b4f2a');
+  c.outline(P.outline);
+  return c;
+}
+
 
 /** The furnace: a stone housing with a crystal burning behind a grate. */
 function manaFurnaceTile() {
@@ -1738,12 +1936,20 @@ function traderSheet() {
 
 // --- main ------------------------------------------------------------------
 const written = [];
-written.push(save('terrain/grass.png', grassTile()));
+written.push(save('terrain/grass.png', grassTile(1)));
+written.push(save('terrain/grass_2.png', grassTile(2)));
+written.push(save('terrain/grass_3.png', grassTile(3)));
 written.push(save('terrain/forest_1.png', forestTile(1)));
 written.push(save('terrain/forest_2.png', forestTile(2)));
-written.push(save('terrain/stone.png', stoneTile()));
+written.push(save('terrain/forest_3.png', forestTile(3)));
+written.push(save('terrain/stone.png', stoneTile(1)));
+written.push(save('terrain/stone_2.png', stoneTile(2)));
 written.push(save('terrain/crystal.png', crystalTile()));
 written.push(save('terrain/iron_vein.png', ironVeinTile()));
+written.push(save('terrain/shallow_water.png', waterTile(false, 1)));
+written.push(save('terrain/shallow_water_2.png', waterTile(false, 2)));
+written.push(save('terrain/deep_water.png', waterTile(true, 1)));
+written.push(save('terrain/deep_water_2.png', waterTile(true, 2)));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));
@@ -1754,6 +1960,7 @@ written.push(save('buildings/stone_floor.png', stoneFloorTile()));
 written.push(save('buildings/door_closed.png', doorTile(false)));
 written.push(save('buildings/door_open.png', doorTile(true)));
 written.push(save('buildings/bed.png', bedTile()));
+written.push(save('buildings/farm_tilled.png', farmTile('tilled')));
 written.push(save('buildings/farm_0.png', farmTile(0)));
 written.push(save('buildings/farm_1.png', farmTile(1)));
 written.push(save('buildings/farm_2.png', farmTile(2)));
@@ -1809,6 +2016,9 @@ written.push(save('animals/crystal_elk.png', crystalElkSheet()));
 written.push(save('animals/rockeater.png', rockeaterSheet()));
 written.push(save('buildings/frostbloom_bare.png', frostbloom(false)));
 written.push(save('buildings/frostbloom_bloom.png', frostbloom(true)));
+written.push(save('buildings/herb_bare.png', herbPlant(false)));
+written.push(save('buildings/herb_ripe.png', herbPlant(true)));
+written.push(save('resources/herb.png', herbIcon()));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));

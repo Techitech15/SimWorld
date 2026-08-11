@@ -16,7 +16,18 @@ const only = (state: GameState) => Object.keys(state.colonists)[0];
 
 /** Give one colonist a clean, known set of skills. */
 function skilled(state: GameState, id: string, levels: Partial<Record<string, number>>): void {
-  const skills = { chop: 0, mine: 0, farm: 0, build: 0, haul: 0, hunt: 0, handle: 0, research: 0, craft: 0 };
+  const skills = {
+    chop: 0,
+    mine: 0,
+    farm: 0,
+    build: 0,
+    haul: 0,
+    hunt: 0,
+    handle: 0,
+    research: 0,
+    craft: 0,
+    treat: 0,
+  };
   for (const [name, level] of Object.entries(levels)) {
     skills[name as keyof typeof skills] = xpForLevel(level!);
   }

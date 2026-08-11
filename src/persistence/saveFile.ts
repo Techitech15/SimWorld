@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 27;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -425,6 +425,66 @@ export const migrations: Record<number, Migration> = {
   23: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, equipment: state.equipment ?? {} };
+  },
+
+  // 24 -> 25: water terrain (フェーズ14 段階 W-1,
+  // docs/design-phase14-water-medicine.md 2.5). Deliberately a no-op. Every
+  // existing save was generated before `shallowWater` / `deepWater` existed,
+  // so it has no water tiles to describe - but unlike the crystal and iron
+  // retrofits (2.5章), water cannot be added to an existing map after the
+  // fact: colonists may already be standing on, buildings already built on,
+  // and paths already routed through tiles that would have to turn
+  // unwalkable, and migrations run before `createSimContext` exists, so there
+  // is no region index to re-stitch and nowhere to evacuate anyone to. Old
+  // colonies simply have no lakes; only newly generated worlds do.
+  24: (old) => old,
+
+  /**
+   * 25 -> 26: herb (フェーズ14 段階 H-1, docs/design-phase14-water-medicine.md
+   * 6章). No retrofit into the map for the same reason water got none (2.5章)
+   * - a colony saved before herb existed was generated before the water-side
+   * placement rule existed too, so there is no shore to grow it on and
+   * nothing sane to seed. Only newly generated worlds have herb plants.
+   *
+   * Storage zones are the one thing that does need touching: a zone that
+   * predates the resource would silently never take it in, so `herb` joins
+   * every existing storage zone's `accepts` the same way iron did at 18 -> 19
+   * - the player chose to exclude nothing, so nothing should arrive excluded.
+   */
+  25: (old) => {
+    const state = old as Partial<GameState>;
+    const zones = { ...(state.zones ?? {}) };
+    for (const id in zones) {
+      const zone = zones[id];
+      if (zone.type !== 'storage' || zone.accepts?.includes('herb')) continue;
+      zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'herb'] };
+    }
+    return { ...state, zones };
+  },
+
+  /**
+   * 26 -> 27: illness and the `treat` skill (フェーズ14 段階 M-1,
+   * docs/design-phase14-water-medicine.md 6章). Same shape as 19 -> 20
+   * (research) and 22 -> 23 (craft): a new `JobType` grows a new column and a
+   * new skill, and both need a default the same way those two did -
+   * `workPriorities.treat = 3` (lowest, so nobody drifts into nursing) and
+   * `skills.treat = 0` (an old colonist has never practised it, same as a new
+   * one). `illnessTicks` gets the plain "0 = healthy" every field's absence
+   * already means: nobody is sick in a save from before sickness existed.
+   */
+  26: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        workPriorities: { ...colonist.workPriorities, treat: colonist.workPriorities?.treat ?? 3 },
+        skills: { ...colonist.skills, treat: colonist.skills?.treat ?? 0 },
+        illnessTicks: colonist.illnessTicks ?? 0,
+      };
+    }
+    return { ...state, colonists };
   },
 };
 
