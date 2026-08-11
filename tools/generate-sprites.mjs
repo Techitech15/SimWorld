@@ -121,40 +121,50 @@ function grassTile(variant) {
       c.set(x + 1, y - 1, P.grass[2]);
     }
   } else if (variant === 2) {
-    // a shade brighter/more saturated: base fill one step up the palette,
-    // fewer but higher-contrast tufts
-    c.fill(P.grass[2]);
+    // Every variant keeps variant 1's base fill. The first attempt gave each
+    // one its own fill a palette step apart, which looked right in isolation
+    // and was wrong on the map: a 32x32 block of flat colour shifting between
+    // neighbours draws the tile grid itself, and a visible grid is a worse
+    // problem than the monotony the variants exist to fix (issue #19 asks for
+    // colour variation, not for the seams to show). Screenshots of the real
+    // build are what caught it; the sprites look fine one at a time. So the
+    // variation lives entirely in the speckle mix and the tufts - texture,
+    // not brightness.
+    c.fill(P.grass[1]);
     for (let y = 0; y < TILE; y++) {
       for (let x = 0; x < TILE; x++) {
         const r = rnd();
-        if (r < 0.12) c.set(x, y, P.grass[0]);
-        else if (r < 0.22) c.set(x, y, P.grass[3]);
+        if (r < 0.1) c.set(x, y, P.grass[0]);
+        else if (r < 0.24) c.set(x, y, P.grass[2]);
+        else if (r < 0.27) c.set(x, y, P.grass[3]);
       }
     }
-    for (let i = 0; i < 10; i++) {
+    // fewer, taller tufts than variant 1
+    for (let i = 0; i < 9; i++) {
       const x = Math.floor(rnd() * TILE);
-      const y = Math.floor(rnd() * (TILE - 3)) + 2;
+      const y = Math.floor(rnd() * (TILE - 4)) + 3;
       c.set(x, y, P.grass[3]);
       c.set(x, y - 1, P.grass[3]);
-      c.set(x + 1, y - 1, P.grass[1]);
+      c.set(x, y - 2, P.grass[2]);
+      c.set(x + 1, y - 1, P.grass[2]);
     }
   } else {
-    // a shade darker/more muted, with denser tufts so it does not just read
-    // as a dimmer copy of variant 1
-    c.fill(P.grass[0]);
+    // same fill again; this one is the busiest - denser speckle and the most
+    // tufts, so it reads as thicker growth rather than as a darker tile
+    c.fill(P.grass[1]);
     for (let y = 0; y < TILE; y++) {
       for (let x = 0; x < TILE; x++) {
         const r = rnd();
-        if (r < 0.18) c.set(x, y, P.grass[1]);
-        else if (r < 0.3) c.set(x, y, P.grass[2]);
+        if (r < 0.17) c.set(x, y, P.grass[0]);
+        else if (r < 0.32) c.set(x, y, P.grass[2]);
       }
     }
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 19; i++) {
       const x = Math.floor(rnd() * TILE);
       const y = Math.floor(rnd() * (TILE - 3)) + 2;
       c.set(x, y, P.grass[2]);
-      c.set(x, y - 1, P.grass[2]);
-      c.set(x + 1, y - 1, P.grass[1]);
+      c.set(x, y - 1, P.grass[3]);
+      c.set(x + 1, y - 1, P.grass[2]);
     }
   }
   tileEdge(c, P.grass[0]);
