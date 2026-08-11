@@ -861,10 +861,23 @@ export class GameRenderer {
     return this.cloudTexture;
   }
 
-  /** A soft brightening band, drawn once in code - same zero-asset rule the
-   *  cloud and lamp-light textures follow (issue #23, option (c)). White,
-   *  additive blend, so it lifts whatever it is drawn over rather than
-   *  replacing it - the same trick `syncNight` uses for lamp glow. */
+  /**
+   * A gust drawn as a handful of thin streaks, once in code - same zero-asset
+   * rule the cloud and lamp-light textures follow (issue #23, option (c)).
+   * White, additive blend, so it lifts whatever it is drawn over rather than
+   * replacing it - the same trick `syncNight` uses for lamp glow.
+   *
+   * This was a radial gradient stretched into an ellipse, and that is exactly
+   * what it looked like in play: a patch of glow or mist drifting over the
+   * ground, not wind. A soft blob has no direction in it, so no speed or
+   * placement could make it read as moving air. Streaks carry the direction in
+   * the shape itself, which is why every game that draws wind draws lines.
+   *
+   * STREAKS is a fixed table for the same reason GUSTS is one (wind.ts): the
+   * table *is* the asset, and nothing here rolls dice. Each streak fades to
+   * nothing at both ends so it has no hard tip, and the whole set is confined
+   * to the middle of the texture's height so the sprite's own edges stay soft.
+   */
   private ensureWindTexture(): Texture {
     if (this.windTexture) return this.windTexture;
     const size = 256;
@@ -872,19 +885,40 @@ export class GameRenderer {
     canvas.width = size;
     canvas.height = size;
     const context = canvas.getContext('2d')!;
-    const gradient = context.createRadialGradient(
-      size / 2,
-      size / 2,
-      0,
-      size / 2,
-      size / 2,
-      size / 2,
-    );
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.4)');
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, size, size);
+
+    // y: where the streak sits across the gust (0..1 of the texture height)
+    // half/thickness: how long and how thick, both as a fraction of the size
+    // alpha: the streak's own weight, so they do not all read as one slab
+    const STREAKS = [
+      { y: 0.28, half: 0.34, thickness: 3, alpha: 0.55 },
+      { y: 0.38, half: 0.46, thickness: 5, alpha: 0.9 },
+      { y: 0.46, half: 0.28, thickness: 3, alpha: 0.45 },
+      { y: 0.54, half: 0.48, thickness: 6, alpha: 1.0 },
+      { y: 0.62, half: 0.32, thickness: 4, alpha: 0.6 },
+      { y: 0.72, half: 0.4, thickness: 3, alpha: 0.5 },
+    ];
+
+    for (const streak of STREAKS) {
+      const cy = streak.y * size;
+      const x0 = size / 2 - streak.half * size;
+      const x1 = size / 2 + streak.half * size;
+      // Along the streak: nothing, up to full in the middle, back to nothing.
+      // The two inner stops sit close to the ends so the body stays even and
+      // only the tips taper - a linear ramp would read as a lens, not a line.
+      const along = context.createLinearGradient(x0, 0, x1, 0);
+      along.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      along.addColorStop(0.22, `rgba(255, 255, 255, ${streak.alpha})`);
+      along.addColorStop(0.78, `rgba(255, 255, 255, ${streak.alpha})`);
+      along.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      context.fillStyle = along;
+      // Across the streak the edge is left to the browser's own filtering:
+      // the texture is drawn at a few pixels thick and never magnified on this
+      // axis (syncWind scales y by width*TILE_SIZE/256, which is ~1), so a
+      // hard-edged rect stays a crisp thin line instead of blurring into the
+      // haze this replaced.
+      context.fillRect(x0, cy - streak.thickness / 2, x1 - x0, streak.thickness);
+    }
+
     this.windTexture = Texture.from(canvas);
     return this.windTexture;
   }
