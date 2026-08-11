@@ -36,10 +36,16 @@ import { chase, chaseRaider } from './movement';
 import { fleeStep } from './animals';
 import { isWalkable } from './pathfinding';
 import { mulberry32 } from './rng';
+import { attackMultiplierOf, defenseMultiplierOf, useEquipment } from './equipment';
 import { skillLevel } from './skills';
 import { addLog, nextId, tileIdOf, updateBuilding, updateColonist, updateTile } from './state';
 import type { Colonist, GameState, Raider, RaiderId, Vector2 } from './types';
 
+// The raid's one name pool, and the Parched's (11章 段階C,
+// docs/design-phase11-worldmap.md 4.3章: "raider names draw from a Parched
+// name pool"). Raiders have never been anything but this one threat, so
+// giving them a tribe does not split the pool - it names the pool that was
+// already there.
 const RAIDER_NAMES = [
   'Gash',
   'Vole',
@@ -169,7 +175,8 @@ export function damageRaider(
   state: GameState,
   raiderId: RaiderId,
   amount: number,
-  by: string,
+  /** the colonist who struck the blow, or null when the turret did */
+  by: string | null,
 ): void {
   const raider = state.raiders[raiderId];
   if (!raider) return;
@@ -179,7 +186,12 @@ export function damageRaider(
     return;
   }
   removeRaider(state, raiderId);
-  addLog(state, `${raider.name} the raider was cut down by ${by}`, 'incident');
+  addLog(
+    state,
+    by === null ? 'raiderCutDownByTurret' : 'raiderCutDownBy',
+    by === null ? { raider: raider.name } : { raider: raider.name, colonist: by },
+    'incident',
+  );
   // anybody who was swinging at them has nothing to swing at
   for (const id in state.colonists) {
     const activity = state.colonists[id].activity;
@@ -187,7 +199,7 @@ export function damageRaider(
       updateColonist(state, id, { activity: { kind: 'none' } });
     }
   }
-  if (!isUnderAttack(state)) addLog(state, 'the raid is over', 'incident');
+  if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
 }
 
 /** One tick of every raider on the map. */
@@ -197,7 +209,7 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
 
     if (state.tick >= raider.leavesAtTick && raider.activity.kind !== 'leaving') {
       updateRaider(state, id, { activity: { kind: 'leaving' } });
-      addLog(state, `${raider.name} the raider gives up and turns back`, 'incident');
+      addLog(state, 'raiderRetreats', { raider: raider.name }, 'incident');
       // Re-read: the local copy still says 'advancing', and the branch below
       // tests it. Without this they announced giving up on every tick for the
       // rest of the raid - measured at 1,891 announcements in one year - while
@@ -225,7 +237,7 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
         state.tick > raider.leavesAtTick + RAID_LEAVE_GRACE_TICKS;
       if (gone) {
         removeRaider(state, id);
-        if (!isUnderAttack(state)) addLog(state, 'the raid is over', 'incident');
+        if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
       }
       continue;
     }
@@ -271,9 +283,12 @@ function strikeColonist(
 ): void {
   const colonist = state.colonists[colonistId];
   if (!colonist) return;
-  const health = colonist.health - amount;
+  // armor blunts the blow and wears for it (フェーズ8 E-6)
+  const taken = amount * defenseMultiplierOf(state, colonistId);
+  useEquipment(state, colonistId, 'body');
+  const health = colonist.health - taken;
   if (health <= 0) {
-    killColonist(state, colonistId, `was killed by ${raider.name} the raider`);
+    killColonist(state, colonistId, { key: 'colonistKilledByRaider', params: { raider: raider.name } });
     return;
   }
   // A defender keeps their feet. Anyone else runs, exactly as they would from a
@@ -299,7 +314,7 @@ function breakStructure(
   if (hpCurrent > 0) {
     updateBuilding(state, buildingId, { hpCurrent });
     if (building.hpCurrent === building.hpMax) {
-      addLog(state, `${raider.name} the raider is breaking through the ${building.type}`);
+      addLog(state, 'raiderBreaking', { raider: raider.name, building: building.type });
     }
     return;
   }
@@ -308,7 +323,7 @@ function breakStructure(
   state.buildings = rest;
   updateTile(state, tile.id, { buildingId: null, designation: null, walkable: true });
   ctx.regionsDirty = true;
-  addLog(state, `the ${building.type} at ${tile.id} was smashed open`, 'incident');
+  addLog(state, 'buildingSmashed', { building: building.type, tile: tile.id }, 'incident');
 }
 
 /** Is this colonist one of the ones who goes to meet a raider? */
@@ -341,8 +356,13 @@ export function runDefenders(state: GameState, ctx: SimContext): void {
       }
       if (state.tick % COLONIST_ATTACK_INTERVAL_TICKS === 0) {
         // a practised hunter hits harder: the same skill that brings down a boar
-        const damage = COLONIST_MELEE_DAMAGE * (1 + skillLevel(colonist, 'hunt') * 0.1);
+        // the sword multiplies exactly where skill already does (フェーズ8 E-6)
+        const damage =
+          COLONIST_MELEE_DAMAGE *
+          (1 + skillLevel(colonist, 'hunt') * 0.1) *
+          attackMultiplierOf(state, colonist.id);
         damageRaider(state, raider.id, damage, colonist.name);
+        useEquipment(state, colonist.id, 'hand');
       }
       continue;
     }
@@ -391,14 +411,23 @@ export function runTurrets(state: GameState, ctx: SimContext): void {
         target = raider;
       }
     }
-    if (target) damageRaider(state, target.id, TURRET_DAMAGE, 'the turret');
+    if (target) damageRaider(state, target.id, TURRET_DAMAGE, null);
   }
 }
 
-/** How many raiders a colony of this size and age has attracted. */
-export function raidSize(state: GameState, rnd: () => number): number {
+/**
+ * How many raiders a colony of this size and age has attracted.
+ *
+ * `sizeMultiplier` is the Parched proximity lever (11章 段階C,
+ * docs/design-phase11-worldmap.md 7章: ×1.5 near their territory). It scales
+ * both the raw draw and the cap together, so a raid near the Parched can
+ * genuinely be bigger rather than only rolling the same 1-5 range more often;
+ * the default of 1 reproduces the old fixed 1-5 range exactly.
+ */
+export function raidSize(state: GameState, rnd: () => number, sizeMultiplier = 1): number {
   const population = Object.keys(state.colonists).length;
-  return Math.max(1, Math.min(5, Math.round(population / 2 + rnd() * 1.5)));
+  const cap = Math.max(1, Math.round(5 * sizeMultiplier));
+  return Math.max(1, Math.min(cap, Math.round((population / 2 + rnd() * 1.5) * sizeMultiplier)));
 }
 
 export function raidSeed(state: GameState): () => number {

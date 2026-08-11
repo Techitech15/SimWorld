@@ -46,16 +46,14 @@ describe('starvation', () => {
     });
 
     expect(lowestHealth).toBeLessThan(COLONIST_MAX_HEALTH);
-    expect(harness.state.log.some((entry) => entry.message.includes('is starving'))).toBe(true);
+    expect(harness.state.log.some((entry) => entry.key === 'colonistStarving')).toBe(true);
 
     // and it does not stall halfway: keep going and the colony is gone
     harness.run(TICKS_PER_DAY * 4, (state) => {
       state.animals = {};
     });
     expect(Object.keys(harness.state.colonists)).toHaveLength(0);
-    expect(harness.state.log.some((entry) => entry.message.includes('starved to death'))).toBe(
-      true,
-    );
+    expect(harness.state.log.some((entry) => entry.key === 'colonistStarvedToDeath')).toBe(true);
   });
 
   it('never triggers in a colony that can feed itself', () => {
@@ -70,7 +68,7 @@ describe('starvation', () => {
       }
     });
     expect(peakHunger).toBeLessThan(100);
-    expect(harness.state.log.some((entry) => entry.message.includes('is starving'))).toBe(false);
+    expect(harness.state.log.some((entry) => entry.key === 'colonistStarving')).toBe(false);
     expect(Object.keys(harness.state.colonists)).toHaveLength(3);
   });
 });

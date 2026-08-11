@@ -42,6 +42,10 @@ describe('the fold state', () => {
     expect(defaultOpen('work', harness.state)).toBe(false);
     expect(defaultOpen('animals', harness.state)).toBe(false);
     expect(defaultOpen('goals', harness.state)).toBe(true);
+    // the board overlays (13章 段階B) start open: they are the glanceable ones
+    expect(defaultOpen('resources', harness.state)).toBe(true);
+    expect(defaultOpen('map', harness.state)).toBe(true);
+    expect(defaultOpen('selection', harness.state)).toBe(true);
 
     // tame something and the animal panel has a reason to be open
     const [id] = Object.keys(harness.state.animals);

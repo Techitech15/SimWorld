@@ -9,7 +9,13 @@ import { CRYSTAL_PER_VEIN, RESOURCE_TYPES, STONE_PER_ROCK } from './constants';
 import { setDesignation } from './actions';
 import { isRock, tileIdOf } from './state';
 import { countStoredResource } from './storage';
-import { createHarness, recordLog, tilesWithTerrain, testWorld } from './testUtils';
+import {
+  createHarness,
+  quarryTo as quarryToTerrain,
+  recordLog,
+  tilesWithTerrain,
+  testWorld,
+} from './testUtils';
 
 import type { GameState, TileId } from './types';
 
@@ -33,42 +39,11 @@ function itemsOf(state: GameState, type: string): number {
  * ground inward. Measured across eight worlds: a vein sits 2 to 4 rock tiles
  * deep (worst seen: 8), and only rarely touches open ground at all - so
  * designating the vein alone leaves a job nobody can reach, which is the point
- * of putting it in there.
+ * of putting it in there. The search itself lives in testUtils since iron
+ * joined crystal in the rock (フェーズ10) and needed the identical corridor.
  */
 function quarryTo(state: GameState, veinId: TileId): { tiles: TileId[]; veins: number } {
-  const parent = new Map<TileId, TileId | null>([[veinId, null]]);
-  let frontier = [state.tiles[veinId]];
-  let reached: TileId | null = null;
-  while (frontier.length > 0 && !reached) {
-    const next = [];
-    for (const tile of frontier) {
-      for (const [dx, dy] of [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ]) {
-        const step = state.tiles[tileIdOf(tile.x + dx, tile.y + dy)];
-        if (!step || parent.has(step.id)) continue;
-        parent.set(step.id, tile.id);
-        if (!isRock(step.terrain)) {
-          reached = tile.id; // the last rock before open ground
-          break;
-        }
-        next.push(step);
-      }
-      if (reached) break;
-    }
-    frontier = next;
-  }
-  if (!reached) throw new Error('this vein has no route to open ground at all');
-
-  const tiles: TileId[] = [];
-  for (let at: TileId | null = reached; at; at = parent.get(at) ?? null) tiles.push(at);
-  return {
-    tiles,
-    veins: tiles.filter((id) => state.tiles[id].terrain === 'crystal').length,
-  };
+  return quarryToTerrain(state, veinId, 'crystal');
 }
 
 describe('where mana comes from', () => {
@@ -141,7 +116,7 @@ describe('cutting a vein open', () => {
     expect(itemsOf(harness.state, 'manaCrystal')).toBe(quarry.veins * CRYSTAL_PER_VEIN);
     expect(harness.state.tiles[vein].terrain).toBe('grass');
     expect(harness.state.tiles[vein].walkable).toBe(true);
-    expect(lines.some((line) => line.includes('mana crystal vein'))).toBe(true);
+    expect(lines).toContain('veinCutOpen');
   });
 
   it('cannot be reached without cutting the rock in front of it', () => {

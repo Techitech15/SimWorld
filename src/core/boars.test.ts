@@ -63,7 +63,7 @@ describe('a hunted boar', () => {
 
       if (charged) {
         charges++;
-        expect(harness.state.log.some((e) => e.message.includes('turned on'))).toBe(true);
+        expect(harness.state.log.some((e) => e.key === 'boarTurnedOn')).toBe(true);
       }
       void lowest; // whether the charge lands is the next test's job
       // whatever happened, it is a cost and not a death sentence

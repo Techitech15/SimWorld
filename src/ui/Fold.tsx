@@ -22,10 +22,16 @@ export function Fold({
   children: ReactNode;
 }): React.JSX.Element {
   // Narrow selectors only. Reading `s.state` here would subscribe every panel
-  // to every tick; these two are the whole of what `defaultOpen` looks at.
+  // to every tick; these are the whole of what `defaultOpen` looks at.
   const colonists = useGameStore((s) => Object.keys(s.state.colonists).length);
   const anyTame = useGameStore((s) => Object.values(s.state.animals).some((a) => a.tame));
-  const { open, toggle } = usePanelFold(id, defaultOpenFrom(id, { colonists, anyTame }));
+  const hasResearchDesk = useGameStore((s) =>
+    Object.values(s.state.buildings).some((b) => b.type === 'researchDesk' && !b.isBlueprint),
+  );
+  const { open, toggle } = usePanelFold(
+    id,
+    defaultOpenFrom(id, { colonists, anyTame, hasResearchDesk }),
+  );
   return (
     <section className={`panel fold${open ? '' : ' fold--closed'}`}>
       <button type="button" className="fold__head" onClick={toggle} aria-expanded={open}>

@@ -6,6 +6,7 @@
 // up on the next tick.
 import { BUILDING_COSTS, BUILDING_HP, RESOURCE_TYPES, SPECIES } from './constants';
 import type { SimContext } from './derived';
+import { availableTechs, isUnlocked } from './research';
 import {
   addLog,
   beginTick,
@@ -28,6 +29,7 @@ import type {
   GameState,
   JobType,
   ResourceType,
+  TechName,
   TileId,
   Vector2,
   Zone,
@@ -164,6 +166,10 @@ export function placeBuildingBlueprint(
   type: BuildingType,
   tileIds: TileId[],
 ): GameState {
+  // Locked types refuse silently here, exactly like solid rock a few lines
+  // down: the build menu greys them out (design-phase12-research.md 3.3), and
+  // this is what stops a UI bypass from placing one anyway.
+  if (!isUnlocked(state, type)) return state;
   const next = edit(state);
   let changed = false;
   for (const tileId of tileIds) {
@@ -473,7 +479,7 @@ export function orderMove(
     activity: { kind: 'moving', targetTileId: tile.id },
   });
   void ctx;
-  addLog(next, `${colonist.name} ordered to ${tile.id}`);
+  addLog(next, 'orderedToMove', { name: colonist.name, x: tile.x, y: tile.y });
   return next;
 }
 
@@ -484,5 +490,52 @@ export function toggleFarmSowing(state: GameState, tileId: TileId): GameState {
   const building = tile?.buildingId ? next.buildings[tile.buildingId] : null;
   if (!building || building.type !== 'farmPlot') return state;
   updateBuilding(next, building.id, { sown: !building.sown, growth: 0 });
+  return next;
+}
+
+/**
+ * Pick what the desk works on next (11章 フェーズ12, design-phase12-research.md
+ * 2.3). No queue: this is a decision made every few days, not something to
+ * automate. `null` clears the selection. Refuses silently - same contract as
+ * every other action - when the tech does not exist, its prerequisites are
+ * unmet, or it is already unlocked; the research panel only ever offers
+ * `availableTechs`, so this is the guard against a stale click, not the
+ * primary gate.
+ */
+export function setResearchCurrent(state: GameState, tech: TechName | null): GameState {
+  if (tech === state.research.current) return state;
+  if (tech !== null && !availableTechs(state).includes(tech)) return state;
+  const next = edit(state);
+  next.research = { ...next.research, current: tech };
+  return next;
+}
+
+/**
+ * Bulk-apply a profession's priorities to one colonist (design-phase12-research.md
+ * 4.2). Unlike `assignWorkBySkill` this writes every column outright - a
+ * profession is a declared bundle, not a nudge - and nothing about it is
+ * saved beyond the resulting `workPriorities`, exactly like the skill button.
+ */
+export function professionPriorities(primary: JobType): Record<JobType, number> {
+  const table = {} as Record<JobType, number>;
+  for (const jobType of JOB_TYPES) {
+    table[jobType] = jobType === primary ? 1 : jobType === 'haul' ? 3 : 2;
+  }
+  return table;
+}
+
+export function applyProfession(
+  state: GameState,
+  colonistId: ColonistId,
+  primary: JobType,
+): GameState {
+  const colonist = state.colonists[colonistId];
+  if (!colonist) return state;
+  const workPriorities = professionPriorities(primary);
+  if (JOB_TYPES.every((jobType) => colonist.workPriorities[jobType] === workPriorities[jobType])) {
+    return state;
+  }
+  const next = edit(state);
+  updateColonist(next, colonistId, { workPriorities });
   return next;
 }

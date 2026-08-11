@@ -59,6 +59,9 @@ const P = {
   iconMetalDark: '#8c93a3',
   mana: ['#3b2a63', '#5b3fa0', '#8a5fd6', '#c9a6ff'],
   manaGlow: '#a97cff',
+  // rust rather than metal: unmined iron reads as ore in the rock, and the
+  // orange-brown keeps it apart from wood's warmer browns and stone's greys
+  iron: ['#6b3a26', '#9c5030', '#c26a3c', '#e08d55'],
   iconWood: '#a9764a',
   iconWoodDark: '#7d5432',
 };
@@ -1156,6 +1159,60 @@ function crystalTile() {
   return c;
 }
 
+/**
+ * A rock face with iron in it. Same statement as crystalTile - "same rock,
+ * something in it" - but the something is rust-brown nuggets along a seam
+ * rather than violet shards: iron is the ore you meet on the way in.
+ */
+function ironVeinTile() {
+  const c = new Canvas(TILE, TILE);
+  const rnd = mulberry32(0x1207);
+  c.fill(P.stone[2]);
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      const r = rnd();
+      if (r < 0.18) c.set(x, y, P.stone[1]);
+      else if (r < 0.24) c.set(x, y, P.stone[3]);
+    }
+  }
+  for (const [cx, cy, r] of [
+    [24, 8, 5],
+    [7, 25, 5],
+  ]) {
+    c.disc(cx, cy, r, P.stone[1]);
+    c.disc(cx - 1, cy - 1, r - 2, P.stone[3]);
+  }
+  // the seam: nuggets strung along a diagonal, rust with a lit top edge
+  const nugget = (cx, cy, r) => {
+    c.disc(cx, cy, r, P.iron[0]);
+    c.disc(cx, cy - 1, Math.max(1, r - 1), P.iron[1]);
+    c.disc(cx - 1, cy - 1, Math.max(1, r - 2), P.iron[2]);
+    c.set(cx - 1, cy - 2, P.iron[3]);
+  };
+  c.line(8, 10, 24, 23, P.iron[0]);
+  nugget(9, 11, 4);
+  nugget(16, 16, 5);
+  nugget(23, 22, 4);
+  nugget(21, 27, 2);
+  tileEdge(c, '#3c3c43');
+  return c;
+}
+
+/** The mined iron stack, and the UI icon for the resource list. */
+function ironIcon() {
+  const c = new Canvas(TILE, TILE);
+  const lump = (cx, cy, r) => {
+    c.disc(cx, cy, r, P.iron[1]);
+    c.disc(cx - 1, cy - 1, r - 1, P.iron[2]);
+    c.disc(cx - 2, cy - 2, Math.max(1, r - 3), P.iron[3]);
+  };
+  lump(11, 21, 7);
+  lump(22, 22, 5);
+  lump(19, 12, 6);
+  c.outline(P.outline);
+  return c;
+}
+
 /** The mined stack, and the UI icon for the resource list. */
 function crystalIcon() {
   const c = new Canvas(TILE, TILE);
@@ -1289,6 +1346,299 @@ function hearthTile() {
 }
 
 
+// --- furniture (design-phase10-ores.md 4章) --------------------------------
+// All five read top-down like the bed: warm plank browns for the wooden
+// pieces so they sit in the bed/floor family, iron fittings in the metal
+// greys where the build cost says iron, and the statue in the stone palette
+// because that is what it is made of.
+
+/** The table: a plank top on four legs, iron brackets at the corners. */
+function tableTile() {
+  const c = new Canvas(TILE, TILE);
+  // legs first, peeking out at the corners
+  for (const [x, y] of [
+    [4, 4],
+    [24, 4],
+    [4, 24],
+    [24, 24],
+  ]) {
+    c.rect(x, y, 4, 4, P.plankDark);
+  }
+  // the top overlaps them: one broad slab of planks
+  c.rect(3, 6, 26, 20, P.plankMid);
+  c.hline(3, 6, 26, P.plankLight);
+  c.hline(3, 25, 26, P.plankDark);
+  for (let y = 10; y < 25; y += 5) c.hline(3, y, 26, P.plankDark);
+  c.vline(3, 6, 20, P.plankLight);
+  c.vline(28, 6, 20, P.plankDark);
+  // iron corner brackets: the 2 iron the build cost asks for, visible
+  for (const [x, y] of [
+    [4, 7],
+    [25, 7],
+    [4, 22],
+    [25, 22],
+  ]) {
+    c.rect(x, y, 3, 3, P.iconMetal);
+    c.set(x + 2, y + 2, P.iconMetalDark);
+  }
+  c.outline(P.outline);
+  return c;
+}
+
+/** The stool: a small round seat, low enough to tuck under the table. */
+function stoolTile() {
+  const c = new Canvas(TILE, TILE);
+  // three legs splayed out under the seat
+  c.rect(10, 20, 3, 7, P.plankDark);
+  c.rect(19, 20, 3, 7, P.plankDark);
+  c.rect(15, 22, 3, 6, P.plankDark);
+  // the seat: a disc of planks with a lit rim
+  c.disc(16, 14, 8, P.plankDark);
+  c.disc(16, 13, 7, P.plankMid);
+  c.disc(15, 12, 5, P.plankLight);
+  c.hline(10, 13, 12, P.plankDark);
+  c.hline(10, 16, 13, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The dresser: a two-door cabinet, iron hinges and handles. */
+function dresserTile() {
+  const c = new Canvas(TILE, TILE);
+  // carcass
+  c.rect(3, 3, 26, 26, P.plankMid);
+  c.hline(3, 3, 26, P.plankLight);
+  c.hline(3, 28, 26, P.plankDark);
+  c.vline(3, 3, 26, P.plankLight);
+  c.vline(28, 3, 26, P.plankDark);
+  // two door panels with a shadow line between them
+  c.rect(6, 6, 9, 20, P.plankLight);
+  c.rect(17, 6, 9, 20, P.plankLight);
+  c.strokeRect(6, 6, 9, 20, P.plankDark);
+  c.strokeRect(17, 6, 9, 20, P.plankDark);
+  c.vline(16, 5, 22, P.plankDark);
+  // iron hinges on the outer edges and a handle on each door: the 4 iron
+  for (const y of [8, 22]) {
+    c.rect(6, y, 2, 3, P.iconMetal);
+    c.rect(24, y, 2, 3, P.iconMetal);
+  }
+  c.rect(13, 14, 2, 4, P.iconMetal);
+  c.rect(17, 14, 2, 4, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The armchair: a cushioned seat with a back and two arms, facing south. */
+function armchairTile() {
+  const c = new Canvas(TILE, TILE);
+  // back rail, tallest part
+  c.rect(6, 4, 20, 7, P.bedBlanketDark);
+  c.rect(7, 5, 18, 5, P.bedBlanket);
+  // arms down both sides
+  c.rect(4, 8, 5, 18, P.bedBlanketDark);
+  c.rect(23, 8, 5, 18, P.bedBlanketDark);
+  c.rect(5, 9, 3, 15, P.bedBlanket);
+  c.rect(24, 9, 3, 15, P.bedBlanket);
+  // the seat cushion between them
+  c.rect(9, 11, 14, 13, P.bedBlanket);
+  c.hline(9, 11, 14, P.bedSheet);
+  c.hline(9, 18, 14, P.bedBlanketDark); // seam where the cushion folds
+  c.rect(9, 24, 14, 3, P.bedBlanketDark);
+  // wooden feet
+  c.rect(5, 26, 4, 3, P.plankDark);
+  c.rect(23, 26, 4, 3, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The statue: a stone figure on a plinth - the quarry's surplus, upright. */
+function statueTile() {
+  const c = new Canvas(TILE, TILE);
+  // plinth
+  c.rect(7, 24, 18, 6, P.stone[1]);
+  c.hline(7, 24, 18, P.stone[3]);
+  c.hline(7, 29, 18, P.stone[0]);
+  c.rect(10, 21, 12, 3, P.stone[2]);
+  // body: a robed figure, arms folded
+  c.rect(12, 10, 8, 11, P.stone[2]);
+  c.vline(12, 10, 11, P.stone[3]); // lit edge
+  c.vline(19, 10, 11, P.stone[0]); // shadowed edge
+  c.hline(12, 15, 8, P.stone[0]); // folded arms
+  c.hline(13, 16, 6, P.stone[1]);
+  // head
+  c.disc(16, 7, 3, P.stone[2]);
+  c.set(14, 6, P.stone[3]);
+  // a little moss at the base so it reads as a fixture, not a person
+  c.set(9, 28, P.grass[2]);
+  c.set(23, 28, P.grass[1]);
+  c.outline(P.outline);
+  return c;
+}
+
+// --- research (11章 フェーズ12, design-phase12-research.md) -----------------
+
+/** The research desk: a plank lectern with an open book laid across it. */
+function researchDeskTile() {
+  const c = new Canvas(TILE, TILE);
+  // legs
+  for (const [x, y] of [
+    [5, 22],
+    [24, 22],
+  ]) {
+    c.rect(x, y, 3, 7, P.plankDark);
+  }
+  // the desktop
+  c.rect(3, 14, 26, 10, P.plankMid);
+  c.hline(3, 14, 26, P.plankLight);
+  c.hline(3, 23, 26, P.plankDark);
+  c.vline(3, 14, 10, P.plankLight);
+  c.vline(28, 14, 10, P.plankDark);
+  // the open book: two pages meeting at a spine
+  c.rect(8, 8, 8, 11, '#ede0c8');
+  c.rect(16, 8, 8, 11, '#ded1b8');
+  c.vline(16, 8, 11, P.plankDark);
+  for (let y = 10; y < 18; y += 3) {
+    c.hline(9, y, 6, '#cbbda4');
+    c.hline(17, y, 6, '#cbbda4');
+  }
+  // a candle standing beside it, so a night shift at the desk reads at a glance
+  c.rect(23, 5, 2, 8, '#ede0c8');
+  c.disc(24, 4, 2, '#e8c34a');
+  c.set(24, 3, '#ff9478');
+  c.outline(P.outline);
+  return c;
+}
+
+/** The research job icon: an open book, matching the desk it targets. */
+function iconResearch() {
+  const c = new Canvas(ICON, ICON);
+  c.rect(3, 6, 8, 13, '#ede0c8');
+  c.rect(12, 6, 8, 13, '#ded1b8');
+  c.vline(12, 6, 13, P.iconWoodDark);
+  for (let y = 9; y < 17; y += 3) {
+    c.hline(5, y, 5, '#cbbda4');
+    c.hline(13, y, 5, '#cbbda4');
+  }
+  c.hline(3, 5, 17, P.iconWoodDark);
+  c.outline(P.outline);
+  return c;
+}
+
+
+/** The workbench (design-next 提案3): a heavy bench top with a cleaver and a
+ *  chopping board - the entrance to second-stage goods. */
+function workbenchTile() {
+  const c = new Canvas(TILE, TILE);
+  // legs at the corners, like the table but stouter
+  for (const [x, y] of [
+    [4, 6],
+    [23, 6],
+    [4, 23],
+    [23, 23],
+  ]) {
+    c.rect(x, y, 5, 5, P.plankDark);
+  }
+  // the bench top: thicker than the table, scarred by use
+  c.rect(2, 7, 28, 18, P.plankMid);
+  c.hline(2, 7, 28, P.plankLight);
+  c.hline(2, 24, 28, P.plankDark);
+  c.vline(2, 7, 18, P.plankLight);
+  c.vline(29, 7, 18, P.plankDark);
+  // knife scars across the working half
+  c.hline(5, 12, 6, P.plankDark);
+  c.hline(7, 15, 5, P.plankDark);
+  c.hline(4, 18, 7, P.plankDark);
+  // the chopping board, offset to the right
+  c.rect(17, 10, 10, 9, '#ded1b8');
+  c.hline(17, 10, 10, '#ede0c8');
+  // the cleaver on the board: iron blade, wooden grip
+  c.rect(19, 12, 5, 3, P.iconMetal);
+  c.set(24, 13, P.iconMetalDark);
+  c.rect(24, 14, 3, 2, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The craft column icon: the cleaver over the board, readable at 22px. */
+function iconCraft() {
+  const c = new Canvas(ICON, ICON);
+  // the board
+  c.rect(3, 8, 16, 10, '#ded1b8');
+  c.hline(3, 8, 16, '#ede0c8');
+  c.hline(3, 17, 16, '#cbbda4');
+  // the cleaver: broad blade, short grip
+  c.rect(5, 10, 8, 5, P.iconMetal);
+  c.hline(5, 14, 8, P.iconMetalDark);
+  c.rect(13, 11, 4, 3, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+
+/** Equipment lying on the ground (フェーズ8): small, readable at item scale. */
+function equipAxeItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(14, 8, 4, 18, P.plankDark); // handle
+  c.rect(10, 6, 12, 6, P.iconMetal); // head
+  c.hline(10, 11, 12, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+function equipPickaxeItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(14, 8, 4, 18, P.plankDark);
+  // curved pick head: two slanted arms
+  c.rect(6, 8, 20, 3, P.iconMetal);
+  c.set(6, 11, P.iconMetalDark);
+  c.set(25, 11, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+function equipBowItem() {
+  const c = new Canvas(TILE, TILE);
+  // the stave: an arc of wood
+  for (let i = 0; i < 16; i++) {
+    const x = 10 + Math.round(6 * Math.sin((i / 15) * Math.PI));
+    c.rect(x, 8 + i, 3, 1, P.plankMid);
+  }
+  c.vline(11, 8, 16, '#ded1b8'); // the string
+  c.outline(P.outline);
+  return c;
+}
+
+function equipSpearItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(15, 8, 3, 20, P.plankDark);
+  c.rect(14, 4, 5, 6, P.iconMetal); // stone tip
+  c.set(16, 3, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
+function equipSwordItem() {
+  const c = new Canvas(TILE, TILE);
+  c.rect(15, 5, 3, 15, P.iconMetal); // blade
+  c.vline(15, 5, 15, '#e8ecf4');
+  c.rect(12, 20, 9, 3, P.plankDark); // guard
+  c.rect(15, 23, 3, 6, P.plankMid); // grip
+  c.outline(P.outline);
+  return c;
+}
+
+function equipArmorItem() {
+  const c = new Canvas(TILE, TILE);
+  // a cuirass: chest plate with shoulder notches
+  c.rect(9, 8, 14, 16, P.iconMetal);
+  c.rect(9, 8, 3, 4, P.iconMetalDark);
+  c.rect(20, 8, 3, 4, P.iconMetalDark);
+  c.hline(9, 16, 14, P.iconMetalDark);
+  c.vline(16, 8, 16, P.iconMetalDark);
+  c.outline(P.outline);
+  return c;
+}
+
 /** A raider: the colonist silhouette in dark colours with a blade. */
 function raiderSheet() {
   const sheet = new Canvas(TILE * 2, TILE);
@@ -1393,6 +1743,7 @@ written.push(save('terrain/forest_1.png', forestTile(1)));
 written.push(save('terrain/forest_2.png', forestTile(2)));
 written.push(save('terrain/stone.png', stoneTile()));
 written.push(save('terrain/crystal.png', crystalTile()));
+written.push(save('terrain/iron_vein.png', ironVeinTile()));
 written.push(save('buildings/wall.png', wallTile()));
 written.push(save('buildings/wall_blueprint.png', wallBlueprint()));
 written.push(save('buildings/floor.png', floorTile()));
@@ -1411,6 +1762,7 @@ written.push(save('resources/wood.png', woodIcon()));
 written.push(save('resources/stone.png', stoneIcon()));
 written.push(save('resources/food.png', foodIcon()));
 written.push(save('resources/mana_crystal.png', crystalIcon()));
+written.push(save('resources/iron.png', ironIcon()));
 written.push(save('buildings/mana_furnace.png', manaFurnaceTile()));
 written.push(save('buildings/mana_conduit.png', manaConduitTile(false)));
 written.push(save('buildings/mana_conduit_live.png', manaConduitTile(true)));
@@ -1419,6 +1771,19 @@ written.push(save('buildings/mana_lamp_lit.png', manaLampTile(true)));
 written.push(save('buildings/mana_extractor.png', manaExtractorTile(false)));
 written.push(save('buildings/mana_extractor_run.png', manaExtractorTile(true)));
 written.push(save('buildings/hearth.png', hearthTile()));
+written.push(save('buildings/table.png', tableTile()));
+written.push(save('buildings/stool.png', stoolTile()));
+written.push(save('buildings/dresser.png', dresserTile()));
+written.push(save('buildings/armchair.png', armchairTile()));
+written.push(save('buildings/statue.png', statueTile()));
+written.push(save('buildings/research_desk.png', researchDeskTile()));
+written.push(save('buildings/workbench.png', workbenchTile()));
+written.push(save('equipment/axe.png', equipAxeItem()));
+written.push(save('equipment/pickaxe.png', equipPickaxeItem()));
+written.push(save('equipment/hunting_bow.png', equipBowItem()));
+written.push(save('equipment/hunting_spear.png', equipSpearItem()));
+written.push(save('equipment/sword.png', equipSwordItem()));
+written.push(save('equipment/iron_armor.png', equipArmorItem()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));
@@ -1447,6 +1812,8 @@ written.push(save('buildings/frostbloom_bloom.png', frostbloom(true)));
 written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));
+written.push(save('ui/job_research.png', iconResearch()));
+written.push(save('ui/job_craft.png', iconCraft()));
 written.push(save('ui/need_health.png', iconHealth()));
 written.push(save('ui/need_mood.png', iconMood()));
 

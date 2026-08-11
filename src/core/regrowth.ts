@@ -12,6 +12,7 @@
 // slowly from the outside in, and a colony that fells the last tree in sight
 // has genuinely lost something until the forest walks back.
 import { FOREST_REGROW_CHANCE_PER_DAY, FOREST_REGROW_INTERVAL_TICKS } from './constants';
+import { biomeOf } from './biome';
 import { mulberry32 } from './rng';
 import { CROP_GROWTH_BY_SEASON, seasonOf } from './season';
 import { tileIdOf, updateTile } from './state';
@@ -66,12 +67,15 @@ export function regrowForest(state: GameState): void {
   }
 
   const rnd = mulberry32(state.tick + 60077);
+  // deepwood's wood is meant to feel inexhaustible (11章 フェーズ11 段階A);
+  // meadow, crag and manaheath all keep the multiplier at 1
+  const chance = FOREST_REGROW_CHANCE_PER_DAY * biomeOf(state).forestRegrowMultiplier;
   for (const tileId in state.tiles) {
     const tile = state.tiles[tileId];
     if (tile.terrain !== 'grass') continue;
     // roll first, look second: the roll has to happen for every grass tile in a
     // fixed order or the result would depend on how the map was walked
-    if (rnd() >= FOREST_REGROW_CHANCE_PER_DAY) continue;
+    if (rnd() >= chance) continue;
     if (isClaimed(state, tileId)) continue;
     if (!hasTreeNeighbour(state, tile.x, tile.y)) continue;
     if (claimed.has(tileId)) continue;

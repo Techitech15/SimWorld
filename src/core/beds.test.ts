@@ -52,11 +52,11 @@ describe('beds', () => {
   it('are counted, and a shortfall is worth saying out loud', () => {
     const harness = createHarness(1303);
     harness.state.animals = {};
-    expect(collectAlerts(harness.state).some((a) => a.message.includes('no bed'))).toBe(false);
+    expect(collectAlerts(harness.state).some((a) => a.key === 'bedsShort')).toBe(false);
 
     removeBeds(harness.state);
-    const alert = collectAlerts(harness.state).find((a) => a.message.includes('no bed'));
-    expect(alert?.message).toBe('3 colonists have no bed — they rest poorly');
+    const alert = collectAlerts(harness.state).find((a) => a.key === 'bedsShort');
+    expect(alert?.params).toEqual({ count: 3 });
     expect(alert?.level).toBe('info');
   });
 });

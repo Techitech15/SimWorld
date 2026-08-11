@@ -14,8 +14,8 @@ import type { GameState, ResourceType } from './types';
 export type ScenarioName = 'gentle' | 'standard' | 'harsh';
 
 export interface Scenario {
-  label: string;
-  description: string;
+  // what a scenario is called, and its one-line pitch, live in the UI
+  // dictionary (src/ui/strings.ts) per language; the scenario is numbers only
   /** what is waiting in the store on day one */
   startingResources: Partial<Record<ResourceType, number>>;
   /**
@@ -35,8 +35,6 @@ export interface Scenario {
 
 export const SCENARIOS: Record<ScenarioName, Scenario> = {
   gentle: {
-    label: 'Sheltered valley',
-    description: 'Four hands, eight plots broken, game everywhere and one wolf. Room to learn the controls.',
     startingResources: { food: 240, wood: 120, stone: 30 },
     farmPlots: 8,
     colonists: 4,
@@ -44,8 +42,6 @@ export const SCENARIOS: Record<ScenarioName, Scenario> = {
     predators: 1,
   },
   standard: {
-    label: 'Open country',
-    description: 'The colony as designed: enough to get started and no more.',
     startingResources: { food: 120, wood: 60, stone: 0 },
     farmPlots: 5,
     colonists: 3,
@@ -53,8 +49,6 @@ export const SCENARIOS: Record<ScenarioName, Scenario> = {
     predators: 2,
   },
   harsh: {
-    label: 'Hard frontier',
-    description: 'Two hands, two plots, thin game and four wolves. The first winter is the test.',
     startingResources: { food: 60, wood: 40, stone: 0 },
     farmPlots: 2,
     colonists: 2,

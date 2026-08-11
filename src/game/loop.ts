@@ -19,24 +19,31 @@ const MAX_CATCHUP_TICKS = 30;
  * Only *new* messages pause: a condition that is still true from last time has
  * already had its interruption and would otherwise make the game unplayable.
  */
-export function criticalMessages(state: Parameters<typeof collectAlerts>[0]): Set<string> {
-  const messages = new Set<string>();
+export function criticalAlerts(
+  state: Parameters<typeof collectAlerts>[0],
+): Map<string, { key: string; params?: Record<string, string | number> }> {
+  const alerts = new Map<string, { key: string; params?: Record<string, string | number> }>();
   for (const alert of collectAlerts(state)) {
-    if (alert.level === 'critical') messages.add(alert.message);
+    if (alert.level !== 'critical') continue;
+    // identity is the event, not the sentence: the wording is per-language now
+    alerts.set(`${alert.key}|${JSON.stringify(alert.params ?? {})}`, {
+      key: alert.key,
+      params: alert.params,
+    });
   }
-  return messages;
+  return alerts;
 }
 
-/** Messages that were not there last time we looked. */
-export function newlyCritical(before: Set<string>, now: Set<string>): string[] {
-  return [...now].filter((message) => !before.has(message));
+/** Alerts that were not there last time we looked. */
+export function newlyCritical<T>(before: Map<string, T>, now: Map<string, T>): T[] {
+  return [...now.entries()].filter(([id]) => !before.has(id)).map(([, alert]) => alert);
 }
 
 export function startGameLoop(): () => void {
   let last = performance.now();
   let accumulator = 0;
   let running = true;
-  let knownCritical = criticalMessages(useGameStore.getState().state);
+  let knownCritical = criticalAlerts(useGameStore.getState().state);
   let lastAutosaveDay = Math.floor(useGameStore.getState().state.tick / TICKS_PER_DAY);
   void useGameStore.getState().refreshAutosave();
 
@@ -57,12 +64,17 @@ export function startGameLoop(): () => void {
       if (ticks > 0) {
         advance(ticks);
         const store = useGameStore.getState();
-        const critical = criticalMessages(store.state);
+        const critical = criticalAlerts(store.state);
         const fresh = newlyCritical(knownCritical, critical);
         knownCritical = critical;
         if (fresh.length > 0) {
           store.setSpeed(0);
-          store.setStatus(`Paused: ${fresh[0]}`);
+          // the alert's key and params travel in the status, so the pause line
+          // is retranslated live like everything else derived
+          store.setStatus({
+            key: 'pausedAlert',
+            params: { alert: fresh[0].key, ...fresh[0].params },
+          });
         }
 
         // one autosave per in-game day, into its own slot

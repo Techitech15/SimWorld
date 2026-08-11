@@ -3,7 +3,8 @@
 // them can end the colony on its own, and that replaying a save gives the same
 // year - an incident belongs to the world, not to the session.
 import { describe, expect, it } from 'vitest';
-import { ANIMAL_SPECIES, SPECIES, TICKS_PER_DAY } from './constants';
+import { ANIMAL_SPECIES, TICKS_PER_DAY } from './constants';
+import { STRINGS } from '../ui/strings';
 import { createSimContext } from './derived';
 import {
   EVENT_FIRST_TICK,
@@ -25,7 +26,7 @@ function rollDays(state: GameState, days: number): string[] {
     state.tick = (startDay + day) * TICKS_PER_DAY;
     runIncidents(state);
   }
-  return state.log.slice(before).map((entry) => entry.message);
+  return state.log.slice(before).map((entry) => entry.key);
 }
 
 describe('incidents', () => {
@@ -119,21 +120,21 @@ describe('incidents', () => {
     const rnd = () => 0.9;
 
     const bumper = INCIDENTS.find((i) => i.name === 'bumperCrop')!;
-    expect(bumper.apply(harness.state, rnd)).toContain('ripened');
+    expect(bumper.apply(harness.state, rnd)?.key).toBe('incidentBumperCrop');
     for (const plot of plots) expect(harness.state.buildings[plot.id].growth).toBe(1);
     // and says nothing when there is nothing to do
     expect(bumper.apply(harness.state, rnd)).toBeNull();
 
     const wolves = Object.values(harness.state.animals).filter((a) => a.species === 'wolf').length;
     const pack = INCIDENTS.find((i) => i.name === 'wolfPack')!;
-    expect(pack.apply(harness.state, rnd)).toContain('wolves');
+    expect(pack.apply(harness.state, rnd)?.key).toBe('incidentWolfPack');
     expect(
       Object.values(harness.state.animals).filter((a) => a.species === 'wolf').length,
     ).toBeGreaterThan(wolves);
 
     const food = Object.values(harness.state.items).reduce((sum, i) => sum + i.quantity, 0);
     const supplies = INCIDENTS.find((i) => i.name === 'lostSupplies')!;
-    expect(supplies.apply(harness.state, rnd)).toMatch(/wood|food/);
+    expect(String(supplies.apply(harness.state, rnd)?.params?.resource)).toMatch(/^(wood|food)$/);
     expect(Object.values(harness.state.items).reduce((sum, i) => sum + i.quantity, 0)).toBeGreaterThan(
       food,
     );
@@ -164,11 +165,13 @@ describe('incidents', () => {
   it('belong to the world, so a reloaded save gets the same year', () => {
     const harness = createHarness(9717);
     harness.run(TICKS_PER_DAY * 6);
-    const messages = harness.state.log.map((e) => `${e.tick}:${e.message}`);
+    const messages = harness.state.log.map((e) => `${e.tick}:${e.key}:${JSON.stringify(e.params ?? {})}`);
 
     const reloaded = JSON.parse(JSON.stringify(createHarness(9717).state)) as GameState;
     const replayed = tickMany(reloaded, createSimContext(reloaded), TICKS_PER_DAY * 6);
-    expect(replayed.log.map((e) => `${e.tick}:${e.message}`)).toEqual(messages);
+    expect(
+      replayed.log.map((e) => `${e.tick}:${e.key}:${JSON.stringify(e.params ?? {})}`),
+    ).toEqual(messages);
   });
 
   it('reach a new colony soon enough to be part of its story', () => {
@@ -193,7 +196,7 @@ describe('incidents', () => {
         runIncidents(state);
         if (state.log.length > before) {
           firsts.push(day);
-          kinds.add(state.log[state.log.length - 1].message.split(' ')[0]);
+          kinds.add(state.log[state.log.length - 1].key);
           break;
         }
       }
@@ -211,24 +214,30 @@ describe('incidents', () => {
     // Spotted in the running game twice over: first "A herd of 4 rabbit moved
     // through", then - after a fix that appended an s - "A herd of 4 deers".
     // The regex written the first time was /\w+s/, which passes for "deers",
-    // so the test had the bug in it too. Plurals come from the species now and
-    // this checks the actual words.
+    // so the test had the bug in it too. Plurals live in the en dictionary now
+    // (phase 9) and this checks the actual words it renders.
     const harness = createHarness(9723);
     const herd = INCIDENTS.find((i) => i.name === 'migratingHerd')!;
-    const deer = herd.apply(harness.state, () => 0.1);
-    const rabbit = herd.apply(harness.state, () => 0.9);
+    const render = (report: { key: string; params?: Record<string, string | number> } | null) =>
+      report ? STRINGS.en.log[report.key as 'incidentHerd'](report.params ?? {}) : '';
+    const deer = render(herd.apply(harness.state, () => 0.1));
+    const rabbit = render(herd.apply(harness.state, () => 0.9));
     expect([deer, rabbit].join(' ')).toContain('deer moved through');
     expect([deer, rabbit].join(' ')).toContain('rabbits moved through');
     expect([deer, rabbit].join(' ')).not.toContain('deers');
 
     for (const species of ANIMAL_SPECIES) {
-      const profile = SPECIES[species];
-      expect(profile.plural).toBeTruthy();
-      // a plural that is just the label with an s stuck on is the bug above.
+      // a plural that is just the singular with an s stuck on is the bug above.
       // Three of them are irregular: deer, wolves, and the crystal elk, which
       // inherits the deer's plural along with its silhouette.
-      const irregular = species === 'deer' || species === 'wolf' || species === 'crystalElk';
-      expect(profile.plural === `${profile.label}s`).toBe(!irregular);
+      const one = STRINGS.en.speciesCounted(species, 1);
+      const many = STRINGS.en.speciesCounted(species, 4);
+      const irregular = species === 'deer' || species === 'crystalElk';
+      expect(many.endsWith('s') || irregular).toBe(true);
+      expect(many).not.toContain('deers');
+      expect(many).not.toContain('wolfs');
+      expect(many).not.toContain('elks');
+      expect(one.startsWith('1 ')).toBe(true);
     }
   });
 

@@ -118,7 +118,7 @@ describe('who comes to the post', () => {
 
     const lines = recordLog(harness, TRADE_STAY_TICKS + 20);
     expect(traderAtPost(harness.state)).toBe(null);
-    expect(lines.some((l) => l.includes('packs up and leaves'))).toBe(true);
+    expect(lines).toContain('traderLeft');
   });
 
   it('does not stack two traders at one post', () => {
@@ -196,7 +196,7 @@ describe('striking a deal', () => {
       .reduce((n, i) => n + i.quantity, 0);
 
     expect(after).toBeGreaterThan(before);
-    expect(lines.some((l) => l.startsWith('traded '))).toBe(true);
+    expect(lines).toContain('tradeSettled');
     expect(findTradingPost(harness.state)).toBe(postId);
   });
 

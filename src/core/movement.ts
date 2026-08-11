@@ -2,6 +2,7 @@
 // path except `setDestination`, which is called exactly when a colonist gets a
 // new goal (job reserved, or a need sends them to food/bed).
 import { TICKS_PER_STEP } from './constants';
+import { takeStep } from './pace';
 import { clearColonistPath, indexColonistPath, isReachable } from './derived';
 import type { SimContext } from './derived';
 import { findPath } from './pathfinding';
@@ -29,7 +30,7 @@ export function chase(
   const colonist = state.colonists[colonistId];
   if (manhattan(colonist.position, target) <= withinRange) return 'arrived';
   if (!isReachable(ctx, colonist.position, target, true)) return 'blocked';
-  if (state.tick % TICKS_PER_STEP !== 0) return 'moving';
+  if (!takeStep(state, colonistId)) return 'moving';
 
   const dx = Math.sign(target.x - colonist.position.x);
   const dy = Math.sign(target.y - colonist.position.y);
@@ -135,7 +136,7 @@ export function advanceTowards(
 
   const path = colonist.path;
   if (!path || path.length === 0) return 'arrived';
-  if (state.tick % TICKS_PER_STEP !== 0) return 'moving';
+  if (!takeStep(state, colonistId)) return 'moving';
 
   const next = path[0];
   if (!state.tiles[tileIdOf(next.x, next.y)].walkable) {

@@ -18,13 +18,6 @@ export const DAYS_PER_SEASON = 5;
 export const TICKS_PER_SEASON = TICKS_PER_DAY * DAYS_PER_SEASON;
 export const DAYS_PER_YEAR = DAYS_PER_SEASON * SEASONS.length;
 
-export const SEASON_LABEL: Record<Season, string> = {
-  spring: 'Spring',
-  summer: 'Summer',
-  autumn: 'Autumn',
-  winter: 'Winter',
-};
-
 /** Multiplier on farm plot growth. Winter is a hard stop, not a slowdown. */
 export const CROP_GROWTH_BY_SEASON: Record<Season, number> = {
   spring: 1,

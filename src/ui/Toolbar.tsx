@@ -1,31 +1,23 @@
-import { BUILDING_COSTS } from '../core/constants';
-import type { BuildingType } from '../core/types';
+import { techForBuilding } from '../core/research';
 import { useGameStore } from '../store/gameStore';
 import type { Tool } from '../store/gameStore';
+import {
+  BUILD_CATEGORIES,
+  BUILD_MENU,
+  buildMenuHint,
+  buildMenuLabel,
+  useBuildCategoryStore,
+} from './buildMenu';
+import type { BuildMenuTool } from './buildMenu';
 import { icons } from './icons';
+import { useStrings } from './language';
 
-const BUILDINGS: { type: BuildingType; label: string }[] = [
-  { type: 'wall', label: 'Wall' },
-  { type: 'stoneWall', label: 'Stone wall' },
-  { type: 'floor', label: 'Floor' },
-  { type: 'stoneFloor', label: 'Stone floor' },
-  { type: 'door', label: 'Door' },
-  { type: 'bed', label: 'Bed' },
-  { type: 'hearth', label: 'Hearth' },
-  { type: 'farmPlot', label: 'Farm' },
-  { type: 'manaFurnace', label: 'Mana furnace' },
-  { type: 'manaConduit', label: 'Conduit' },
-  { type: 'manaLamp', label: 'Mana lamp' },
-  { type: 'manaExtractor', label: 'Extractor' },
-  { type: 'manaTurret', label: 'Turret' },
-  { type: 'tradingPost', label: 'Trading post' },
-];
-
-function costLabel(type: BuildingType): string {
-  const costs = BUILDING_COSTS[type];
-  if (costs.length === 0) return 'free';
-  return costs.map((c) => `${c.quantity} ${c.type}`).join(', ');
-}
+// zone tools keep the icons of the jobs they create; buildings share one
+const MENU_ICONS: Record<BuildMenuTool['kind'], string> = {
+  build: icons.build,
+  storage: icons.haul,
+  pasture: icons.handle,
+};
 
 function sameTool(a: Tool, b: Tool): boolean {
   if (a.kind !== b.kind) return false;
@@ -38,13 +30,26 @@ function sameTool(a: Tool, b: Tool): boolean {
 export function Toolbar(): React.JSX.Element {
   const tool = useGameStore((s) => s.tool);
   const setTool = useGameStore((s) => s.setTool);
+  const category = useBuildCategoryStore((s) => s.category);
+  const setCategory = useBuildCategoryStore((s) => s.setCategory);
+  // a joined string, not the array: this selector runs every tick and a fresh
+  // array reference would never compare equal (the same reason ResearchPanel
+  // joins its rows)
+  const unlockedJoined = useGameStore((s) => s.state.research.unlocked.join(','));
+  const strings = useStrings();
 
-  const button = (candidate: Tool, label: string, iconUrl?: string, title?: string) => (
+  const button = (
+    candidate: Tool,
+    label: string,
+    iconUrl?: string,
+    title?: string,
+    locked?: boolean,
+  ) => (
     <button
       key={label}
       type="button"
       title={title ?? label}
-      className={sameTool(tool, candidate) ? 'tool active' : 'tool'}
+      className={`${sameTool(tool, candidate) ? 'tool active' : 'tool'}${locked ? ' tool--locked' : ''}`}
       onClick={() => setTool(candidate)}
     >
       {iconUrl ? <img src={iconUrl} alt="" width={20} height={20} /> : null}
@@ -55,64 +60,67 @@ export function Toolbar(): React.JSX.Element {
   return (
     <div className="toolbar">
       <div className="toolbar__group">
-        <h3>Orders</h3>
-        {button({ kind: 'select' }, 'Select', undefined, 'Select a colonist, then click to move')}
-        {button({ kind: 'designate', designation: 'chop' }, 'Chop', icons.chop, 'Designate forest')}
-        {button({ kind: 'designate', designation: 'mine' }, 'Mine', icons.mine, 'Designate stone')}
+        <h3>{strings.ordersGroup}</h3>
+        {button({ kind: 'select' }, strings.toolSelect, undefined, strings.toolSelectHint)}
+        {button({ kind: 'designate', designation: 'chop' }, strings.toolChop, icons.chop, strings.toolChopHint)}
+        {button({ kind: 'designate', designation: 'mine' }, strings.toolMine, icons.mine, strings.toolMineHint)}
         {button(
           { kind: 'designate', designation: 'deconstruct' },
-          'Deconstruct',
+          strings.toolDeconstruct,
           icons.deconstruct,
-          'Dismantle a finished building and get half the materials back',
+          strings.toolDeconstructHint,
         )}
-        {button({ kind: 'clearDesignation' }, 'Clear')}
+        {button({ kind: 'clearDesignation' }, strings.toolClear)}
       </div>
 
       <div className="toolbar__group">
-        <h3>Build</h3>
-        {BUILDINGS.map((b) =>
-          button(
-            { kind: 'build', building: b.type },
-            b.label,
-            icons.build,
-            `${b.label} — ${costLabel(b.type)}`,
-          ),
-        )}
-        {button({ kind: 'storage' }, 'Storage', icons.haul, 'Storage zone (free)')}
-        {button({ kind: 'pasture' }, 'Pasture', icons.handle, 'Pasture zone on grass (free)')}
-        {button({ kind: 'cancel' }, 'Cancel', undefined, 'Remove blueprints and zone tiles')}
+        <h3>{strings.buildGroup}</h3>
+        <div className="toolbar__categories">
+          {BUILD_CATEGORIES.map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              className={candidate === category ? 'toolbar__category active' : 'toolbar__category'}
+              onClick={() => setCategory(candidate)}
+            >
+              {strings.buildCategoryLabels[candidate]}
+            </button>
+          ))}
+        </div>
+        {BUILD_MENU.filter((entry) => entry.category === category).map((entry) => {
+          // grey it out rather than hide it (design-phase12-research.md 3.3):
+          // "here is something, here is how to unlock it" is the whole point
+          const tech =
+            entry.tool.kind === 'build' ? techForBuilding(entry.tool.building) : undefined;
+          const locked = !!tech && !unlockedJoined.split(',').includes(tech);
+          return button(
+            entry.tool,
+            buildMenuLabel(strings, entry),
+            MENU_ICONS[entry.tool.kind],
+            locked ? strings.lockedHint(strings.techLabels[tech]) : buildMenuHint(strings, entry),
+            locked,
+          );
+        })}
+        {button({ kind: 'cancel' }, strings.toolCancel, undefined, strings.toolCancelHint)}
       </div>
 
       <div className="toolbar__group">
-        <h3>Animals</h3>
-        {button(
-          { kind: 'animal', designation: 'hunt' },
-          'Hunt',
-          icons.hunt,
-          'Mark wild animals to be hunted for meat',
-        )}
-        {button(
-          { kind: 'animal', designation: 'tame' },
-          'Tame',
-          icons.handle,
-          'Mark wild animals to be tamed (wolves cannot be tamed)',
-        )}
+        <h3>{strings.animalsGroup}</h3>
+        {button({ kind: 'animal', designation: 'hunt' }, strings.toolHunt, icons.hunt, strings.toolHuntHint)}
+        {button({ kind: 'animal', designation: 'tame' }, strings.toolTame, icons.handle, strings.toolTameHint)}
         {button(
           { kind: 'animal', designation: 'slaughter' },
-          'Slaughter',
+          strings.toolSlaughter,
           icons.handle,
-          'Mark tamed animals to be slaughtered',
+          strings.toolSlaughterHint,
         )}
-        {button({ kind: 'clearAnimal' }, 'Clear marks')}
+        {button({ kind: 'clearAnimal' }, strings.toolClearMarks)}
       </div>
 
       <p className="toolbar__hint muted">
-        Drag to apply a tool over an area. Right-drag or shift-drag pans, wheel zooms; WASD or the
-        arrow keys pan too.
+        {strings.toolbarHintDrag}
         <br />
-        Keys: space pauses, 1/2/3/4 set speed, Esc selects. c chop, m mine, x deconstruct, q clear,
-        b wall, f floor, r door, n bed, v farm, z storage, p pasture, e cancel, h hunt, t tame,
-        k slaughter.
+        {strings.toolbarHintKeys}
       </p>
     </div>
   );

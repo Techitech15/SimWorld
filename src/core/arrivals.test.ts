@@ -54,7 +54,7 @@ describe('wanderers', () => {
 
     runArrivals(harness.state);
     expect(Object.keys(harness.state.colonists)).toHaveLength(before + 1);
-    expect(harness.state.log.some((e) => e.message.includes('arrived'))).toBe(true);
+    expect(harness.state.log.some((e) => e.key === 'colonistArrived')).toBe(true);
   });
 
   it('stays away from a colony that cannot feed itself', () => {

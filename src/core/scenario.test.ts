@@ -113,7 +113,7 @@ describe('scenarios', () => {
       return {
         food: countResource(state, 'food'),
         population: Object.keys(state.colonists).length,
-        starved: state.log.filter((e) => e.message.includes('starved to death')).length,
+        starved: state.log.filter((e) => e.key === 'colonistStarvedToDeath').length,
       };
     };
     const harsh = after('harsh');

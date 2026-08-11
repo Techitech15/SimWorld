@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { isPredator } from '../core/animals';
 import type { GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
+import { useStrings } from './language';
 
 type Rgb = [number, number, number];
 
@@ -21,6 +22,8 @@ const TERRAIN: Record<string, Rgb> = {
   stone: [125, 125, 134],
   // the one violet on the map: a vein has to be findable from the minimap
   crystal: [138, 95, 214],
+  // rust against the grey, for the same reason
+  ironVein: [172, 102, 58],
 };
 
 const BUILDING: Record<string, Rgb> = {
@@ -110,6 +113,7 @@ export function paintMinimap(state: GameState, data: Uint8ClampedArray): void {
 }
 
 export function Minimap(): React.JSX.Element {
+  const strings = useStrings();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<ImageData | null>(null);
   const state = useGameStore((s) => s.state);
@@ -142,15 +146,15 @@ export function Minimap(): React.JSX.Element {
     }
   }, [state, viewport]);
 
+  // Bare content: the Fold in App.tsx owns the section and heading (13章 段階B).
   return (
-    <section className="panel">
-      <h2>Map</h2>
+    <>
       <canvas
         ref={canvasRef}
         className="minimap"
         width={state.width}
         height={state.height}
-        title="click to jump the camera"
+        title={strings.minimapTitle}
         onClick={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
           const x = Math.floor(((event.clientX - box.left) / box.width) * state.width);
@@ -161,11 +165,11 @@ export function Minimap(): React.JSX.Element {
         }}
       />
       <div className="minimap__key">
-        <span className="minimap__dot" style={{ background: 'rgb(255,255,255)' }} /> colonist
-        <span className="minimap__dot" style={{ background: 'rgb(214,74,74)' }} /> predator
-        <span className="minimap__dot" style={{ background: 'rgb(232,196,76)' }} /> tame
-        <span className="minimap__dot" style={{ background: 'rgb(176,132,84)' }} /> wild
+        <span className="minimap__dot" style={{ background: 'rgb(255,255,255)' }} /> {strings.keyColonist}
+        <span className="minimap__dot" style={{ background: 'rgb(214,74,74)' }} /> {strings.keyPredator}
+        <span className="minimap__dot" style={{ background: 'rgb(232,196,76)' }} /> {strings.keyTame}
+        <span className="minimap__dot" style={{ background: 'rgb(176,132,84)' }} /> {strings.keyWild}
       </div>
-    </section>
+    </>
   );
 }

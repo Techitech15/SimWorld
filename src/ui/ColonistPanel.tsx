@@ -1,40 +1,51 @@
 import { HUNGER_THRESHOLD, SLEEP_THRESHOLD } from '../core/constants';
 import { MOOD_LOW, moodLabel, moodOf, thoughtsOf } from '../core/mood';
 import { AFFINITY_MAX, FRIEND_AT, closestTo } from '../core/relationships';
-import { SKILL_LABELS, SKILL_NAMES, levelOf } from '../core/skills';
-import { TRAITS } from '../core/traits';
+import { SKILL_NAMES, levelOf, titleSkillOf } from '../core/skills';
 import type { Colonist, GameState } from '../core/types';
 import { getNetworks, useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
 import { icons } from './icons';
+import { useStrings } from './language';
+import type { Strings } from './strings';
 
-function activityLabel(colonist: Colonist, state: GameState): string {
+function activityLabel(strings: Strings, colonist: Colonist, state: GameState): string {
   switch (colonist.activity.kind) {
     case 'eating':
-      return 'eating';
+      return strings.activityLabels.eating;
     case 'sleeping':
-      return 'sleeping';
+      return strings.activityLabels.sleeping;
     case 'moving':
-      return 'walking';
+      return strings.activityLabels.walking;
     case 'fleeing':
-      return 'fleeing!';
+      return strings.activityLabels.fleeing;
     case 'brooding':
-      return 'refusing to work';
+      return strings.activityLabels.brooding;
     case 'fighting':
-      return 'fighting!';
+      return strings.activityLabels.fighting;
     case 'wandering':
-      return 'wandering off';
+      return strings.activityLabels.wandering;
     case 'binge':
-      return 'raiding the larder';
-    case 'relaxing':
-      return colonist.activity.hearthId ? 'at the hearth' : 'taking a moment';
+      return strings.activityLabels.binge;
+    case 'relaxing': {
+      // the field holds a hearth or an armchair (フェーズ10); say which
+      const seat = colonist.activity.hearthId
+        ? state.buildings[colonist.activity.hearthId]
+        : undefined;
+      if (!seat) return strings.activityLabels.relaxingAlone;
+      return seat.type === 'armchair'
+        ? strings.activityLabels.relaxingArmchair
+        : strings.activityLabels.relaxingHearth;
+    }
     default:
       break;
   }
-  if (!colonist.currentJobId) return 'idle';
+  if (!colonist.currentJobId) return strings.activityLabels.idle;
   const job = state.jobs[colonist.currentJobId];
-  if (!job) return 'idle';
-  return colonist.carrying ? `${job.type} (carrying ${colonist.carrying.type})` : job.type;
+  if (!job) return strings.activityLabels.idle;
+  return colonist.carrying
+    ? `${strings.jobTypeLabels[job.type]} (${strings.carrying(colonist.carrying.quantity, colonist.carrying.type)})`
+    : strings.jobTypeLabels[job.type];
 }
 
 function NeedBar({
@@ -71,12 +82,15 @@ function NeedBar({
  * most, which is the thing they can actually go and fix.
  */
 function MoodBar({ colonist, state }: { colonist: Colonist; state: GameState }): React.JSX.Element {
+  const strings = useStrings();
   const networks = getNetworks(state);
   const mood = moodOf(state, colonist, networks);
   const thoughts = thoughtsOf(state, colonist, networks);
+  const thoughtText = (t: (typeof thoughts)[number]) =>
+    strings.thoughts[t.key]({ name: t.name ?? '' });
   const title = [
-    `Mood ${mood} — ${moodLabel(mood)}`,
-    ...thoughts.map((t) => `${t.amount > 0 ? '+' : ''}${t.amount} ${t.label}`),
+    strings.moodBarTitle(mood, moodLabel(mood)),
+    ...thoughts.map((t) => `${t.amount > 0 ? '+' : ''}${t.amount} ${thoughtText(t)}`),
   ].join('\n');
   const worst = thoughts[0];
   return (
@@ -84,7 +98,7 @@ function MoodBar({ colonist, state }: { colonist: Colonist; state: GameState }):
       <NeedBar icon={icons.mood} label={title} value={mood} threshold={100 - MOOD_LOW} invert />
       {worst && worst.amount < 0 && (
         <div className="colonist__thought" title={title}>
-          {worst.label}
+          {thoughtText(worst)}
         </div>
       )}
     </>
@@ -93,6 +107,7 @@ function MoodBar({ colonist, state }: { colonist: Colonist; state: GameState }):
 
 /** Who they are closest to. Silent until there is somebody to name. */
 function Bond({ colonist, state }: { colonist: Colonist; state: GameState }): React.JSX.Element | null {
+  const strings = useStrings();
   const closest = closestTo(state, colonist.id);
   if (!closest) return null;
   const them = state.colonists[closest.id];
@@ -101,9 +116,9 @@ function Bond({ colonist, state }: { colonist: Colonist; state: GameState }): Re
   return (
     <div
       className="colonist__bond"
-      title={`affinity ${Math.round(closest.affinity)} of ${AFFINITY_MAX}`}
+      title={strings.affinityTitle(Math.round(closest.affinity), AFFINITY_MAX)}
     >
-      {friend ? 'friend of' : 'knows'} {them.name}
+      {friend ? strings.friendOf(them.name) : strings.knowsName(them.name)}
     </div>
   );
 }
@@ -113,6 +128,7 @@ function Bond({ colonist, state }: { colonist: Colonist; state: GameState }): Re
  * three: the point is "this is the hunter", not a character sheet.
  */
 function SkillTags({ colonist }: { colonist: Colonist }): React.JSX.Element | null {
+  const strings = useStrings();
   const shown = SKILL_NAMES.map((name) => ({ name, level: levelOf(colonist.skills?.[name] ?? 0) }))
     .filter((skill) => skill.level > 0)
     .sort((a, b) => b.level - a.level || (a.name < b.name ? -1 : 1))
@@ -121,8 +137,12 @@ function SkillTags({ colonist }: { colonist: Colonist }): React.JSX.Element | nu
   return (
     <div className="skills">
       {shown.map((skill) => (
-        <span className="skill" key={skill.name} title={`${SKILL_LABELS[skill.name]} level ${skill.level}`}>
-          {SKILL_LABELS[skill.name]}
+        <span
+          className="skill"
+          key={skill.name}
+          title={strings.skillTagTitle(skill.name, skill.level)}
+        >
+          {strings.skillLabels[skill.name]}
           <b>{skill.level}</b>
         </span>
       ))}
@@ -131,6 +151,7 @@ function SkillTags({ colonist }: { colonist: Colonist }): React.JSX.Element | nu
 }
 
 function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
+  const strings = useStrings();
   const colonist = useColonist(id);
   const selectedId = useGameStore((s) => s.selectedColonistId);
   const select = useGameStore((s) => s.selectColonist);
@@ -138,6 +159,9 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
   const selectTile = useGameStore((s) => s.selectTile);
   const state = useGameStore((s) => s.state);
   if (!colonist) return null;
+
+  const titleSkill = titleSkillOf(colonist);
+  const title = titleSkill ? strings.titleLabels[titleSkill] : strings.titleColonist;
 
   return (
     <button
@@ -159,24 +183,25 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
           }}
         />
         <strong>{colonist.name}</strong>
-        <span className="muted">{activityLabel(colonist, state)}</span>
+        <span className="muted">{title}</span>
+        <span className="muted">{activityLabel(strings, colonist, state)}</span>
       </div>
       <NeedBar
         icon={icons.hunger}
-        label="Hunger"
+        label={strings.rowHunger}
         value={colonist.needs.hunger}
         threshold={HUNGER_THRESHOLD}
       />
       <NeedBar
         icon={icons.health}
-        label="Health"
+        label={strings.rowHealth}
         value={colonist.health}
         threshold={40}
         invert
       />
       <NeedBar
         icon={icons.sleep}
-        label="Rest"
+        label={strings.rowRest}
         value={colonist.needs.sleep}
         threshold={SLEEP_THRESHOLD}
       />
@@ -186,8 +211,8 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
       {colonist.traits?.length > 0 && (
         <div className="skills">
           {colonist.traits.map((name) => (
-            <span className="skill skill--trait" key={name} title={TRAITS[name]?.description}>
-              {TRAITS[name]?.label ?? name}
+            <span className="skill skill--trait" key={name} title={strings.traitDescriptions[name]}>
+              {strings.traitLabels[name]}
             </span>
           ))}
         </div>
@@ -199,12 +224,10 @@ function ColonistRow({ id }: { id: string }): React.JSX.Element | null {
 export function ColonistPanel(): React.JSX.Element {
   const ids = useColonistIds();
   return (
-    <>
-      <div className="colonists">
-        {ids.map((id) => (
-          <ColonistRow key={id} id={id} />
-        ))}
-      </div>
-    </>
+    <div className="colonists">
+      {ids.map((id) => (
+        <ColonistRow key={id} id={id} />
+      ))}
+    </div>
   );
 }

@@ -162,11 +162,11 @@ describe('what a bond is worth', () => {
   it('a friend nearby lifts the mood; a colony of strangers weighs on it', () => {
     const { harness, a, b } = pair(5023, 1);
     const strangers = thoughtsOf(harness.state, harness.state.colonists[a]);
-    expect(strangers.some((t) => t.label.includes('Nobody here'))).toBe(true);
+    expect(strangers.some((t) => t.key === 'knowsNobody')).toBe(true);
 
     harness.state.relationships = { [pairKey(a, b)]: AFFINITY_MAX };
     const known = thoughtsOf(harness.state, harness.state.colonists[a]);
-    expect(known.some((t) => t.label.includes('friend close by'))).toBe(true);
+    expect(known.some((t) => t.key === 'friendNearby')).toBe(true);
     expect(moodOf(harness.state, harness.state.colonists[a])).toBeGreaterThan(
       moodOf({ ...harness.state, relationships: {} }, harness.state.colonists[a]),
     );
@@ -176,7 +176,7 @@ describe('what a bond is worth', () => {
     const { harness, a, b } = pair(5029, 1);
     delete harness.state.colonists[b];
     const alone = thoughtsOf(harness.state, harness.state.colonists[a]);
-    expect(alone.some((t) => t.label.includes('Nobody here'))).toBe(false);
+    expect(alone.some((t) => t.key === 'knowsNobody')).toBe(false);
   });
 });
 
@@ -185,14 +185,14 @@ describe('grief', () => {
     const { harness, a, b } = pair(5031, 1);
     harness.state.relationships = { [pairKey(a, b)]: AFFINITY_MAX };
     const name = harness.state.colonists[b].name;
-    killColonist(harness.state, b, 'was killed by a wolf');
+    killColonist(harness.state, b, { key: 'colonistKilledByAnimal', params: { species: 'wolf' } });
 
     expect(harness.state.deaths.length).toBe(1);
     const griefs = griefOf(harness.state, a);
     expect(griefs[0].name).toBe(name);
-    expect(thoughtsOf(harness.state, harness.state.colonists[a]).some((t) =>
-      t.label.startsWith('Grieving for'),
-    )).toBe(true);
+    expect(
+      thoughtsOf(harness.state, harness.state.colonists[a]).some((t) => t.key === 'grieving'),
+    ).toBe(true);
 
     // a stranger feels nothing: the loss is measured against the bond
     const { harness: other, a: stranger } = pair(5037, 1);
@@ -228,8 +228,8 @@ describe('grief', () => {
         { colonistId: id, name: id, tick: harness.state.tick },
       ];
     }
-    const grieving = thoughtsOf(harness.state, harness.state.colonists[a]).filter((t) =>
-      t.label.startsWith('Grieving for'),
+    const grieving = thoughtsOf(harness.state, harness.state.colonists[a]).filter(
+      (t) => t.key === 'grieving',
     );
     expect(grieving.length).toBe(1);
   });

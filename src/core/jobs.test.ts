@@ -59,7 +59,7 @@ describe('job lifecycle', () => {
       if (harness.state.tiles[tileId].terrain === 'grass') chopped++;
     }
     expect(chopped).toBeGreaterThan(10);
-    expect(harness.state.log.filter((l) => l.message.includes('failed')).length).toBe(0);
+    expect(harness.state.log.filter((l) => l.key === 'jobFailed').length).toBe(0);
   });
 
   it('mines stone, turns the tile walkable and drops a stone stack', () => {

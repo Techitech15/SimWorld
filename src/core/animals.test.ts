@@ -168,7 +168,7 @@ describe('stage A: hunting', () => {
     });
 
     expect(harness.state.animals[deer.id]).toBeUndefined();
-    expect(harness.state.log.some((entry) => entry.message.includes('was hunted'))).toBe(true);
+    expect(harness.state.log.some((entry) => entry.key === 'animalHunted')).toBe(true);
     // the carcass became a stack on the ground...
     expect(meatOnTheGround).toBeGreaterThanOrEqual(SPECIES.deer.foodYield);
     // ...and the existing haul chain carried it home untouched
@@ -222,9 +222,7 @@ describe('stage B: predators', () => {
     expect(harness.state.animals[deer.id]).toBeUndefined();
     expect(harness.state.animals[wolf.id]).toBeDefined();
     // a wild deer eaten in the woods is weather, not news: no line for it
-    expect(harness.state.log.some((entry) => entry.message.includes('killed by a wolf'))).toBe(
-      false,
-    );
+    expect(harness.state.log.some((entry) => entry.key === 'animalKilledByPredator')).toBe(false);
     // fed by the kill, and it drops the hunt the moment it is fed
     expect(atTheKill!.hunger).toBeLessThanOrEqual(100 - PREDATOR_HUNGER_PER_KILL + 1);
     expect(atTheKill!.activity).toBe('idle');
@@ -238,19 +236,17 @@ describe('stage B: predators', () => {
     idleColony(harness.state);
     const at = Object.values(harness.state.colonists)[0].position;
     const cow = createAnimal(harness.state, 'deer', at.x + 6, at.y, { tame: true });
-    killAnimal(harness.state, cow.id, 'was taken by something in the night', false);
-    expect(
-      harness.state.log.some((e) => e.message.includes('was taken by something in the night')),
-    ).toBe(true);
+    killAnimal(harness.state, cow.id, { key: 'animalKilledByPredator', params: { predator: 'wolf' } }, false);
+    expect(harness.state.log.some((e) => e.key === 'animalKilledByPredator')).toBe(true);
 
     const wild = createAnimal(harness.state, 'deer', at.x + 7, at.y);
     harness.state.animals[wild.id] = { ...wild, designation: 'hunt' };
-    killAnimal(harness.state, wild.id, 'was hunted', true);
-    expect(harness.state.log.some((e) => e.message.includes('was hunted'))).toBe(true);
+    killAnimal(harness.state, wild.id, { key: 'animalHunted' }, true);
+    expect(harness.state.log.some((e) => e.key === 'animalHunted')).toBe(true);
 
     const nobody = createAnimal(harness.state, 'rabbit', at.x + 8, at.y);
     const before = harness.state.log.length;
-    killAnimal(harness.state, nobody.id, 'starved', false);
+    killAnimal(harness.state, nobody.id, { key: 'animalStarvedToDeath' }, false);
     expect(harness.state.log.length).toBe(before);
   });
 

@@ -6,6 +6,7 @@
 // (plus the handful of always-mutated colonist/job objects) and every mutation
 // helper below replaces the individual entity object it touches.
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from './constants';
+import { emptyResearch } from './research';
 import type {
   Animal,
   AnimalId,
@@ -19,6 +20,8 @@ import type {
   Job,
   JobId,
   LogEntry,
+  LogKey,
+  LogParams,
   TerrainType,
   Tile,
   TileId,
@@ -70,14 +73,18 @@ export function createEmptyState(
     animals: {},
     raiders: {},
     traders: {},
+    equipment: {},
     reservations: {},
     forestCapacity: 0,
     worldSeed: 0,
     scenario: 'standard',
+    biome: 'meadow',
+    worldCell: null,
     nextIds: {},
     relationships: {},
     deaths: [],
     log: [],
+    research: emptyResearch(),
   };
 }
 
@@ -196,8 +203,15 @@ export function updateItem(state: GameState, id: ItemId, patch: Partial<Item>): 
   return updated;
 }
 
-export function addLog(state: GameState, message: string, kind?: LogEntry['kind']): void {
-  const entry: LogEntry = kind ? { tick: state.tick, message, kind } : { tick: state.tick, message };
+export function addLog(
+  state: GameState,
+  key: LogKey,
+  params?: LogParams,
+  kind?: LogEntry['kind'],
+): void {
+  const entry: LogEntry = { tick: state.tick, key };
+  if (params) entry.params = params;
+  if (kind) entry.kind = kind;
   state.log = [...state.log.slice(-99), entry];
 }
 
@@ -223,5 +237,5 @@ export function removeItem(state: GameState, itemId: ItemId): void {
  * the tool but not to the validity check.
  */
 export function isRock(terrain: TerrainType): boolean {
-  return terrain === 'stone' || terrain === 'crystal';
+  return terrain === 'stone' || terrain === 'crystal' || terrain === 'ironVein';
 }

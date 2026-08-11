@@ -10,8 +10,10 @@ import { SPECIES } from '../core/constants';
 import { isAdult, isPredator } from '../core/animals';
 import type { AnimalId, GameState } from '../core/types';
 import { useGameStore } from '../store/gameStore';
+import { useStrings } from './language';
+import type { Strings } from './strings';
 
-export function describeAnimal(state: GameState, id: AnimalId | null): string[] {
+export function describeAnimal(state: GameState, id: AnimalId | null, strings: Strings): string[] {
   if (!id) return [];
   const animal = state.animals[id];
   if (!animal) return [];
@@ -19,36 +21,44 @@ export function describeAnimal(state: GameState, id: AnimalId | null): string[] 
   const rows: string[] = [];
   const add = (label: string, value: string) => rows.push(`${label}: ${value}`);
 
-  add('Name', `${animal.name} the ${profile.label.toLowerCase()}`);
+  add(strings.rowName, strings.animalName(animal.name, animal.species));
   add(
-    'Kind',
-    animal.tame ? 'tame' : isPredator(animal) ? 'predator' : 'wild',
+    strings.rowKind,
+    strings.animalKinds[animal.tame ? 'tame' : isPredator(animal) ? 'predator' : 'wild'],
   );
-  add('Where', `${animal.position.x}, ${animal.position.y}`);
-  add('Doing', animal.activity.kind);
-  add('Health', `${Math.round(animal.health)} / ${profile.maxHealth}`);
-  add('Hunger', `${Math.round(animal.hunger)} / 100`);
-  if (!isAdult(state, animal)) add('Age', 'young');
-  if (animal.gestationUntilTick !== null) add('Age', 'pregnant');
-  if (animal.designation) add('Order', `marked for ${animal.designation}`);
+  add(strings.rowWhere, `${animal.position.x}, ${animal.position.y}`);
+  add(strings.rowDoing, strings.animalActivityLabels[animal.activity.kind]);
+  add(strings.rowHealth, `${Math.round(animal.health)} / ${profile.maxHealth}`);
+  add(strings.rowHunger, `${Math.round(animal.hunger)} / 100`);
+  if (!isAdult(state, animal)) add(strings.rowAge, strings.ageYoung);
+  if (animal.gestationUntilTick !== null) add(strings.rowAge, strings.agePregnant);
+  if (animal.designation) add(strings.rowOrder, strings.designationLabels[animal.designation]);
   if (animal.tame && profile.produceAmount > 0) {
-    add('Gives', `${profile.produceAmount} food every ${profile.produceIntervalTicks} ticks`);
+    add(strings.rowGives, strings.givesLine(profile.produceAmount, profile.produceIntervalTicks));
   }
-  add('Butchers for', `${profile.foodYield} food`);
+  add(strings.rowButchers, strings.butchersLine(profile.foodYield));
   return rows;
 }
 
 export function AnimalDetail(): React.JSX.Element | null {
-  const rows = useGameStore(useShallow((s) => describeAnimal(s.state, s.selectedAnimalId)));
+  const strings = useStrings();
+  const rows = useGameStore(
+    useShallow((s) => describeAnimal(s.state, s.selectedAnimalId, strings)),
+  );
   const select = useGameStore((s) => s.selectAnimal);
   if (rows.length === 0) return null;
 
   return (
     <section className="panel">
       <h2>
-        Animal
-        <button type="button" className="panel__clear" onClick={() => select(null)} title="clear">
-          x
+        {strings.panelAnimal}
+        <button
+          type="button"
+          className="panel__clear"
+          onClick={() => select(null)}
+          title={strings.clearTitle}
+        >
+          ×
         </button>
       </h2>
       <dl className="inspect">

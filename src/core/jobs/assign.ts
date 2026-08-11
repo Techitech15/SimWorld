@@ -30,7 +30,9 @@ export function jobWorkSite(
     case 'chop':
     case 'farm':
     case 'deconstruct':
-    case 'repair': {
+    case 'repair':
+    case 'research':
+    case 'craft': {
       const tile = job.targetTileId ? state.tiles[job.targetTileId] : undefined;
       if (!tile) return null;
       return { position: { x: tile.x, y: tile.y }, adjacent: !tile.walkable };
@@ -77,6 +79,8 @@ function reservationTargets(state: GameState, job: Job): string[] | null {
     case 'repair':
     case 'hunt':
     case 'handle':
+    case 'research':
+    case 'craft':
       return job.targetEntityId ? [job.targetEntityId] : null;
     case 'haul': {
       const item: Item | undefined = job.targetEntityId
@@ -94,6 +98,7 @@ function reservationTargets(state: GameState, job: Job): string[] | null {
         item.type,
         item.quantity,
         item.position,
+        item.variant,
       );
       if (!destination) return null;
       // section 6.3: both the source stack and the drop-off tile get reserved

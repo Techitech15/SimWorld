@@ -1,8 +1,50 @@
 import { JOB_TYPES } from '../core/types';
-import type { JobType } from '../core/types';
+import type { JobType, SkillName } from '../core/types';
 import { useGameStore } from '../store/gameStore';
 import { useColonist, useColonistIds } from './hooks';
 import { icons } from './icons';
+import { useStrings } from './language';
+
+/**
+ * Which bundles get a button (design-phase12-research.md 4.2). Six of the
+ * eight columns, chosen for how often a player would actually reach for them;
+ * the titles that label them are the same ones the colonist sheet derives
+ * (`titleLabels`), so the button and the displayed title never disagree about
+ * what a "Farmer" is.
+ */
+const PROFESSION_PRESETS: SkillName[] = ['farm', 'build', 'mine', 'chop', 'hunt', 'research'];
+
+/**
+ * One click sets every column of the selected colonist's row at once - a
+ * declared bundle, not a nudge (unlike "assign by skill" below, which only
+ * ever raises a column, never lowers one). Nothing about the preset itself is
+ * saved; only the `workPriorities` it produces are.
+ */
+function ProfessionPresets(): React.JSX.Element {
+  const strings = useStrings();
+  const selectedColonistId = useGameStore((s) => s.selectedColonistId);
+  const applyProfession = useGameStore((s) => s.applyProfession);
+  return (
+    <div className="professions">
+      <span className="filters__label">{strings.professionsLabel}</span>
+      {PROFESSION_PRESETS.map((primary) => (
+        <button
+          key={primary}
+          type="button"
+          disabled={!selectedColonistId}
+          title={
+            selectedColonistId
+              ? strings.professionTitle(strings.titleLabels[primary])
+              : strings.professionNoSelection
+          }
+          onClick={() => selectedColonistId && applyProfession(selectedColonistId, primary)}
+        >
+          {strings.titleLabels[primary]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const JOB_ICON: Record<JobType, string> = {
   chop: icons.chop,
@@ -15,6 +57,8 @@ const JOB_ICON: Record<JobType, string> = {
   haul: icons.haul,
   hunt: icons.hunt,
   handle: icons.handle,
+  research: icons.research,
+  craft: icons.craft,
 };
 
 /**
@@ -23,6 +67,7 @@ const JOB_ICON: Record<JobType, string> = {
  * case the candidate filter checks.
  */
 function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: JobType }) {
+  const strings = useStrings();
   const colonist = useColonist(colonistId);
   const setJobPriority = useGameStore((s) => s.setJobPriority);
   if (!colonist) return null;
@@ -33,7 +78,7 @@ function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: Jo
       <button
         type="button"
         className={`priority priority--${value}`}
-        title={value === 0 ? 'disabled' : `priority ${value}`}
+        title={value === 0 ? strings.priorityDisabled : strings.priorityTitle(value)}
         onClick={() => setJobPriority(colonistId, jobType, value >= 3 ? 0 : value + 1)}
       >
         {value === 0 ? '–' : value}
@@ -43,6 +88,7 @@ function PriorityCell({ colonistId, jobType }: { colonistId: string; jobType: Jo
 }
 
 export function WorkPriorityTable(): React.JSX.Element {
+  const strings = useStrings();
   const ids = useColonistIds();
   const colonists = useGameStore((s) => s.state.colonists);
   const setJobPriority = useGameStore((s) => s.setJobPriority);
@@ -65,6 +111,7 @@ export function WorkPriorityTable(): React.JSX.Element {
 
   return (
     <>
+      <ProfessionPresets />
       <table className="work">
         <thead>
           <tr>
@@ -74,10 +121,10 @@ export function WorkPriorityTable(): React.JSX.Element {
                 <button
                   type="button"
                   className="work__column"
-                  title={`${jobType} — click to set this column for everyone`}
+                  title={strings.workColumnTitle(jobType)}
                   onClick={() => cycleColumn(jobType)}
                 >
-                  <img src={JOB_ICON[jobType]} alt={jobType} width={20} height={20} />
+                  <img src={JOB_ICON[jobType]} alt={strings.jobTypeLabels[jobType]} width={20} height={20} />
                 </button>
               </th>
             ))}
@@ -94,17 +141,11 @@ export function WorkPriorityTable(): React.JSX.Element {
           ))}
         </tbody>
       </table>
-      <p className="muted small">
-        1 = highest, 3 = lowest, – = will not do this work. Click an icon to set the whole column.
-      </p>
+      <p className="muted small">{strings.workFootnote}</p>
       <button type="button" className="work__auto" onClick={() => assignWorkBySkill()}>
-        Assign by skill
+        {strings.assignBySkill}
       </button>
-      <p className="muted small">
-        Puts each colonist first in line for the two things they are best at, so specialists do
-        their speciality. The cost is that everything else drops behind it, including work you have
-        just ordered. Nothing is switched off, and columns you have disabled stay disabled.
-      </p>
+      <p className="muted small">{strings.assignFootnote}</p>
     </>
   );
 }

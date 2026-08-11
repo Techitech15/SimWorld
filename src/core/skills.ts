@@ -31,16 +31,6 @@ export const SKILL_XP_PER_LEVEL_BASE = 50;
 export const SKILL_SPEED_PER_LEVEL = 0.08;
 export const SKILL_XP_PER_WORK_TICK = 1;
 
-export const SKILL_LABELS: Record<SkillName, string> = {
-  chop: 'Woodcutting',
-  mine: 'Mining',
-  farm: 'Growing',
-  build: 'Construction',
-  haul: 'Hauling',
-  hunt: 'Hunting',
-  handle: 'Animals',
-};
-
 /**
  * Which skill governs a job. `deconstruct` and `repair` run under the
  * construction column, so tearing a wall down or patching it up trains the same
@@ -77,6 +67,27 @@ export function workRate(colonist: Colonist, workType: JobType, mood?: number): 
   // (beds, stores, season), and this module deliberately reads nothing outside
   // `state.colonists`. A caller with no opinion gets the pre-mood behaviour.
   return mood === undefined ? rate : rate * moodWorkFactor(mood);
+}
+
+/**
+ * [ext] The skill that earns a colonist their displayed title (11章 フェーズ12,
+ * design-phase12-research.md 4.2). Highest level wins; a tie goes to whichever
+ * skill comes first in `SKILL_NAMES`, which is what keeps the title from
+ * flickering between two columns levelling up together. `null` at level 0
+ * everywhere - the caller shows "colonist" in that case. Display only: nothing
+ * in the simulation reads this.
+ */
+export function titleSkillOf(colonist: Colonist): SkillName | null {
+  let best: SkillName | null = null;
+  let bestLevel = 0;
+  for (const name of SKILL_NAMES) {
+    const level = skillLevel(colonist, name);
+    if (level > bestLevel) {
+      bestLevel = level;
+      best = name;
+    }
+  }
+  return best;
 }
 
 export function emptySkills(): Record<SkillName, number> {
@@ -123,6 +134,6 @@ export function grantWorkExperience(
   updateColonist(state, colonistId, { skills: { ...colonist.skills, [name]: after } });
   const gained = levelOf(after);
   if (gained > levelOf(before)) {
-    addLog(state, `${colonist.name} reached ${SKILL_LABELS[name]} level ${gained}`);
+    addLog(state, 'skillLevelUp', { name: colonist.name, skill: name, level: gained });
   }
 }

@@ -15,7 +15,6 @@
 import {
   FOOD_PER_HARVEST,
   RAID_FIRST_DAY,
-  SPECIES,
   TICKS_PER_DAY,
   WOOD_PER_TREE,
 } from './constants';
@@ -25,8 +24,9 @@ import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
 import { addLog, updateBuilding } from './state';
+import { tribalInfluence } from './tribes';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
-import type { AnimalSpecies, GameState, Vector2 } from './types';
+import type { AnimalSpecies, GameState, LogKey, LogParams, Vector2 } from './types';
 
 /** One roll a day, and most days nothing happens. */
 export const EVENT_INTERVAL_TICKS = TICKS_PER_DAY;
@@ -43,11 +43,17 @@ export type IncidentName =
   | 'raid'
   | 'berryGlut';
 
+/** What an incident did, as a log key plus its parameters (11章 フェーズ9). */
+export interface IncidentReport {
+  key: LogKey;
+  params?: LogParams;
+}
+
 export interface Incident {
   name: IncidentName;
   /** relative likelihood per season; 0 means it cannot happen then */
   weight: Record<Season, number>;
-  apply: (state: GameState, rnd: () => number) => string | null;
+  apply: (state: GameState, rnd: () => number) => IncidentReport | null;
 }
 
 function colonyCentre(state: GameState): Vector2 {
@@ -80,7 +86,7 @@ export const INCIDENTS: Incident[] = [
       const plots = sownPlots(state).filter((id) => state.buildings[id].growth < 1);
       if (plots.length === 0) return null;
       for (const id of plots) updateBuilding(state, id, { growth: 1 });
-      return `A warm spell ripened ${plots.length} ${plots.length === 1 ? 'plot' : 'plots'} at once`;
+      return { key: 'incidentBumperCrop', params: { plots: plots.length } };
     },
   },
   {
@@ -97,7 +103,7 @@ export const INCIDENTS: Incident[] = [
       const hit = plots.filter(() => rnd() < 0.5).slice(0, most);
       if (hit.length === 0) return null;
       for (const id of hit) updateBuilding(state, id, { growth: 0 });
-      return `Blight struck ${hit.length} ${hit.length === 1 ? 'plot' : 'plots'}; the crop is a loss`;
+      return { key: 'incidentBlight', params: { plots: hit.length } };
     },
   },
   {
@@ -111,7 +117,7 @@ export const INCIDENTS: Incident[] = [
       }
       if (bushes.length < 4) return null;
       for (const id of bushes) updateBuilding(state, id, { growth: 1 });
-      return `The woods came into berry all at once (${bushes.length} bushes)`;
+      return { key: 'incidentBerryGlut', params: { bushes: bushes.length } };
     },
   },
   {
@@ -128,7 +134,7 @@ export const INCIDENTS: Incident[] = [
         arrived++;
       }
       if (arrived === 0) return null;
-      return `A pack of ${arrived} wolves came down out of the trees`;
+      return { key: 'incidentWolfPack', params: { count: arrived } };
     },
   },
   {
@@ -145,9 +151,7 @@ export const INCIDENTS: Incident[] = [
         arrived++;
       }
       if (arrived === 0) return null;
-      const profile = SPECIES[species];
-      const beast = (arrived === 1 ? profile.label : profile.plural).toLowerCase();
-      return `A herd of ${arrived} ${beast} moved through`;
+      return { key: 'incidentHerd', params: { count: arrived, species } };
     },
   },
   {
@@ -160,7 +164,7 @@ export const INCIDENTS: Incident[] = [
       const wood = rnd() < 0.5;
       const quantity = wood ? WOOD_PER_TREE : FOOD_PER_HARVEST * 2;
       addItem(state, wood ? 'wood' : 'food', quantity, spot.x, spot.y);
-      return `Someone abandoned ${quantity} ${wood ? 'wood' : 'food'} on the road nearby`;
+      return { key: 'incidentLostSupplies', params: { quantity, resource: wood ? 'wood' : 'food' } };
     },
   },
 
@@ -179,22 +183,36 @@ export const INCIDENTS: Incident[] = [
     apply: (state, rnd) => {
       if (state.tick < RAID_FIRST_DAY * TICKS_PER_DAY) return null;
       if (isUnderAttack(state)) return null;
-      const spawned = spawnRaid(state, raidSize(state, rnd), rnd);
+      // Raiders are the Parched's raid (11章 段階C, design-phase11-worldmap.md
+      // 4.1章) whether or not this world happens to be near their territory -
+      // proximity only bends the size, not who they are.
+      const tribal = tribalInfluence(state);
+      const spawned = spawnRaid(state, raidSize(state, rnd, tribal.parched.raidSizeMultiplier), rnd);
       if (spawned.length === 0) return null;
-      return spawned.length === 1
-        ? 'A raider is coming out of the trees'
-        : `${spawned.length} raiders are coming out of the trees`;
+      return { key: 'incidentRaid', params: { count: spawned.length, tribe: 'parched' } };
     },
   },
 ];
 
-/** Pick by season weight. Returns null when nothing can happen this season. */
-export function chooseIncident(season: Season, roll: number): Incident | null {
-  const total = INCIDENTS.reduce((sum, incident) => sum + incident.weight[season], 0);
+/**
+ * Pick by season weight. Returns null when nothing can happen this season.
+ *
+ * `weightMultiplier` bends one or more incidents' weight before the roll -
+ * the Parched-proximity lever on `raid` (11章 段階C, design-phase11-worldmap.md
+ * 7章: shorter interval near their territory). Omitted, every incident keeps
+ * its plain season weight, exactly as before this existed.
+ */
+export function chooseIncident(
+  season: Season,
+  roll: number,
+  weightMultiplier: Partial<Record<IncidentName, number>> = {},
+): Incident | null {
+  const weightOf = (incident: Incident) => incident.weight[season] * (weightMultiplier[incident.name] ?? 1);
+  const total = INCIDENTS.reduce((sum, incident) => sum + weightOf(incident), 0);
   if (total <= 0) return null;
   let cursor = roll * total;
   for (const incident of INCIDENTS) {
-    cursor -= incident.weight[season];
+    cursor -= weightOf(incident);
     if (cursor < 0) return incident;
   }
   return INCIDENTS[INCIDENTS.length - 1];
@@ -219,8 +237,11 @@ export function runIncidents(state: GameState): void {
   const rnd = mulberry32(state.worldSeed * 31 + state.tick + 51001);
   if (rnd() >= EVENT_CHANCE_PER_DAY) return;
 
-  const incident = chooseIncident(seasonOf(state.tick), rnd());
+  const tribal = tribalInfluence(state);
+  const incident = chooseIncident(seasonOf(state.tick), rnd(), {
+    raid: tribal.parched.raidWeightMultiplier,
+  });
   if (!incident) return;
-  const message = incident.apply(state, rnd);
-  if (message) addLog(state, message, 'incident');
+  const report = incident.apply(state, rnd);
+  if (report) addLog(state, report.key, report.params, 'incident');
 }

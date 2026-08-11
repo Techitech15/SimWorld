@@ -244,6 +244,43 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 22 save into the craft column', () => {
+    // A real v22 save predates the workbench: no `craft` on any colonist's
+    // workPriorities or skills, and no `variant` on any item - which is the
+    // shape those optional fields are designed to read as-is.
+    const harness = createHarness(111);
+    harness.run(100);
+    const v22 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v22.colonists) {
+      const { craft: _wp, ...workPriorities } = v22.colonists[id].workPriorities as Record<
+        string,
+        number
+      >;
+      const { craft: _sk, ...skills } = v22.colonists[id].skills as Record<string, number>;
+      v22.colonists[id] = {
+        ...v22.colonists[id],
+        workPriorities: workPriorities as GameState['colonists'][string]['workPriorities'],
+        skills: skills as GameState['colonists'][string]['skills'],
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 22,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v22,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.colonists) {
+      // same defaults a fresh colonist gets: nobody cooks unasked
+      expect(migrated.state.colonists[id].workPriorities.craft).toBe(3);
+      expect(migrated.state.colonists[id].skills.craft).toBe(0);
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('migrates a version 5 save into traits', () => {
     const harness = createHarness(83);
     harness.run(100);
@@ -333,6 +370,157 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 15 save through traders, map size and the structured log', () => {
+    const harness = createHarness(103);
+    harness.run(100);
+    // a real v15 save predates traders (16), stored map sizes (17) and the
+    // structured log (18): strip all three so the whole tail of the chain runs
+    const {
+      traders: _noTraders,
+      width: _noWidth,
+      height: _noHeight,
+      ...v15
+    } = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    // a v15 log as it was actually written: finished English sentences
+    (v15 as unknown as { log: unknown }).log = [
+      { tick: 10, message: 'Aria reached Woodcutting level 2' },
+      { tick: 20, message: 'A pack of 2 wolves came down out of the trees', kind: 'incident' },
+    ];
+
+    const migrated = migrateSave({
+      schemaVersion: 15,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: v15 as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // nobody is mid-visit in a save that predates trade
+    expect(migrated.state.traders).toEqual({});
+    // every save before v17 was 60x60, because that was the only size there was
+    expect(migrated.state.width).toBe(60);
+    expect(migrated.state.height).toBe(60);
+    // old sentences are wrapped, not parsed: guessing the event back out of the
+    // wording would necessarily miss, so they display verbatim as `legacy`
+    expect(migrated.state.log).toEqual([
+      { tick: 10, key: 'legacy', params: { text: 'Aria reached Woodcutting level 2' } },
+      {
+        tick: 20,
+        key: 'legacy',
+        params: { text: 'A pack of 2 wolves came down out of the trees' },
+        kind: 'incident',
+      },
+    ]);
+    // and it keeps ticking, writing structured entries after the legacy ones
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 200).tick).toBe(harness.state.tick + 200);
+  });
+
+  it('migrates a version 19 save into the research tree', () => {
+    // A real v19 save predates research entirely: no `research` on state, no
+    // `research` column on any colonist's workPriorities or skills.
+    const harness = createHarness(109);
+    harness.run(100);
+    const v19 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { research: _dropped, ...rest } = v19;
+    for (const id in rest.colonists) {
+      const { research: _wp, ...workPriorities } = rest.colonists[id].workPriorities as Record<
+        string,
+        number
+      >;
+      const { research: _sk, ...skills } = rest.colonists[id].skills as Record<string, number>;
+      rest.colonists[id] = {
+        ...rest.colonists[id],
+        workPriorities: workPriorities as GameState['colonists'][string]['workPriorities'],
+        skills: skills as GameState['colonists'][string]['skills'],
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 19,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // 3.1: nothing existing gets re-locked, and nothing is unlocked for free
+    expect(migrated.state.research).toEqual({
+      current: null,
+      progress: { woodcraft: 0, stonecarving: 0, ironwork: 0, crystallography: 0 },
+      unlocked: [],
+    });
+    for (const id in migrated.state.colonists) {
+      expect(migrated.state.colonists[id].workPriorities.research).toBe(3);
+      expect(migrated.state.colonists[id].skills.research).toBe(0);
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
+  it('migrates a version 20 save into biomes', () => {
+    // A real v20 save predates biomes entirely: no `biome` on state at all.
+    const harness = createHarness(113);
+    harness.run(100);
+    const v20 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { biome: _dropped, ...rest } = v20;
+
+    const migrated = migrateSave({
+      schemaVersion: 20,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // every existing save was generated under exactly the rules `meadow` now
+    // names - the migration writes down what was already true
+    expect(migrated.state.biome).toBe('meadow');
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
+  it('migrates a version 21 save into the world map', () => {
+    // A real v21 save predates the world map entirely: no `worldCell` on state.
+    const harness = createHarness(127);
+    harness.run(100);
+    const v21 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { worldCell: _dropped, ...rest } = v21;
+
+    const migrated = migrateSave({
+      schemaVersion: 21,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // nothing says which cell among equally valid ones the player would have
+    // picked, so a migrated save is simply nowhere near any tribe
+    expect(migrated.state.worldCell).toBeNull();
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
+  it('migrates a version 23 save into the equipment record', () => {
+    const harness = createHarness(113);
+    harness.run(50);
+    const v23 = JSON.parse(JSON.stringify(harness.state)) as Partial<GameState>;
+    delete v23.equipment;
+
+    const migrated = migrateSave({
+      schemaVersion: 23,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v23 as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.state.equipment).toEqual({});
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);
@@ -415,6 +603,55 @@ describe('IndexedDB slot', () => {
       state: JSON.parse(JSON.stringify(v9)) as GameState,
     }).state;
     expect(Object.values(again.tiles).filter((t) => t.terrain === 'crystal').length).toBe(
+      veins.length,
+    );
+  });
+
+  it('gives an old save iron to find, the same way it was given mana', () => {
+    // A colony saved before phase 10 (v18) has rock with no iron in it and
+    // storage zones that never heard of the resource - the same two gaps, one
+    // ore on.
+    const harness = createHarness(107);
+    const v18 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v18.tiles) {
+      if (v18.tiles[id].terrain === 'ironVein') {
+        v18.tiles[id] = { ...v18.tiles[id], terrain: 'stone' };
+      }
+    }
+    for (const id in v18.zones) {
+      v18.zones[id] = {
+        ...v18.zones[id],
+        accepts: v18.zones[id].accepts.filter((type) => type !== 'iron'),
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 18,
+      savedAtTick: v18.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: v18,
+    }).state;
+
+    const veins = Object.values(migrated.tiles).filter((t) => t.terrain === 'ironVein');
+    expect(veins.length).toBeGreaterThan(0);
+    for (const vein of veins) expect(vein.walkable).toBe(false);
+    // and crystal was left exactly where it was: iron is seeded into stone only
+    expect(Object.values(migrated.tiles).filter((t) => t.terrain === 'crystal').length).toBe(
+      Object.values(v18.tiles).filter((t) => t.terrain === 'crystal').length,
+    );
+    for (const id in migrated.zones) {
+      if (migrated.zones[id].type !== 'storage') continue;
+      expect(migrated.zones[id].accepts).toContain('iron');
+    }
+
+    // and the same world migrates to the same veins, not a fresh roll each load
+    const again = migrateSave({
+      schemaVersion: 18,
+      savedAtTick: v18.tick,
+      savedAtRealTime: '2026-08-10T00:00:00.000Z',
+      state: JSON.parse(JSON.stringify(v18)) as GameState,
+    }).state;
+    expect(Object.values(again.tiles).filter((t) => t.terrain === 'ironVein').length).toBe(
       veins.length,
     );
   });

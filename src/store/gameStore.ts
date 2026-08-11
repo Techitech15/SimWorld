@@ -7,15 +7,21 @@ import { create } from 'zustand';
 import * as actions from '../core/actions';
 import { createSimContext, rebuildPathIndex, rebuildRegions } from '../core/derived';
 import { refreshNetworks } from '../core/mana';
+import { isUnlocked, techForBuilding } from '../core/research';
 import { clearTradeDeal, setTradeDeal } from '../core/trade';
 import type { ManaNetworks } from '../core/mana';
 import type { SimContext } from '../core/derived';
 import { tickMany } from '../core/simulation';
+import { DEFAULT_MAP_SIZE, MAP_SIZES } from '../core/constants';
+import { orderEquipmentAt } from '../core/equipment';
+import type { MapSizeName } from '../core/constants';
 import { generateWorld } from '../core/worldgen';
-import { DEFAULT_SCENARIO, SCENARIOS } from '../core/scenario';
+import { DEFAULT_SCENARIO } from '../core/scenario';
 import type { ScenarioName } from '../core/scenario';
+import { randomWorldCell } from '../core/worldmap';
 import type {
   AnimalDesignation,
+  LogParams,
   AnimalId,
   BuildingType,
   ColonistId,
@@ -23,9 +29,11 @@ import type {
   GameState,
   JobType,
   ResourceType,
+  TechName,
   TileId,
   Vector2,
   ZoneId,
+  EquipmentKind,
 } from '../core/types';
 import { AUTOSAVE_SLOT, DEFAULT_SLOT, hasSave, loadGame, saveGame } from '../persistence/indexeddb';
 
@@ -46,6 +54,39 @@ export function getSimContext(): SimContext {
  */
 export function getNetworks(state: GameState): ManaNetworks {
   return refreshNetworks(simContext, state);
+}
+
+/**
+ * A status line as a key plus parameters; the sentence is composed at display
+ * time in the player's language (11章 フェーズ9). Refusals, save/load results
+ * and the animal-panel finder all speak through this.
+ */
+export type StatusKey =
+  | 'refusalChop'
+  | 'refusalMine'
+  | 'refusalDeconstruct'
+  | 'refusalBuild'
+  | 'refusalLocked' // { tech } - build menu bypass onto a still-locked type
+  | 'refusalStorage'
+  | 'refusalPasture'
+  | 'refusalTame'
+  | 'refusalSlaughter'
+  | 'refusalHunt'
+  | 'refusalCancel'
+  | 'assignNoChange'
+  | 'assignDone'
+  | 'newColony' // { scenario }
+  | 'savedAt' // { tick }
+  | 'saveFailed' // { error }
+  | 'loadedAt' // { tick }
+  | 'loadFailed' // { error }
+  | 'speciesNone' // { species }
+  | 'speciesFound' // { name, species, x, y }
+  | 'pausedAlert'; // { alert, ...alert params }
+
+export interface StatusMessage {
+  key: StatusKey;
+  params?: LogParams;
 }
 
 export type Tool =
@@ -85,7 +126,7 @@ export interface GameStore {
    * re-render sixty times a second.
    */
   viewport: { x: number; y: number; w: number; h: number } | null;
-  statusMessage: string | null;
+  statusMessage: StatusMessage | null;
 
   // simulation
   advance: (ticks: number) => void;
@@ -98,20 +139,33 @@ export interface GameStore {
   selectTile: (id: TileId | null) => void;
   focusOnTile: (at: Vector2 | null) => void;
   setViewport: (viewport: { x: number; y: number; w: number; h: number }) => void;
-  setStatus: (message: string | null) => void;
+  setStatus: (message: StatusMessage | null) => void;
 
   // player actions (section 3: UI writes to the store, the tick reacts to it)
   setJobPriority: (colonistId: ColonistId, jobType: JobType, priority: number) => void;
   setZoneAccepts: (zoneId: ZoneId, type: ResourceType, allowed: boolean) => void;
+  orderEquipment: (benchId: string, kind: EquipmentKind) => void;
   setTradeDeal: (traderId: string, give: ResourceType, take: ResourceType) => void;
   clearTradeDeal: (traderId: string) => void;
   assignWorkBySkill: () => void;
   applyTool: (tileIds: TileId[]) => void;
   orderMove: (colonistId: ColonistId, target: Vector2) => void;
   toggleFarmSowing: (tileId: TileId) => void;
+  setResearchCurrent: (tech: TechName | null) => void;
+  applyProfession: (colonistId: ColonistId, primary: JobType) => void;
 
   // persistence
-  newGame: (scenario?: ScenarioName, seed?: number) => void;
+  /**
+   * `worldCell` is the world-map choice (11章 段階B); omitted, a random cell
+   * is picked the same way `seed` is randomised when omitted, so a caller that
+   * only wants "a new map" needs to pass nothing new at all.
+   */
+  newGame: (
+    scenario?: ScenarioName,
+    seed?: number,
+    worldCell?: { x: number; y: number },
+    size?: MapSizeName,
+  ) => void;
   save: () => Promise<void>;
   load: (slot?: string) => Promise<void>;
   autosave: () => Promise<void>;
@@ -155,31 +209,36 @@ function applyToolTo(state: GameState, tool: Tool, tileIds: TileId[]): GameState
 }
 
 /** Why a tool refused the whole drag, in the player's terms. */
-function refusalFor(tool: Tool): string | null {
+function refusalFor(tool: Tool, state: GameState): StatusKey | null {
   switch (tool.kind) {
     case 'designate':
-      if (tool.designation === 'chop') return 'Chopping needs forest.';
-      if (tool.designation === 'mine') return 'Mining needs a rock face.';
-      return 'Only a finished building can be dismantled.';
+      if (tool.designation === 'chop') return 'refusalChop';
+      if (tool.designation === 'mine') return 'refusalMine';
+      return 'refusalDeconstruct';
     case 'build':
-      return 'Nothing can be built there: the ground is taken or is solid rock.';
+      // a locked type refuses for a different reason than occupied ground, and
+      // the player has to be told which one it was (design-phase12-research.md 3.3)
+      return isUnlocked(state, tool.building) ? 'refusalBuild' : 'refusalLocked';
     case 'storage':
-      return 'A storage zone needs clear, walkable ground.';
+      return 'refusalStorage';
     case 'pasture':
-      return 'A pasture needs grass to graze.';
+      return 'refusalPasture';
     case 'animal':
-      if (tool.designation === 'tame') return 'Nothing there can be tamed.';
-      if (tool.designation === 'slaughter') return 'Only tamed animals can be slaughtered.';
-      return 'No wild animal there to hunt.';
+      if (tool.designation === 'tame') return 'refusalTame';
+      if (tool.designation === 'slaughter') return 'refusalSlaughter';
+      return 'refusalHunt';
     case 'cancel':
-      return 'Nothing there to remove.';
+      return 'refusalCancel';
     default:
       return null;
   }
 }
 
 function initialState(): GameState {
-  const state = generateWorld({ seed: randomSeed() });
+  // Silent generation on first load is still "おまかせ" underneath (5章): a
+  // random seed and a random cell, exactly what the world-map overlay's
+  // おまかせ button does, just without opening the overlay to ask.
+  const state = generateWorld({ seed: randomSeed(), worldCell: randomWorldCell() });
   simContext = createSimContext(state);
   return state;
 }
@@ -230,6 +289,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setZoneAccepts: (zoneId, type, allowed) =>
     set({ state: actions.setZoneAccepts(get().state, zoneId, type, allowed) }),
 
+  orderEquipment: (benchId, kind) => {
+    const state = { ...get().state };
+    orderEquipmentAt(state, benchId, kind);
+    set({ state });
+  },
+
   setTradeDeal: (traderId, give, take) =>
     set({ state: setTradeDeal(get().state, traderId, give, take) }),
 
@@ -239,8 +304,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = actions.assignWorkBySkill(get().state);
     set(
       state === get().state
-        ? { statusMessage: 'Everyone is already on their best work.' }
-        : { state, statusMessage: 'Work assigned by skill.' },
+        ? { statusMessage: { key: 'assignNoChange' } }
+        : { state, statusMessage: { key: 'assignDone' } },
     );
   },
 
@@ -251,8 +316,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // Every tool silently ignores tiles it cannot use, so a drag that lands
       // entirely on the wrong ground did nothing and looked like a broken
       // click. Say which rule refused it.
-      const why = refusalFor(tool);
-      set(why ? { statusMessage: why } : {});
+      const why = refusalFor(tool, state);
+      const params =
+        why === 'refusalLocked' && tool.kind === 'build'
+          ? { tech: techForBuilding(tool.building) ?? '' }
+          : undefined;
+      set(why ? { statusMessage: { key: why, params } } : {});
       return;
     }
     set({ state: next, statusMessage: null });
@@ -265,25 +334,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   toggleFarmSowing: (tileId) => set({ state: actions.toggleFarmSowing(get().state, tileId) }),
 
-  newGame: (scenario, seed) => {
+  setResearchCurrent: (tech) =>
+    set({ state: actions.setResearchCurrent(get().state, tech) }),
+
+  applyProfession: (colonistId, primary) =>
+    set({ state: actions.applyProfession(get().state, colonistId, primary) }),
+
+  newGame: (scenario, seed, worldCell, size) => {
     const chosen = scenario ?? DEFAULT_SCENARIO;
-    const state = generateWorld({ seed: seed ?? randomSeed(), scenario: chosen });
+    const side = MAP_SIZES[size ?? DEFAULT_MAP_SIZE];
+    const state = generateWorld({
+      seed: seed ?? randomSeed(),
+      scenario: chosen,
+      worldCell: worldCell ?? randomWorldCell(),
+      width: side,
+      height: side,
+    });
     simContext = createSimContext(state);
     set({
       state,
       selectedColonistId: null,
       selectedAnimalId: null,
       selectedTileId: null,
-      statusMessage: `New colony started — ${SCENARIOS[chosen].label}.`,
+      statusMessage: { key: 'newColony', params: { scenario: chosen } },
     });
   },
 
   save: async () => {
     try {
       await saveGame(get().state, DEFAULT_SLOT);
-      set({ statusMessage: `Saved at tick ${get().state.tick}.` });
+      set({ statusMessage: { key: 'savedAt', params: { tick: get().state.tick } } });
     } catch (error) {
-      set({ statusMessage: `Save failed: ${(error as Error).message}` });
+      set({ statusMessage: { key: 'saveFailed', params: { error: (error as Error).message } } });
     }
   },
 
@@ -312,10 +394,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         selectedColonistId: null,
         selectedAnimalId: null,
       selectedTileId: null,
-        statusMessage: `Loaded tick ${state.tick}.`,
+        statusMessage: { key: 'loadedAt', params: { tick: state.tick } },
       });
     } catch (error) {
-      set({ statusMessage: `Load failed: ${(error as Error).message}` });
+      set({ statusMessage: { key: 'loadFailed', params: { error: (error as Error).message } } });
     }
   },
 }));

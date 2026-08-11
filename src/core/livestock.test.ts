@@ -43,7 +43,7 @@ describe('taming, penning and keeping', () => {
 
     // somebody was tamed, and the log says so
     expect(tameCount(harness.state)).toBeGreaterThan(0);
-    expect(lines.some((line) => line.includes('was tamed'))).toBe(true);
+    expect(lines).toContain('animalTamed');
 
     // and the ones that were tamed belong to the pen rather than wandering off
     for (const animal of Object.values(harness.state.animals)) {

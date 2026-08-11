@@ -3,10 +3,12 @@
 //
 // Duplicate suppression uses a reverse index keyed by "what this job is about",
 // so a designated tree never grows a second chop job while the first is alive.
-import { DEFAULT_JOB_PRIORITY } from '../constants';
+import { CRAFT_FOOD_RESERVE, CRAFT_MEAL_INPUT, DEFAULT_JOB_PRIORITY } from '../constants';
+import { EQUIPMENT } from '../equipment';
 import { wantsFuel } from '../mana';
+import { deskReadyToResearch, researchResourceCost } from '../research';
 import { findTradingPost, traderAtPost } from '../trade';
-import { nextId, tileIdOf, isRock } from '../state';
+import { nextId, tileIdOf, isRock, updateBuilding } from '../state';
 import { acceptsHere, findNearestItem } from '../storage';
 import type { GameState, Job, JobId, JobType, TileId } from '../types';
 
@@ -208,6 +210,157 @@ export function runJobGenerator(state: GameState): void {
     claim(key);
   }
 
+  // --- workbenches: a batch of raw food in, a batch of meals out (提案3) -----
+  // The same three-step shape the research desk uses: put the ask on the
+  // bench's own requiredResources, let the ordinary haul chain fill it, then
+  // stand at the bench and work. A batch is only opened while the colony's raw
+  // food clears the reserve, so cooking never walks off with the last meals.
+  let rawFood = -1; // counted lazily: colonies without a bench never pay for it
+  for (const buildingId in state.buildings) {
+    let bench = state.buildings[buildingId];
+    if (bench.type !== 'workbench' || bench.isBlueprint) continue;
+
+    // an equipment order outranks the meal batch (フェーズ8 E-1): the player
+    // asked for it by name, and its cost lines ride the same requiredResources
+    const order = bench.craftOrders?.[0];
+    if (order) {
+      const cost = EQUIPMENT[order].cost;
+      const missing = cost.filter(
+        (need) => !bench.requiredResources.some((r) => r.type === need.type),
+      );
+      if (missing.length > 0) {
+        bench = updateBuilding(state, buildingId, {
+          requiredResources: [...bench.requiredResources, ...missing.map((n) => ({ ...n }))],
+        });
+      }
+      let waiting = false;
+      for (const need of cost) {
+        const have = bench.requiredResources.find((r) => r.type === need.type);
+        if (!have || have.quantity <= 0) continue;
+        waiting = true;
+        const key = `deliver:${buildingId}:${need.type}`;
+        if (has(key)) continue;
+        const tile = state.tiles[bench.tileId];
+        const source = findNearestItem(state, need.type, { x: tile.x, y: tile.y }, {
+          preferStorage: true,
+          variant: null, // meals never become axe handles
+        });
+        if (!source) continue;
+        createJob(state, 'haul', {
+          workType: 'craft',
+          targetTileId: tileIdOf(source.position.x, source.position.y),
+          targetEntityId: source.id,
+          destinationId: buildingId,
+          payloadType: need.type,
+        });
+        claim(key);
+      }
+      if (!waiting) {
+        const key = `craft:${bench.tileId}`;
+        if (has(key)) continue;
+        createJob(state, 'craft', { targetTileId: bench.tileId, targetEntityId: buildingId });
+        claim(key);
+      }
+      continue;
+    }
+
+    let line = bench.requiredResources.find((r) => r.type === 'food');
+    if (!line) {
+      if (rawFood < 0) {
+        rawFood = 0;
+        for (const id in state.items) {
+          const item = state.items[id];
+          if (item.type === 'food' && !item.variant) rawFood += item.quantity;
+        }
+      }
+      if (rawFood < CRAFT_MEAL_INPUT + CRAFT_FOOD_RESERVE) continue;
+      rawFood -= CRAFT_MEAL_INPUT; // two benches cannot claim the same stock
+      bench = updateBuilding(state, buildingId, {
+        requiredResources: [
+          ...bench.requiredResources,
+          { type: 'food', quantity: CRAFT_MEAL_INPUT },
+        ],
+      });
+      line = bench.requiredResources.find((r) => r.type === 'food')!;
+    }
+
+    if (line.quantity > 0) {
+      const key = `deliver:${buildingId}:food`;
+      if (has(key)) continue;
+      const tile = state.tiles[bench.tileId];
+      const source = findNearestItem(state, 'food', { x: tile.x, y: tile.y }, {
+        preferStorage: true,
+        variant: null, // raw only: cooking a meal into a meal helps nobody
+      });
+      if (!source) continue;
+      createJob(state, 'haul', {
+        workType: 'craft',
+        targetTileId: tileIdOf(source.position.x, source.position.y),
+        targetEntityId: source.id,
+        destinationId: buildingId,
+        payloadType: 'food',
+      });
+      claim(key);
+      continue;
+    }
+
+    const key = `craft:${bench.tileId}`;
+    if (has(key)) continue;
+    createJob(state, 'craft', { targetTileId: bench.tileId, targetEntityId: buildingId });
+    claim(key);
+  }
+
+  // --- research: the desk works through whatever tech is selected -----------
+  // Mirrors the blueprint-delivery loop above: a resource-costing tech (only
+  // crystallography, for now) gets its cost lines added to the desk's own
+  // `requiredResources` once, and a haul job follows for whatever is still
+  // outstanding - the same shape a blueprint's own materials take, and the
+  // same field, so nothing new has to track "how much has arrived so far"
+  // (design-phase12-research.md 2.1, 3.2).
+  for (const buildingId in state.buildings) {
+    let building = state.buildings[buildingId];
+    if (building.type !== 'researchDesk' || building.isBlueprint) continue;
+
+    const need = researchResourceCost(state);
+    if (need.length > 0) {
+      const missingLines = need.filter(
+        (line) => !building.requiredResources.some((r) => r.type === line.type),
+      );
+      if (missingLines.length > 0) {
+        building = updateBuilding(state, buildingId, {
+          requiredResources: [
+            ...building.requiredResources,
+            ...missingLines.map((line) => ({ ...line })),
+          ],
+        });
+      }
+      for (const line of need) {
+        const have = building.requiredResources.find((r) => r.type === line.type);
+        if (!have || have.quantity <= 0) continue;
+        const key = `deliver:${buildingId}:${line.type}`;
+        if (has(key)) continue;
+        const tile = state.tiles[building.tileId];
+        const source = findNearestItem(state, line.type, { x: tile.x, y: tile.y }, {
+          preferStorage: true,
+        });
+        if (!source) continue;
+        createJob(state, 'haul', {
+          targetTileId: tileIdOf(source.position.x, source.position.y),
+          targetEntityId: source.id,
+          destinationId: buildingId,
+          payloadType: line.type,
+        });
+        claim(key);
+      }
+    }
+
+    if (!state.research.current || !deskReadyToResearch(state, building)) continue;
+    const key = `research:${building.tileId}`;
+    if (has(key)) continue;
+    createJob(state, 'research', { targetTileId: building.tileId, targetEntityId: buildingId });
+    claim(key);
+  }
+
   // --- a standing trade deal -> haul the goods to the post -------------------
   // The same haul job again, pointed at the post. Making a deal is hauling
   // work, so it competes with everything else on that column: a colony that
@@ -330,6 +483,27 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
       const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
       return !!building && !building.isBlueprint && building.hpCurrent < building.hpMax;
     }
+    case 'research': {
+      const building = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      if (!building || building.isBlueprint || building.type !== 'researchDesk') return false;
+      if (!state.research.current) return false;
+      return deskReadyToResearch(state, building);
+    }
+    case 'craft': {
+      // valid while the bench stands and its batch - meal or order - is
+      // fully delivered
+      const bench = job.targetEntityId ? state.buildings[job.targetEntityId] : undefined;
+      if (!bench || bench.isBlueprint || bench.type !== 'workbench') return false;
+      const order = bench.craftOrders?.[0];
+      if (order) {
+        return EQUIPMENT[order].cost.every((need) => {
+          const line = bench.requiredResources.find((r) => r.type === need.type);
+          return !!line && line.quantity <= 0;
+        });
+      }
+      const line = bench.requiredResources.find((r) => r.type === 'food');
+      return !!line && line.quantity <= 0;
+    }
     case 'hunt':
     case 'handle': {
       const animal = job.targetEntityId ? state.animals[job.targetEntityId] : undefined;
@@ -353,6 +527,20 @@ export function isJobStillValid(state: GameState, job: Job): boolean {
           if (destination.type === 'tradingPost' && !destination.isBlueprint) {
             const trader = traderAtPost(state);
             return !!trader && trader.deal?.give === item.type;
+          }
+          // a finished research desk still takes deliveries for a resource-costing
+          // tech, tracked on its own requiredResources exactly like a blueprint
+          if (destination.type === 'researchDesk' && !destination.isBlueprint) {
+            return destination.requiredResources.some(
+              (r) => r.type === item.type && r.quantity > 0,
+            );
+          }
+          // a workbench takes raw food for the batch it is asking for (提案3)
+          if (destination.type === 'workbench' && !destination.isBlueprint) {
+            return (
+              (item.variant ?? null) === null &&
+              destination.requiredResources.some((r) => r.type === item.type && r.quantity > 0)
+            );
           }
           if (!destination.isBlueprint) return false;
           return destination.requiredResources.some((r) => r.type === item.type && r.quantity > 0);

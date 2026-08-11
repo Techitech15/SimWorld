@@ -2,13 +2,16 @@
 // store. All input is forwarded to store action functions; nothing here mutates
 // GameState directly.
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
-import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, TILE_SIZE } from '../core/constants';
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, SPECIES, TICKS_PER_STEP, TILE_SIZE } from '../core/constants';
 import { tileIdOf } from '../core/state';
-import type { Building, Colonist, GameState, Item, Tile } from '../core/types';
+import type { Building, Colonist, Equipment, GameState, Item, Tile } from '../core/types';
 import { getNetworks, useGameStore } from '../store/gameStore';
 import { EMPTY_NETWORKS, isPowered } from '../core/mana';
 import type { ManaNetworks } from '../core/mana';
+import { paceMultiplierOf } from '../core/pace';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
+import { NIGHT_ALPHA, litLamps, shadeAt } from './daylight';
+import { interpolationSpeed } from './pace';
 import { damageStep, damageTint } from './damage';
 import type { Camera } from './camera';
 import { loadTextures } from './textures';
@@ -38,6 +41,12 @@ export class GameRenderer {
   private app = new Application();
   private world = new Container();
   private terrainLayer = new Container();
+  /** the day/night tint and the lamp glows over it (docs/design-phase7-time.md 3) */
+  private nightLayer = new Container();
+  private nightOverlay = new Graphics();
+  private lampSprites: Sprite[] = [];
+  private equipmentSprites = new Map<string, Sprite>();
+  private lightTexture: Texture | null = null;
   private buildingLayer = new Container();
   private itemLayer = new Container();
   private animalLayer = new Container();
@@ -117,8 +126,10 @@ export class GameRenderer {
       this.overlay,
       this.animalLayer,
       this.colonistLayer,
+      this.nightLayer,
       this.selectionOverlay,
     );
+    this.nightLayer.addChild(this.nightOverlay);
     this.app.stage.addChild(this.world);
 
     this.attachInput();
@@ -197,6 +208,8 @@ export class GameRenderer {
         return this.textures.tiles.stone;
       case 'crystal':
         return this.textures.tiles.crystal;
+      case 'ironVein':
+        return this.textures.tiles.ironVein;
       default:
         return this.textures.tiles.grass;
     }
@@ -260,6 +273,20 @@ export class GameRenderer {
         return isPowered(this.networks, building.id) ? t.manaLampLit : t.manaLamp;
       case 'hearth':
         return t.hearth;
+      case 'table':
+        return t.table;
+      case 'stool':
+        return t.stool;
+      case 'dresser':
+        return t.dresser;
+      case 'armchair':
+        return t.armchair;
+      case 'statue':
+        return t.statue;
+      case 'researchDesk':
+        return t.researchDesk;
+      case 'workbench':
+        return t.workbench;
       case 'tradingPost':
         return t.tradingPost;
       case 'manaTurret':
@@ -336,12 +363,25 @@ export class GameRenderer {
   }
 
   // --- items ---------------------------------------------------------------
-  private itemTexture(item: Item): Texture {
+  /** One texture per resource, shared by ground stacks and carried stacks. */
+  private resourceTexture(type: Item['type']): Texture {
     const t = this.textures.tiles;
-    if (item.type === 'wood') return t.wood;
-    if (item.type === 'stone') return t.stoneItem;
-    if (item.type === 'manaCrystal') return t.manaCrystal;
-    return t.food;
+    switch (type) {
+      case 'wood':
+        return t.wood;
+      case 'stone':
+        return t.stoneItem;
+      case 'manaCrystal':
+        return t.manaCrystal;
+      case 'iron':
+        return t.ironItem;
+      default:
+        return t.food;
+    }
+  }
+
+  private itemTexture(item: Item): Texture {
+    return this.resourceTexture(item.type);
   }
 
   private syncItems(state: GameState): void {
@@ -364,6 +404,49 @@ export class GameRenderer {
       if (seen.has(id)) continue;
       sprite.destroy();
       this.itemSprites.delete(id);
+    }
+  }
+
+  // --- equipment on the ground (フェーズ8) ----------------------------------
+  private equipmentTexture(kind: Equipment['kind']): Texture {
+    const t = this.textures.tiles;
+    switch (kind) {
+      case 'axe':
+        return t.equipAxe;
+      case 'pickaxe':
+        return t.equipPickaxe;
+      case 'huntingBow':
+        return t.equipHuntingBow;
+      case 'huntingSpear':
+        return t.equipHuntingSpear;
+      case 'sword':
+        return t.equipSword;
+      default:
+        return t.equipIronArmor;
+    }
+  }
+
+  private syncEquipment(state: GameState): void {
+    const seen = new Set<string>();
+    for (const id in state.equipment) {
+      const piece = state.equipment[id];
+      if (!piece.position) continue; // worn gear rides its wearer, not the map
+      seen.add(id);
+      let sprite = this.equipmentSprites.get(id);
+      if (!sprite) {
+        sprite = new Sprite(this.equipmentTexture(piece.kind));
+        sprite.anchor.set(0.5);
+        sprite.scale.set(0.7);
+        this.itemLayer.addChild(sprite);
+        this.equipmentSprites.set(id, sprite);
+      }
+      sprite.x = piece.position.x * TILE_SIZE + TILE_SIZE / 2;
+      sprite.y = piece.position.y * TILE_SIZE + TILE_SIZE / 2;
+    }
+    for (const [id, sprite] of this.equipmentSprites) {
+      if (seen.has(id)) continue;
+      sprite.destroy();
+      this.equipmentSprites.delete(id);
     }
   }
 
@@ -390,7 +473,9 @@ export class GameRenderer {
       const dx = animal.position.x - view.displayX;
       const dy = animal.position.y - view.displayY;
       const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
-      const speed = 0.007 * deltaMs;
+      // per species: a chicken (4 ticks a step) visibly waddles behind a deer
+      const speed =
+        interpolationSpeed(SPECIES[animal.species].ticksPerStep, state.speed) * deltaMs;
       view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
       view.displayY += Math.abs(dy) < speed ? dy : Math.sign(dy) * speed;
       if (Math.abs(dx) > 0.02) view.facingRight = dx > 0;
@@ -460,7 +545,7 @@ export class GameRenderer {
       const dx = raider.position.x - view.displayX;
       const dy = raider.position.y - view.displayY;
       const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
-      const speed = 0.007 * deltaMs;
+      const speed = interpolationSpeed(TICKS_PER_STEP, state.speed) * deltaMs;
       view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
       view.displayY += Math.abs(dy) < speed ? dy : Math.sign(dy) * speed;
       if (Math.abs(dx) > 0.02) view.facingRight = dx > 0;
@@ -521,11 +606,18 @@ export class GameRenderer {
     state: GameState,
     deltaMs: number,
   ): void {
-    // Tiles are discrete, so interpolate towards the logical position to keep
-    // the movement readable at 5 ticks/second.
-    const speed = 0.009 * deltaMs;
+    // Tiles are discrete, so interpolate towards the logical position - at
+    // the speed the simulation is actually walking (docs/design-phase7-time.md
+    // 2.2), so no gap between steps and no lag at 10x. Paused, nothing slides.
+    const speed =
+      interpolationSpeed(TICKS_PER_STEP, state.speed, paceMultiplierOf(state, colonist)) * deltaMs;
     const dx = colonist.position.x - view.displayX;
     const dy = colonist.position.y - view.displayY;
+    // an eviction or a load can move someone across the map: snap, don't glide
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      view.displayX = colonist.position.x;
+      view.displayY = colonist.position.y;
+    }
     const moving = Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02;
     view.displayX += Math.abs(dx) < speed ? dx : Math.sign(dx) * speed;
     view.displayY += Math.abs(dy) < speed ? dy : Math.sign(dy) * speed;
@@ -555,12 +647,7 @@ export class GameRenderer {
 
     if (colonist.carrying) {
       view.carried.visible = true;
-      view.carried.texture =
-        colonist.carrying.type === 'wood'
-          ? this.textures.tiles.wood
-          : colonist.carrying.type === 'stone'
-            ? this.textures.tiles.stoneItem
-            : this.textures.tiles.food;
+      view.carried.texture = this.resourceTexture(colonist.carrying.type);
       view.carried.x = view.sprite.x;
       view.carried.y = view.sprite.y - TILE_SIZE * 0.55;
     } else {
@@ -686,6 +773,71 @@ export class GameRenderer {
     }
   }
 
+  // --- day and night (docs/design-phase7-time.md 3) ------------------------
+  /** A soft radial light, drawn once in code - the same zero-asset rule the
+   *  sprites follow. */
+  private ensureLightTexture(): Texture {
+    if (this.lightTexture) return this.lightTexture;
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d')!;
+    const gradient = context.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+    gradient.addColorStop(0, 'rgba(255, 214, 140, 0.9)');
+    gradient.addColorStop(0.5, 'rgba(255, 190, 110, 0.35)');
+    gradient.addColorStop(1, 'rgba(255, 180, 100, 0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+    this.lightTexture = Texture.from(canvas);
+    return this.lightTexture;
+  }
+
+  private syncNight(state: GameState): void {
+    const shade = shadeAt(state.tick);
+    this.nightOverlay.clear();
+    if (shade.alpha > 0) {
+      this.nightOverlay
+        .rect(0, 0, state.width * TILE_SIZE, state.height * TILE_SIZE)
+        .fill({ color: shade.color, alpha: shade.alpha });
+    }
+
+    // warm light over the dark wherever a powered lamp stands; scaled by how
+    // dark it is, so the glow fades in with dusk and vanishes by day
+    const strength = shade.alpha / NIGHT_ALPHA;
+    const lights = strength > 0.05 ? litLamps(state, this.networks) : [];
+    while (this.lampSprites.length < lights.length) {
+      const sprite = new Sprite(this.ensureLightTexture());
+      sprite.anchor.set(0.5);
+      sprite.blendMode = 'add';
+      this.nightLayer.addChild(sprite);
+      this.lampSprites.push(sprite);
+    }
+    for (let i = 0; i < this.lampSprites.length; i++) {
+      const sprite = this.lampSprites[i];
+      const light = lights[i];
+      if (!light) {
+        sprite.visible = false;
+        continue;
+      }
+      sprite.visible = true;
+      // the glow reaches the lamp's radius: texture is 256px across for
+      // radius*2 tiles of coverage
+      const scale = (light.radius * 2 * TILE_SIZE) / 256;
+      sprite.scale.set(scale);
+      sprite.x = light.position.x * TILE_SIZE + TILE_SIZE / 2;
+      sprite.y = light.position.y * TILE_SIZE + TILE_SIZE / 2;
+      sprite.alpha = strength;
+    }
+  }
+
   // --- frame ---------------------------------------------------------------
   private renderFrame(): void {
     const deltaMs = this.app.ticker.deltaMS;
@@ -696,12 +848,14 @@ export class GameRenderer {
       this.syncTerrain(state);
       this.syncBuildings(state);
       this.syncItems(state);
+      this.syncEquipment(state);
       this.syncDesignationOverlay(state);
     }
     this.syncAnimals(state, deltaMs);
     this.syncRaiders(state, deltaMs);
     this.syncTraders(state);
     this.syncColonists(state, deltaMs);
+    this.syncNight(state);
     this.consumeFocusRequest();
     this.syncSelectionOverlay(state);
     this.applyKeyboardPan(deltaMs);

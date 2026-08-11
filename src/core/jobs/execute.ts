@@ -8,20 +8,22 @@ import {
   BLOCKS_MOVEMENT,
   BUILDING_COSTS,
   COOLDOWN_TICKS,
+  CRAFT_MEAL_OUTPUT,
   DECONSTRUCT_REFUND,
   FAILED_JOB_RETENTION_TICKS,
   FOOD_PER_BERRY_HARVEST,
   FOOD_PER_FROSTBLOOM_HARVEST,
   FOOD_PER_HARVEST,
-  HUNT_RANGE,
   MAX_RETRIES,
   SPECIES,
-  STONE_PER_ROCK,
-  CRYSTAL_PER_VEIN,
   TAME_FAIL_FLEE_TICKS,
+  TECH_PROGRESS_PER_CYCLE,
+  TECHS,
+  veinYieldOf,
   WOOD_PER_TREE,
   WORK_TICKS,
 } from '../constants';
+import { createEquipment, equipmentWorkMultiplier, huntRangeOf, useEquipment, EQUIPMENT } from '../equipment';
 import { clearColonistPath, invalidateTile } from '../derived';
 import type { SimContext } from '../derived';
 import { advanceTowards, chase } from '../movement';
@@ -50,7 +52,7 @@ import {
 } from '../state';
 import { addItem } from '../worldgen';
 import { depositCarried } from '../death';
-import type { GameState, JobType } from '../types';
+import type { GameState, JobType, JobFailReason } from '../types';
 import { isJobStillValid } from './generator';
 import { jobWorkSite } from './assign';
 import { releaseByJob, releaseEntity, releaseJobTarget } from './reservations';
@@ -94,7 +96,7 @@ function executeJob(state: GameState, ctx: SimContext, jobId: string, colonistId
 
   const site = jobWorkSite(state, job);
   if (!site) {
-    failJob(state, ctx, jobId, colonistId, 'no work site');
+    failJob(state, ctx, jobId, colonistId, 'noWorkSite');
     return;
   }
   const move = advanceTowards(state, ctx, colonistId, site.position, site.adjacent);
@@ -126,7 +128,8 @@ function putInWork(
   const colonist = state.colonists[colonistId];
   const rate = workRate(colonist, workType, moodOf(state, colonist, refreshNetworks(ctx, state)));
   grantWorkExperience(state, colonistId, workType);
-  return rate;
+  // the tool multiplies where skill and mood already do (フェーズ8 E-2)
+  return rate * equipmentWorkMultiplier(state, colonistId, workType);
 }
 
 function applyJobEffect(
@@ -141,26 +144,27 @@ function applyJobEffect(
       const tile = state.tiles[job.targetTileId!];
       updateTile(state, tile.id, { terrain: 'grass', designation: null });
       addItem(state, 'wood', WOOD_PER_TREE, tile.x, tile.y);
+      useEquipment(state, colonistId, 'hand'); // the axe wears (E-4)
       break;
     }
     case 'mine': {
       const tile = state.tiles[job.targetTileId!];
-      // what came out depends on the face, not on the job: quarrying towards a
-      // vein is the same work as quarrying stone (11章 フェーズ2)
-      const vein = tile.terrain === 'crystal';
+      // What came out depends on the face, not on the job: quarrying towards a
+      // vein is the same work as quarrying stone (11章 フェーズ2). Which face
+      // yields what is VEIN_YIELD's business, shared with the extractor.
+      const yielded = veinYieldOf(tile.terrain);
       updateTile(state, tile.id, {
         terrain: 'grass',
         designation: null,
         walkable: true,
       });
-      if (vein) {
-        addItem(state, 'manaCrystal', CRYSTAL_PER_VEIN, tile.x, tile.y);
-        addLog(state, `A mana crystal vein was cut open at ${tile.x}, ${tile.y}`);
-      } else {
-        addItem(state, 'stone', STONE_PER_ROCK, tile.x, tile.y);
+      addItem(state, yielded.resource, yielded.quantity, tile.x, tile.y);
+      if (yielded.resource !== 'stone') {
+        addLog(state, 'veinCutOpen', { x: tile.x, y: tile.y, resource: yielded.resource });
       }
       // walkability changed: regions are stale, cached paths through it are not
       invalidateTile(ctx, state, tile.id);
+      useEquipment(state, colonistId, 'hand'); // the pickaxe wears (E-4)
       break;
     }
     case 'farm': {
@@ -204,7 +208,7 @@ function applyJobEffect(
     case 'repair': {
       const building = state.buildings[job.targetEntityId!];
       updateBuilding(state, building.id, { hpCurrent: building.hpMax });
-      addLog(state, `the ${building.type} at ${building.tileId} was repaired`);
+      addLog(state, 'buildingRepaired', { building: building.type, tile: building.tileId });
       break;
     }
     case 'deconstruct': {
@@ -232,7 +236,60 @@ function applyJobEffect(
         updateTile(state, tile.id, { walkable: true });
         invalidateTile(ctx, state, tile.id);
       }
-      addLog(state, `${building.type} at ${tile.id} was dismantled`);
+      addLog(state, 'buildingDismantled', { building: building.type, tile: tile.id });
+      break;
+    }
+    case 'research': {
+      // Guarded by isJobStillValid, so `current` is set whenever a research job
+      // is actually executing; the null check is only for a tech finishing on
+      // the very tick two colonists both bank progress into it.
+      const current = state.research.current;
+      if (!current) break;
+      const colonist = state.colonists[colonistId];
+      const rate = workRate(
+        colonist,
+        'research',
+        moodOf(state, colonist, refreshNetworks(ctx, state)),
+      );
+      const progress = (state.research.progress[current] ?? 0) + TECH_PROGRESS_PER_CYCLE * rate;
+      if (progress >= TECHS[current].cost) {
+        state.research = {
+          current: null,
+          progress: { ...state.research.progress, [current]: progress },
+          unlocked: [...state.research.unlocked, current],
+        };
+        addLog(state, 'researchUnlocked', { tech: current });
+      } else {
+        state.research = {
+          ...state.research,
+          progress: { ...state.research.progress, [current]: progress },
+        };
+      }
+      break;
+    }
+    case 'craft': {
+      // The batch was delivered into the bench; what comes out depends on what
+      // was asked: the head of the order queue (equipment, フェーズ8), or the
+      // meal batch. Either way the lines clear so the generator can open the
+      // next one.
+      const bench = state.buildings[job.targetEntityId!];
+      const tile = state.tiles[bench.tileId];
+      const order = bench.craftOrders?.[0];
+      if (order) {
+        const costTypes = new Set(EQUIPMENT[order].cost.map((need) => need.type));
+        updateBuilding(state, bench.id, {
+          requiredResources: bench.requiredResources.filter((r) => !costTypes.has(r.type)),
+          craftOrders: (bench.craftOrders ?? []).slice(1),
+        });
+        createEquipment(state, order, { x: tile.x, y: tile.y });
+        addLog(state, 'equipmentCrafted', { kind: order });
+        break;
+      }
+      updateBuilding(state, bench.id, {
+        requiredResources: bench.requiredResources.filter((r) => r.type !== 'food'),
+      });
+      addItem(state, 'food', CRAFT_MEAL_OUTPUT, tile.x, tile.y, 'meal');
+      addLog(state, 'mealsCooked', { count: CRAFT_MEAL_OUTPUT });
       break;
     }
     default:
@@ -295,10 +352,11 @@ function executeAnimalJob(
     return;
   }
 
-  const range = job.type === 'hunt' ? HUNT_RANGE : 1;
+  // the bow's whole point (フェーズ8 E-3): strike from outside the charge
+  const range = job.type === 'hunt' ? huntRangeOf(state, colonistId) : 1;
   const move = chase(state, ctx, colonistId, animal.position, range);
   if (move === 'blocked') {
-    failJob(state, ctx, jobId, colonistId, 'animal unreachable');
+    failJob(state, ctx, jobId, colonistId, 'animalUnreachable');
     return;
   }
   if (move !== 'arrived') return;
@@ -310,7 +368,8 @@ function executeAnimalJob(
   }
 
   if (job.type === 'hunt' || animal.designation === 'slaughter') {
-    killAnimal(state, animal.id, job.type === 'hunt' ? 'was hunted' : 'was slaughtered', true);
+    killAnimal(state, animal.id, { key: job.type === 'hunt' ? 'animalHunted' : 'animalSlaughtered' }, true);
+    if (job.type === 'hunt') useEquipment(state, colonistId, 'hand'); // bow/spear wear (E-4)
     completeJob(state, jobId, colonistId);
     return;
   }
@@ -327,7 +386,7 @@ function executeAnimalJob(
       activity: { kind: 'idle' },
       nextProduceTick: state.tick + profile.produceIntervalTicks,
     });
-    addLog(state, `${animal.name} the ${profile.label.toLowerCase()} was tamed`);
+    addLog(state, 'animalTamed', { name: animal.name, species: animal.species });
   } else {
     updateAnimal(state, animal.id, {
       designation: null,
@@ -337,7 +396,7 @@ function executeAnimalJob(
         untilTick: state.tick + TAME_FAIL_FLEE_TICKS,
       },
     });
-    addLog(state, `${animal.name} the ${profile.label.toLowerCase()} would not be tamed`);
+    addLog(state, 'animalTameFailed', { name: animal.name, species: animal.species });
   }
   completeJob(state, jobId, colonistId);
 }
@@ -380,7 +439,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     }
     const move = advanceTowards(state, ctx, colonistId, item.position, false);
     if (move === 'blocked') {
-      failJob(state, ctx, jobId, colonistId, 'item unreachable');
+      failJob(state, ctx, jobId, colonistId, 'itemUnreachable');
       return;
     }
     if (move !== 'arrived') return;
@@ -412,7 +471,9 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     }
 
     updateColonist(state, colonistId, {
-      carrying: { type: item.type, quantity: taken },
+      carrying: item.variant
+        ? { type: item.type, quantity: taken, variant: item.variant }
+        : { type: item.type, quantity: taken },
     });
     if (taken >= item.quantity) removeItem(state, item.id);
     else
@@ -429,7 +490,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
   const destinationId = job.destinationId;
   if (!destinationId) {
     dropCarried(state, colonistId);
-    failJob(state, ctx, jobId, colonistId, 'no destination');
+    failJob(state, ctx, jobId, colonistId, 'noDestination');
     return;
   }
 
@@ -439,7 +500,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     const move = advanceTowards(state, ctx, colonistId, { x: tile.x, y: tile.y }, !tile.walkable);
     if (move === 'blocked') {
       dropCarried(state, colonistId);
-      failJob(state, ctx, jobId, colonistId, 'blueprint unreachable');
+      failJob(state, ctx, jobId, colonistId, 'blueprintUnreachable');
       return;
     }
     if (move !== 'arrived') return;
@@ -457,7 +518,13 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
         addItem(state, paid.resource, paid.quantity, at.x, at.y);
         addLog(
           state,
-          `traded ${carrying.quantity} ${carrying.type} for ${paid.quantity} ${paid.resource}`,
+          'tradeSettled',
+          {
+            gaveQuantity: carrying.quantity,
+            gave: carrying.type,
+            tookQuantity: paid.quantity,
+            took: paid.resource,
+          },
           'incident',
         );
       } else {
@@ -475,7 +542,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
       if (carrying.type === 'manaCrystal') {
         const leftover = refuel(state, destinationBuilding.id, carrying.quantity);
         if (leftover < carrying.quantity) {
-          addLog(state, `the mana furnace at ${destinationBuilding.tileId} was stoked`);
+          addLog(state, 'furnaceStoked', { tile: destinationBuilding.tileId });
           invalidateNetworks(ctx); // a cold furnace just became a supply
         }
         updateColonist(state, colonistId, { carrying: null });
@@ -507,7 +574,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     updateColonist(state, colonistId, { carrying: null });
     if (leftover > 0) {
       const at = state.colonists[colonistId].position;
-      addItem(state, carrying.type, leftover, at.x, at.y);
+      addItem(state, carrying.type, leftover, at.x, at.y, carrying.variant);
     }
     completeJob(state, jobId, colonistId);
     return;
@@ -517,7 +584,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
   const destinationTile = state.tiles[destinationId];
   if (!destinationTile) {
     dropCarried(state, colonistId);
-    failJob(state, ctx, jobId, colonistId, 'destination gone');
+    failJob(state, ctx, jobId, colonistId, 'destinationGone');
     return;
   }
   const move = advanceTowards(
@@ -529,7 +596,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
   );
   if (move === 'blocked') {
     dropCarried(state, colonistId);
-    failJob(state, ctx, jobId, colonistId, 'storage unreachable');
+    failJob(state, ctx, jobId, colonistId, 'storageUnreachable');
     return;
   }
   if (move !== 'arrived') return;
@@ -562,7 +629,7 @@ export function failJob(
   ctx: SimContext,
   jobId: string,
   colonistId: string,
-  reason: string,
+  reason: JobFailReason,
 ): void {
   void ctx;
   const job = state.jobs[jobId];
@@ -577,7 +644,7 @@ export function failJob(
       retryCount,
       cooldownUntilTick: state.tick + FAILED_JOB_RETENTION_TICKS,
     });
-    addLog(state, `job ${jobId} (${job.type}) failed: ${reason}`);
+    addLog(state, 'jobFailed', { job: jobId, jobType: job.type, reason });
   } else {
     updateJob(state, jobId, {
       state: 'pending',

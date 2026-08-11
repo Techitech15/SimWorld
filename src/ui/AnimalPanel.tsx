@@ -1,8 +1,9 @@
 import { useShallow } from 'zustand/react/shallow';
-import { ANIMAL_SPECIES, SPECIES } from '../core/constants';
+import { ANIMAL_SPECIES } from '../core/constants';
 import { herdSize, nearestOfSpecies, pastureCapacity } from '../core/animals';
 import type { AnimalSpecies } from '../core/types';
 import { useGameStore } from '../store/gameStore';
+import { useStrings } from './language';
 
 /**
  * The herd at a glance: what is out there, what is yours, and whether the
@@ -14,6 +15,7 @@ import { useGameStore } from '../store/gameStore';
  * without end.
  */
 export function AnimalPanel(): React.JSX.Element | null {
+  const strings = useStrings();
   const counts = useGameStore(
     useShallow((s) => {
       const flat: Record<string, number> = {};
@@ -58,7 +60,7 @@ export function AnimalPanel(): React.JSX.Element | null {
     const centre = Object.values(state.colonists)[0]?.position ?? { x: 30, y: 30 };
     const animal = nearestOfSpecies(state, name, centre);
     if (!animal) {
-      setStatus(`No ${SPECIES[name].plural.toLowerCase()} left on the map.`);
+      setStatus({ key: 'speciesNone', params: { species: name } });
       return;
     }
     focusOnTile({ ...animal.position });
@@ -69,9 +71,10 @@ export function AnimalPanel(): React.JSX.Element | null {
     // measured, three of five species landed on the animal and two on an empty
     // tile it had already left. The camera is in the right place either way, so
     // saying which creature to look for is what closes the gap.
-    setStatus(
-      `${animal.name} the ${SPECIES[name].label.toLowerCase()} — ${animal.position.x}, ${animal.position.y}`,
-    );
+    setStatus({
+      key: 'speciesFound',
+      params: { name: animal.name, species: name, x: animal.position.x, y: animal.position.y },
+    });
   };
 
   const species = ANIMAL_SPECIES.filter(
@@ -85,9 +88,9 @@ export function AnimalPanel(): React.JSX.Element | null {
         <thead>
           <tr>
             <th />
-            <th title="wild">Wild</th>
-            <th title="tamed">Tame</th>
-            <th title="marked for hunting, taming or slaughter">Marked</th>
+            <th title={strings.colWildTitle}>{strings.colWild}</th>
+            <th title={strings.colTameTitle}>{strings.colTame}</th>
+            <th title={strings.colMarkedTitle}>{strings.colMarked}</th>
           </tr>
         </thead>
         <tbody>
@@ -97,10 +100,10 @@ export function AnimalPanel(): React.JSX.Element | null {
                 <button
                   type="button"
                   className="animals__find"
-                  title={`show me a ${SPECIES[name].label.toLowerCase()}`}
+                  title={strings.findTitle(name)}
                   onClick={() => findOne(name)}
                 >
-                  {SPECIES[name].label}
+                  {strings.speciesLabels[name]}
                 </button>
               </th>
               <td>{counts[`${name}.wild`] ?? 0}</td>
@@ -115,13 +118,13 @@ export function AnimalPanel(): React.JSX.Element | null {
           const [herd, capacity, tiles] = pen.split('/').map(Number);
           return (
             <p className="muted small" key={`${pen}-${index}`}>
-              Pasture {index + 1}: {herd}/{capacity} animals on {tiles} tiles
-              {herd >= capacity ? ' — full, no new births' : ''}
+              {strings.pastureLine(index + 1, herd, capacity, tiles)}
+              {herd >= capacity ? strings.pastureFullSuffix : ''}
             </p>
           );
         })
       ) : (
-        <p className="muted small">No pasture yet: tamed animals need one to settle and breed.</p>
+        <p className="muted small">{strings.noPasture}</p>
       )}
     </>
   );

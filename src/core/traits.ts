@@ -40,96 +40,69 @@ export interface TraitEffects {
 export type TraitEffect = keyof TraitEffects;
 
 export interface Trait {
-  label: string;
-  /** shown on hover, so the player can see what they have been dealt */
-  description: string;
   /** traits in the same family are mutually exclusive: nobody is both */
   family: string;
   effects: TraitEffects;
 }
 
+// What a trait is called, and what it does in the player's terms, lives in the
+// UI dictionary (src/ui/strings.ts) with every other label - phase 9 absorbed
+// the label tables so each string exists once per language.
+
 export const TRAITS: Record<TraitName, Trait> = {
   quickLearner: {
-    label: 'Quick learner',
-    description: 'Picks up a trade half again as fast as anyone else.',
     family: 'learning',
     effects: { experience: 1.6 },
   },
   slowLearner: {
-    label: 'Slow learner',
-    description: 'Gets there in the end, but takes twice as long about it.',
     family: 'learning',
     effects: { experience: 0.5 },
   },
   industrious: {
-    label: 'Industrious',
-    description: 'Works a little faster at everything, skilled or not.',
     family: 'pace',
     effects: { work: 1.15 },
   },
   unhurried: {
-    label: 'Unhurried',
-    description: 'Never rushes. The work still gets done.',
     family: 'pace',
     effects: { work: 0.85 },
   },
   bigEater: {
-    label: 'Big eater',
-    description: 'Hungry a third sooner than everyone else.',
     family: 'appetite',
     effects: { hunger: 1.3 },
   },
   frugal: {
-    label: 'Frugal',
-    description: 'Makes a meal last. Worth a farm plot in a hard winter.',
     family: 'appetite',
     effects: { hunger: 0.75 },
   },
   heavySleeper: {
-    label: 'Heavy sleeper',
-    description: 'Wakes rested in less time than a bed has any right to give.',
     family: 'sleep',
     effects: { rest: 1.35 },
   },
   restless: {
-    label: 'Restless',
-    description: 'Tires quickly and sleeps badly.',
     family: 'sleep',
     effects: { sleep: 1.25, rest: 0.85 },
   },
   tough: {
-    label: 'Tough',
-    description: 'Mends from a mauling in half the time.',
     family: 'constitution',
     effects: { healing: 1.9 },
   },
   frail: {
-    label: 'Frail',
-    description: 'Slow to heal. Keep this one away from the wolves.',
     family: 'constitution',
     effects: { healing: 0.5 },
   },
   cheerful: {
-    label: 'Cheerful',
-    description: 'Makes the best of it. Hard to push into a break.',
     family: 'temperament',
     effects: { mood: 1.25 },
   },
   gloomy: {
-    label: 'Gloomy',
-    description: 'Feels every hardship twice. Give this one a bed early.',
     family: 'temperament',
     effects: { mood: 0.8 },
   },
   sociable: {
-    label: 'Sociable',
-    description: 'Makes friends of the people they work beside, and quickly.',
     family: 'company',
     effects: { social: 1.8 },
   },
   private: {
-    label: 'Private',
-    description: 'Keeps to themselves. Takes a long winter to warm to anyone.',
     family: 'company',
     effects: { social: 0.4 },
   },
@@ -152,10 +125,6 @@ export function traitMultiplier(
     if (value !== undefined) total *= value;
   }
   return total;
-}
-
-export function traitLabels(colonist: Pick<Colonist, 'traits'>): string[] {
-  return (colonist.traits ?? []).map((name) => TRAITS[name]?.label ?? name);
 }
 
 /**

@@ -53,7 +53,7 @@ describe('dismantling a finished building', () => {
     expect(tile.designation).toBeNull();
     const cost = BUILDING_COSTS.wall.find((c) => c.type === 'wood')!.quantity;
     expect(woodOnTile(harness.state, tileId)).toBe(Math.floor(cost * DECONSTRUCT_REFUND));
-    expect(harness.state.log.some((entry) => entry.message.includes('dismantled'))).toBe(true);
+    expect(harness.state.log.some((entry) => entry.key === 'buildingDismantled')).toBe(true);
     // paths run through it again rather than round it
     harness.run(200);
     expect(harness.state.tiles[tileId].walkable).toBe(true);

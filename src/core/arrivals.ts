@@ -13,10 +13,20 @@ import {
   ARRIVAL_MAX_COLONISTS,
 } from './constants';
 import { isWalkable } from './pathfinding';
+import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import { addLog, tileIdOf } from './state';
+import { tribalInfluence } from './tribes';
 import type { GameState, Vector2 } from './types';
 import { addColonist } from './worldgen';
+
+/**
+ * How often a newcomer who says so mentions Waldkin country (11章 段階C,
+ * design-phase11-worldmap.md 4.1章: "移住者の多くは森歩きの出"). Independent
+ * of the Waldkin-proximity interval lever below - this is flavour on the
+ * arrival that already happened, not another effect of distance.
+ */
+const WALDKIN_ORIGIN_CHANCE = 0.4;
 
 function colonyCentre(state: GameState): Vector2 | null {
   let sumX = 0;
@@ -52,7 +62,10 @@ function arrivalSpot(state: GameState, camp: Vector2): Vector2 | null {
 }
 
 export function runArrivals(state: GameState): void {
-  if (state.tick === 0 || state.tick % ARRIVAL_INTERVAL_TICKS !== 0) return;
+  // Waldkin proximity shortens the interval (11章 段階C, design-phase11-worldmap.md
+  // 7章: 3日 → 2日); everywhere else this is exactly ARRIVAL_INTERVAL_TICKS.
+  const interval = Math.round(ARRIVAL_INTERVAL_TICKS * tribalInfluence(state).waldkin.migrantIntervalMultiplier);
+  if (state.tick === 0 || state.tick % interval !== 0) return;
 
   const population = Object.keys(state.colonists).length;
   if (population === 0 || population >= ARRIVAL_MAX_COLONISTS) return;
@@ -74,5 +87,12 @@ export function runArrivals(state: GameState): void {
   if (!spot) return;
 
   const arrival = addColonist(state, spot);
-  addLog(state, `${arrival.name} arrived, drawn by the colony's stores`);
+  // seeded from the tick like every other roll here, so a reload gives the
+  // same newcomer the same origin line
+  const flavorRnd = mulberry32(state.worldSeed * 59 + state.tick + 260001);
+  const mentionsWaldkin = flavorRnd() < WALDKIN_ORIGIN_CHANCE;
+  addLog(state, 'colonistArrived', {
+    name: arrival.name,
+    ...(mentionsWaldkin ? { tribe: 'waldkin' } : {}),
+  });
 }

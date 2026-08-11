@@ -74,7 +74,9 @@ describe('storage filters', () => {
     const stone = Object.values(harness.state.items).filter((i) => i.type === 'stone');
     expect(stone.length).toBe(1);
     // and the colony did not spend the whole time failing at it over and over
-    const failures = harness.state.log.filter((e) => e.message.includes('(haul) failed'));
+    const failures = harness.state.log.filter(
+      (e) => e.key === 'jobFailed' && e.params?.jobType === 'haul',
+    );
     expect(failures.length).toBeLessThan(3);
   });
 

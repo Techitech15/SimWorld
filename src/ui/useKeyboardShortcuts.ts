@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import type { Tool } from '../store/gameStore';
 import { useGameStore } from '../store/gameStore';
+import { BUILD_MENU, useBuildCategoryStore } from './buildMenu';
+import type { BuildMenuEntry } from './buildMenu';
 
 /**
  * Keyboard shortcuts for the things a player does constantly.
@@ -15,18 +17,22 @@ const TOOL_KEYS: Record<string, Tool> = {
   m: { kind: 'designate', designation: 'mine' },
   x: { kind: 'designate', designation: 'deconstruct' },
   q: { kind: 'clearDesignation' },
-  b: { kind: 'build', building: 'wall' },
-  f: { kind: 'build', building: 'floor' },
-  r: { kind: 'build', building: 'door' },
-  n: { kind: 'build', building: 'bed' },
-  v: { kind: 'build', building: 'farmPlot' },
-  z: { kind: 'storage' },
-  p: { kind: 'pasture' },
   e: { kind: 'cancel' },
   h: { kind: 'animal', designation: 'hunt' },
   t: { kind: 'animal', designation: 'tame' },
   k: { kind: 'animal', designation: 'slaughter' },
 };
+
+/**
+ * Build and zone keys come off the menu table (buildMenu.ts), so a menu row
+ * carries its own shortcut instead of being listed a second time here.
+ */
+const MENU_KEYS: Record<string, BuildMenuEntry> = Object.fromEntries(
+  BUILD_MENU.filter((entry) => entry.shortcut !== undefined).map((entry) => [
+    entry.shortcut!,
+    entry,
+  ]),
+);
 
 export function useKeyboardShortcuts(): void {
   useEffect(() => {
@@ -46,6 +52,14 @@ export function useKeyboardShortcuts(): void {
       }
       if (event.key === '1' || event.key === '2' || event.key === '3' || event.key === '4') {
         store.setSpeed(({ '1': 0, '2': 1, '3': 3, '4': 10 } as const)[event.key]);
+        return;
+      }
+
+      const entry = MENU_KEYS[event.key];
+      if (entry) {
+        // open the entry's category too, so the armed tool is the one on screen
+        useBuildCategoryStore.getState().setCategory(entry.category);
+        store.setTool(entry.tool);
         return;
       }
 

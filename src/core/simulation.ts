@@ -24,7 +24,6 @@ import { invalidateTile, rebuildRegions } from './derived';
 import {
   CROP_GROWTH_BY_SEASON,
   FROSTBLOOM_GROWTH_BY_SEASON,
-  SEASON_LABEL,
   isSeasonBoundary,
   seasonOf,
 } from './season';
@@ -33,6 +32,7 @@ import { runAssignment } from './jobs/assign';
 import { runExecution } from './jobs/execute';
 import { runJobGenerator } from './jobs/generator';
 import { advanceTowards } from './movement';
+import { runEquipment } from './equipment';
 import { runNeeds } from './needs';
 import { addLog, beginTick, updateBuilding, updateColonist } from './state';
 import type { GameState } from './types';
@@ -44,7 +44,7 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   if (ctx.regionsDirty) rebuildRegions(ctx, next);
 
   if (isSeasonBoundary(next.tick)) {
-    addLog(next, `${SEASON_LABEL[seasonOf(next.tick)]} has arrived`);
+    addLog(next, 'seasonArrived', { season: seasonOf(next.tick) });
   }
   growCrops(next);
   regrowForest(next);
@@ -77,6 +77,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   runJobGenerator(next);
   runAssignment(next, ctx);
   runExecution(next, ctx);
+  // gear is claimed by whoever is *still* idle once work is handed out, so a
+  // colonist never walks for a bow in the tick they were given a job (フェーズ8)
+  runEquipment(next, ctx);
   cleanupJobs(next);
 
   return next;

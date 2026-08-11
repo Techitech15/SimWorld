@@ -34,6 +34,7 @@ import { isPowered } from './mana';
 import type { ManaNetworks } from './mana';
 import { mulberry32 } from './rng';
 import { addLog, nextId, tileIdOf } from './state';
+import { tribalInfluence } from './tribes';
 import type {
   GameState,
   ResourceType,
@@ -246,10 +247,13 @@ export function runTrade(state: GameState, networks: ManaNetworks): void {
     if (state.tick < trader.departsAtTick) continue;
     const { [id]: _gone, ...rest } = state.traders;
     state.traders = rest;
-    addLog(state, `${trader.name} packs up and leaves`, 'incident');
+    addLog(state, 'traderLeft', { name: trader.name }, 'incident');
   }
 
-  if (state.tick === 0 || state.tick % TRADE_INTERVAL_TICKS !== 0) return;
+  // Lanternfolk proximity shortens the interval (11章 段階C, design-phase11-worldmap.md
+  // 7章: 5日 → 3日); everywhere else this is exactly TRADE_INTERVAL_TICKS.
+  const interval = Math.round(TRADE_INTERVAL_TICKS * tribalInfluence(state).lanternfolk.traderIntervalMultiplier);
+  if (state.tick === 0 || state.tick % interval !== 0) return;
   if (traderCount(state) > 0) return;
 
   const postId = findTradingPost(state);
@@ -279,11 +283,8 @@ export function runTrade(state: GameState, networks: ManaNetworks): void {
     deal: null,
   };
   state.traders = { ...state.traders, [id]: trader };
-  addLog(
-    state,
-    kind === 'crystalFactor'
-      ? `${trader.name}, a crystal factor, has set up at the post`
-      : `${trader.name} the pedlar has set up at the post`,
-    'incident',
-  );
+  // Every trader is Lanternfolk stock (11章 段階C, design-phase11-worldmap.md
+  // 4.1章), whether or not this world is near their territory - proximity
+  // only bends how often they visit, not who they are.
+  addLog(state, 'traderArrived', { name: trader.name, kind, tribe: 'lanternfolk' }, 'incident');
 }

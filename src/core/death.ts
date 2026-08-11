@@ -10,11 +10,18 @@
 // the job layer need it, and routing it through either one would make the two
 // import each other.
 import { STACK_MAX } from './constants';
+import { dropEquipmentOf } from './equipment';
 import { recordDeath } from './relationships';
 import { addLog, removeColonist, updateColonist, updateJob } from './state';
 import { releaseByColonist, releaseJobTarget } from './jobs/reservations';
 import { addItem } from './worldgen';
-import type { ColonistId, GameState } from './types';
+import type { ColonistId, GameState, LogKey, LogParams } from './types';
+
+/** How they died, as a log key; the sentence is derived per language. */
+export interface DeathCause {
+  key: LogKey;
+  params?: LogParams;
+}
 
 /** Put a carried stack on the ground: resources are never destroyed. */
 export function depositCarried(
@@ -25,22 +32,24 @@ export function depositCarried(
 ): void {
   const colonist = state.colonists[colonistId];
   if (!colonist?.carrying) return;
-  const { type, quantity } = colonist.carrying;
+  const { type, quantity, variant } = colonist.carrying;
   updateColonist(state, colonistId, { carrying: null });
   let remaining = quantity;
   while (remaining > 0) {
     const chunk = Math.min(remaining, STACK_MAX);
-    addItem(state, type, chunk, x, y);
+    addItem(state, type, chunk, x, y, variant);
     remaining -= chunk;
   }
 }
 
-export function killColonist(state: GameState, colonistId: ColonistId, reason: string): void {
+export function killColonist(state: GameState, colonistId: ColonistId, cause: DeathCause): void {
   const colonist = state.colonists[colonistId];
   if (!colonist) return;
 
   // whatever they were carrying falls where they stood
   depositCarried(state, colonistId, colonist.position.x, colonist.position.y);
+  // and so does whatever they wore (フェーズ8 E-1: no gear rides into the grave)
+  dropEquipmentOf(state, colonistId, colonist.position);
 
   if (colonist.currentJobId) {
     const job = state.jobs[colonist.currentJobId];
@@ -55,8 +64,8 @@ export function killColonist(state: GameState, colonistId: ColonistId, reason: s
 
   recordDeath(state, colonist);
   removeColonist(state, colonistId);
-  addLog(state, `${colonist.name} ${reason}`);
+  addLog(state, cause.key, { ...cause.params, name: colonist.name });
   if (Object.keys(state.colonists).length === 0) {
-    addLog(state, 'The colony has died out.');
+    addLog(state, 'colonyDiedOut');
   }
 }

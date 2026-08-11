@@ -6,6 +6,8 @@ import type {
   JobType,
   RequiredResource,
   ResourceType,
+  TechName,
+  TerrainType,
 } from './types';
 
 /**
@@ -18,6 +20,22 @@ import type {
  * seventy-odd call sites had to be looked at rather than silently keeping a
  * module constant that had stopped being true.
  */
+/**
+ * The map sizes the player can pick at generation (design-phase6-space.md 3.5,
+ * A-4). The design table proposed a third size, Wilds 180x180, on a linear
+ * extrapolation of ~6 ms/tick; measured (seed 4242, 600 ticks after warm-up)
+ * it costs 27.9 ms/tick against 5.96 at 120 and 0.96 at 60 - 10x speed cannot
+ * hold that, so Wilds is not shipped and the measurement is the reason
+ * (design-notes.md).
+ */
+export const MAP_SIZE_NAMES = ['vale', 'frontier'] as const;
+export type MapSizeName = (typeof MAP_SIZE_NAMES)[number];
+export const MAP_SIZES: Record<MapSizeName, number> = {
+  vale: 60, // the original board: every pre-phase-6 measurement lives here
+  frontier: 120, // the shipped default
+};
+export const DEFAULT_MAP_SIZE: MapSizeName = 'frontier';
+
 export const DEFAULT_MAP_WIDTH = 120;
 export const DEFAULT_MAP_HEIGHT = 120;
 export const TILE_SIZE = 32;
@@ -32,7 +50,13 @@ export const TICKS_PER_STEP = 2;
 
 // --- needs (section 5): linear decay, threshold triggers behaviour -----------
 export const HUNGER_PER_TICK = 100 / 2400; // full bar in 0.8 day
-export const SLEEP_PER_TICK = 100 / 2000; // full bar in ~16 in-game hours
+// Full bar in ~19 waking hours. Was 2000 (16 hours) until phase 7 anchored
+// waking to dawn: with a 15.6-hour ceiling on wakefulness (the day threshold,
+// 97.5, over this rate) a 16-hour bar forced ~8.4 bed-hours a day, a quarter
+// more than the pre-phase economy was balanced for - and the year-long runs
+// starved (design-notes.md「時間と動き」). 2400 puts the natural day at
+// ~15.7h awake + ~8.3h in bed, which is a 24-hour circadian budget.
+export const SLEEP_PER_TICK = 100 / 2400;
 export const SLEEP_RECOVERY_PER_TICK = 100 / 900; // rested again in ~7 hours
 /**
  * Sleeping on the ground. Beds cost 12 wood and recovered sleep at exactly the
@@ -89,6 +113,9 @@ export const TRADE_BASE_VALUE: Record<ResourceType, number> = {
   stone: 1,
   food: 2,
   manaCrystal: 12,
+  // between the commodities and the crystal: rarer than stone, but a vein of
+  // it holds more than a crystal vein does (design-phase10-ores.md 7.1)
+  iron: 3,
 };
 export const TRADE_BUY_RATE = 0.7;
 export const TRADE_SELL_RATE = 1.4;
@@ -127,6 +154,10 @@ export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   handle: 2,
   haul: 3,
   repair: 1, // a hole in the fence is not something to get round to
+  // a colonist can only ever be sent here on purpose (2.2), so ties never
+  // matter; grouped with haul so it never jumps the queue by accident
+  research: 3,
+  craft: 3, // same reasoning as research: cooking is deliberate work
 };
 
 /** Work ticks required once the colonist stands in place. */
@@ -140,6 +171,8 @@ export const WORK_TICKS: Record<JobType, number> = {
   handle: 45,
   deconstruct: 30, // faster to tear down than to put up
   repair: 30,
+  research: 50, // heavier than farm(25), lighter than mine(60)
+  craft: 50, // one batch of meals is a research cycle's worth of standing work
 };
 
 /**
@@ -158,6 +191,38 @@ export const STONE_PER_ROCK = 20;
  * arranged around (11章).
  */
 export const CRYSTAL_PER_VEIN = 6;
+/**
+ * An iron vein: less than a rock face gives stone, slightly more than a crystal
+ * vein gives crystal. Iron is the ore you meet on the way in, not the prize at
+ * the back of the seam (design-phase10-ores.md 7.1).
+ */
+export const IRON_PER_VEIN = 8;
+
+export interface VeinYield {
+  resource: ResourceType;
+  quantity: number;
+}
+
+/**
+ * What cutting a rock face yields, per terrain (design-phase10-ores.md 2.1).
+ *
+ * The mine job (jobs/execute.ts) and the extractor (mana.ts) used to carry the
+ * same two-way if - crystal or stone - once each. A third ore would have made
+ * that four branches in two files, so the branch became this table: adding an
+ * ore is now one row here, one check in worldgen and one member on TerrainType.
+ * Plain rock is deliberately the fallback rather than a row, so a terrain the
+ * table has never heard of still yields stone instead of nothing.
+ */
+export const VEIN_YIELD: Partial<Record<TerrainType, VeinYield>> = {
+  crystal: { resource: 'manaCrystal', quantity: CRYSTAL_PER_VEIN },
+  ironVein: { resource: 'iron', quantity: IRON_PER_VEIN },
+};
+
+/** The single place that answers "what falls out of this rock face". */
+export function veinYieldOf(terrain: TerrainType): VeinYield {
+  return VEIN_YIELD[terrain] ?? { resource: 'stone', quantity: STONE_PER_ROCK };
+}
+
 export const FOOD_PER_HARVEST = 16;
 /**
  * Wild berries. A bush ripens on its own with no sowing and yields less than a
@@ -181,15 +246,7 @@ export const FOREST_REGROW_INTERVAL_TICKS = TICKS_PER_DAY;
 /** Farm plot goes from sown to harvestable in about two thirds of a day. */
 export const CROP_GROWTH_PER_TICK = 1 / 2000;
 
-export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal'];
-
-/** What each resource is called in the UI, so no panel prints a camelCase key. */
-export const RESOURCE_LABELS: Record<ResourceType, string> = {
-  wood: 'wood',
-  stone: 'stone',
-  food: 'food',
-  manaCrystal: 'mana crystal',
-};
+export const RESOURCE_TYPES: ResourceType[] = ['wood', 'stone', 'food', 'manaCrystal', 'iron'];
 
 // --- buildings --------------------------------------------------------------
 export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
@@ -239,6 +296,31 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'wood', quantity: 20 },
     { type: 'stone', quantity: 10 },
   ],
+  // Furniture (design-phase10-ores.md 7.2). The table and dresser are what the
+  // iron is *for*: the first build costs that ask for the second ore. The
+  // statue is the same thing for stone, which mining piles up faster than
+  // walls spend it.
+  table: [
+    { type: 'wood', quantity: 10 },
+    { type: 'iron', quantity: 2 },
+  ],
+  stool: [{ type: 'wood', quantity: 6 }],
+  dresser: [
+    { type: 'wood', quantity: 15 },
+    { type: 'iron', quantity: 4 },
+  ],
+  armchair: [{ type: 'wood', quantity: 12 }],
+  statue: [{ type: 'stone', quantity: 15 }],
+  // Research (11章 フェーズ12, design-phase12-research.md 6章). Heavier than a
+  // bed (wood 12), lighter than a furnace (stone 25 + wood 10): a real
+  // decision, not a formality.
+  researchDesk: [
+    { type: 'wood', quantity: 20 },
+    { type: 'stone', quantity: 5 },
+  ],
+  // The workbench (design-next 提案3): between a bed (12) and a desk (20) -
+  // early enough to cook the first winter's stores, not free.
+  workbench: [{ type: 'wood', quantity: 15 }],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -259,6 +341,13 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   hearth: 90,
   manaTurret: 150,
   tradingPost: 100,
+  table: 60,
+  stool: 40,
+  dresser: 80,
+  statue: 120, // solid stone: it outlasts the wooden wall it decorates
+  armchair: 60,
+  researchDesk: 90,
+  workbench: 90,
 };
 
 /** Structures that block movement once finished. */
@@ -288,7 +377,99 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   manaTurret: true,
   // a post is a counter you walk up to
   tradingPost: false,
+  // Furniture: what you sit on stays walkable (like the bed and the hearth);
+  // what you stand things on or in blocks the tile (like the furnace).
+  table: true,
+  stool: false,
+  dresser: true,
+  armchair: false,
+  statue: true,
+  // a desk you stand at, like the table it is built the same way as
+  researchDesk: true,
+  workbench: true, // a bench you work at, not walk through
 };
+
+// --- furniture effects (design-phase10-ores.md 4.2 / 7.2) --------------------
+// Per-*type* constants, like MANA_DRAW: a radius or a multiplier is a property
+// of what a table is, not of this table, and a number that is saved on the
+// building is a number that can disagree with the rule that made it.
+//
+// Every radius here is Chebyshev (a square of tiles, the "room around it" a
+// player reads straight off the grid) - the stool's adjacency is the same
+// metric at distance 1, so one helper serves all of it.
+
+/** Eating within this square of a finished table earns the thought. */
+export const TABLE_RADIUS = 2;
+export const TABLE_THOUGHT_BONUS = 3;
+/** ...and a finished stool adjacent (Chebyshev 1) to that table upgrades it. */
+export const TABLE_WITH_STOOL_THOUGHT_BONUS = 4;
+/**
+ * Sleep recovery in a bed within this square of a finished dresser. Multiplies
+ * with traits but deliberately stays under heavySleeper's 1.35: furniture is
+ * weaker than who somebody is (design-phase10-ores.md 7.2). One dresser at
+ * most - two wardrobes do not make the bed twice as good.
+ */
+export const DRESSER_RADIUS = 2;
+export const DRESSER_REST_MULTIPLIER = 1.15;
+/** Relaxing in an armchair, against the hearth's 1.0 baseline. */
+export const ARMCHAIR_RECREATION_MULTIPLIER = 1.3;
+/** A finished statue is worth a thought to anyone within its square. */
+export const STATUE_RADIUS = 4;
+export const STATUE_THOUGHT_BONUS = 3;
+
+// --- research (11章 フェーズ12, design-phase12-research.md 3.2 / 5章 / 6章) ---
+//
+// A tech's profile - what it needs, what it unlocks - is a property of the
+// kind of tech, not of one colony's run at it, so it lives here beside
+// BUILDING_COSTS rather than on GameState (the same reasoning as SPECIES).
+
+export interface TechProfile {
+  prerequisites: TechName[];
+  /** progress points to complete, at TECH_PROGRESS_PER_CYCLE per work cycle */
+  cost: number;
+  /**
+   * Delivered to the desk before progress starts accumulating (crystallography
+   * only, for now) - the same shape as a blueprint's `requiredResources`, and
+   * carried on the desk building itself rather than duplicated here.
+   */
+  resourceCost?: RequiredResource[];
+  /** what building the world grandfathers as free until this tech clears it */
+  unlocks: BuildingType[];
+}
+
+/** Iteration order for the research panel: the tree's own reading order. */
+export const TECH_NAMES: TechName[] = [
+  'woodcraft',
+  'stonecarving',
+  'ironwork',
+  'crystallography',
+];
+
+/**
+ * The design document's starting costs (300 / 300 / 600 / 500) measured at
+ * roughly a third of a day for woodcraft with one dedicated, uninterrupted
+ * researcher - not the "about a day" the document estimated (docs/design-notes.md,
+ * 「研究と職業（フェーズ12）」). All four are scaled up 2.5x from that
+ * measurement, which lands woodcraft within a few percent of a day; the
+ * scaling keeps every tech's cost relative to the others exactly as designed.
+ */
+export const TECHS: Record<TechName, TechProfile> = {
+  woodcraft: { prerequisites: [], cost: 750, unlocks: ['armchair'] },
+  stonecarving: { prerequisites: [], cost: 750, unlocks: ['statue'] },
+  ironwork: { prerequisites: ['woodcraft'], cost: 1500, unlocks: ['dresser'] },
+  // "unlocks nothing yet" is deliberate (design-phase12-research.md 3.2): this
+  // tech exists to prove the resource-cost mechanism on its own, one time,
+  // before a later phase brings the mana-side building that spends it.
+  crystallography: {
+    prerequisites: [],
+    cost: 1250,
+    resourceCost: [{ type: 'manaCrystal', quantity: 4 }],
+    unlocks: [],
+  },
+};
+
+/** Points banked per completed WORK_TICKS.research cycle, before skill/mood. */
+export const TECH_PROGRESS_PER_CYCLE = 10;
 
 export const COLONIST_COLORS = [
   0x8ecae6, 0xffb703, 0xb5e48c, 0xe0a3c8, 0x9d8df1, 0xf28f6b, 0x6bd6c4, 0xd6cf6b,
@@ -338,9 +519,8 @@ export const ANIMAL_SPECIES: AnimalSpecies[] = [
 ];
 
 export interface SpeciesProfile {
-  label: string;
-  /** English is not regular: deer stay deer and a wolf becomes wolves. */
-  plural: string;
+  // what a species is called (singular and plural, per language) lives in the
+  // UI dictionary (src/ui/strings.ts); the profile is numbers only
   /**
    * `lithovore` eats the map itself (11章 フェーズ5). It is a diet rather than a
    * flag because every place that asks "what does this animal eat" already
@@ -370,8 +550,6 @@ export interface SpeciesProfile {
 
 export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
   deer: {
-    label: 'Deer',
-    plural: 'Deer',
     diet: 'herbivore',
     ticksPerStep: 3,
     maxHealth: 60,
@@ -384,8 +562,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 6,
   },
   boar: {
-    label: 'Boar',
-    plural: 'Boars',
     diet: 'omnivore',
     ticksPerStep: 3,
     maxHealth: 80,
@@ -398,8 +574,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 4,
   },
   rabbit: {
-    label: 'Rabbit',
-    plural: 'Rabbits',
     diet: 'herbivore',
     ticksPerStep: 2, // as quick as a wolf: catching one is a real chase
     maxHealth: 20,
@@ -412,8 +586,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 10,
   },
   chicken: {
-    label: 'Chicken',
-    plural: 'Chickens',
     diet: 'herbivore',
     ticksPerStep: 4,
     maxHealth: 25,
@@ -438,8 +610,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
    * hunting one and keeping the other stays a choice.
    */
   goat: {
-    label: 'Goat',
-    plural: 'Goats',
     diet: 'herbivore',
     ticksPerStep: 3,
     maxHealth: 45,
@@ -452,8 +622,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
     initialCount: 5,
   },
   wolf: {
-    label: 'Wolf',
-    plural: 'Wolves',
     diet: 'carnivore',
     ticksPerStep: 2, // as fast as a colonist: fleeing buys time, not safety
     maxHealth: 70,
@@ -477,8 +645,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
    * a mined-out map from being a dead one.
    */
   crystalElk: {
-    label: 'Crystal elk',
-    plural: 'Crystal elk',
     diet: 'herbivore',
     ticksPerStep: 3,
     maxHealth: 40,
@@ -497,8 +663,6 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
    * take: leave it alone, or hunt it because it is chewing towards a wall.
    */
   rockeater: {
-    label: 'Rockeater',
-    plural: 'Rockeaters',
     diet: 'lithovore',
     ticksPerStep: 4, // the slowest thing on the map
     maxHealth: 90, // and the toughest short of a raid
@@ -519,7 +683,13 @@ export const SPECIES: Record<AnimalSpecies, SpeciesProfile> = {
  * It yields less than a berry bush on purpose - the point is that the season
  * has work in it, not that winter becomes the good season.
  */
-export const FOOD_PER_FROSTBLOOM_HARVEST = 7;
+// 8 since phase 7: the slower winter walks (forest pace) and the dawn-anchored
+// nights squeezed the season's labour, and the winter crop is the number that
+// answers for the winter budget - measured, 7 left a stocked colony eating
+// into its stores over the frostbloom season (design-notes.md「時間と動き」).
+// Still strictly under the berry bush (9), so winter never becomes the good
+// season.
+export const FOOD_PER_FROSTBLOOM_HARVEST = 8;
 /** Ripe in a day and a half, so a five-day winter gives about three harvests. */
 export const FROSTBLOOM_REGROW_PER_TICK = 1 / 4500;
 export const FROSTBLOOM_COUNT = 14;
@@ -631,3 +801,20 @@ export const PASTURE_TILES_PER_ANIMAL = 4;
 /** A* budget for animals per tick, so the herd cannot starve the colonists' pathfinding. */
 export const ANIMAL_PATH_BUDGET_PER_TICK = 3;
 export const ANIMAL_PATH_TTL_TICKS = 60;
+
+// --- the workbench and cooking (design-next 提案3) ---------------------------
+/** Raw food one cooking batch consumes. */
+export const CRAFT_MEAL_INPUT = 10;
+/** Meals one batch produces: cooking upgrades food, it does not multiply it. */
+export const CRAFT_MEAL_OUTPUT = 10;
+/**
+ * Raw food the colony keeps out of the pot. A batch is only started while raw
+ * stock exceeds input + reserve, so cooking can never carry the last meals off
+ * to the bench while somebody is starving.
+ */
+export const CRAFT_FOOD_RESERVE = 10;
+/** A cooked meal restores this much hunger (raw: HUNGER_RESTORED_PER_MEAL). */
+export const MEAL_HUNGER_RESTORED = 95;
+/** Mood for having eaten a cooked meal, and how long the glow lasts. */
+export const MEAL_THOUGHT_BONUS = 6;
+export const MEAL_THOUGHT_TICKS = 1500; // half a day

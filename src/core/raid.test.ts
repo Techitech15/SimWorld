@@ -99,7 +99,7 @@ describe('a raid arrives', () => {
     expect(Object.keys(harness.state.raiders).length).toBe(0);
 
     harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY + 1);
-    expect(raid.apply(harness.state, mulberry32(1))).toContain('raider');
+    expect(raid.apply(harness.state, mulberry32(1))?.key).toBe('incidentRaid');
     expect(Object.keys(harness.state.raiders).length).toBeGreaterThan(0);
   });
 
@@ -159,8 +159,8 @@ describe('somebody has to stand', () => {
     const { harness, raiderId } = duel(7019, { defender: true });
     const lines = recordLog(harness, COLONIST_ATTACK_INTERVAL_TICKS * 20);
     expect(harness.state.raiders[raiderId]).toBeUndefined();
-    expect(lines.some((l) => l.includes('was cut down by'))).toBe(true);
-    expect(lines.some((l) => l.includes('the raid is over'))).toBe(true);
+    expect(lines).toContain('raiderCutDownBy');
+    expect(lines).toContain('raidOver');
   });
 
   it('anybody else runs, exactly as they would from a wolf', () => {
@@ -179,7 +179,7 @@ describe('somebody has to stand', () => {
       leavesAtTick: harness.state.tick + 50,
     };
     const lines = recordLog(harness, 400);
-    expect(lines.some((l) => l.includes('gives up'))).toBe(true);
+    expect(lines).toContain('raiderRetreats');
   });
 
   it('is gone for good even if it cannot find the way out', () => {

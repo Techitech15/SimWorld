@@ -19,7 +19,7 @@
 // instance, and a saved copy of a rule is a copy that can drift from the rule.
 // The one genuinely per-building number - how much fuel is left in this furnace
 // - *is* on the building, and is saved.
-import { CRYSTAL_PER_VEIN, STONE_PER_ROCK, TICKS_PER_DAY } from './constants';
+import { TICKS_PER_DAY, veinYieldOf } from './constants';
 import type { SimContext } from './derived';
 import { addLog, isRock, updateBuilding, updateTile } from './state';
 import { addItem } from './worldgen';
@@ -259,7 +259,7 @@ export function runMana(state: GameState, ctx: SimContext): TileId[] {
       const manaFuel = building.manaFuel - 1;
       updateBuilding(state, id, { manaFuel });
       if (manaFuel === 0) {
-        addLog(state, `the mana furnace at ${building.tileId} has burned out`);
+        addLog(state, 'furnaceBurnedOut', { tile: building.tileId });
         // its supply just left the grid
         invalidateNetworks(ctx);
       }
@@ -320,7 +320,7 @@ function runExtractors(state: GameState, networks: ManaNetworks): TileId[] {
       // notice that a building they paid for is quietly drawing mana for nothing
       if (building.manaProgress !== -1) {
         updateBuilding(state, id, { manaProgress: -1 });
-        addLog(state, `the extractor at ${building.tileId} has run out of rock`);
+        addLog(state, 'extractorOutOfRock', { tile: building.tileId });
       }
       continue;
     }
@@ -332,15 +332,15 @@ function runExtractors(state: GameState, networks: ManaNetworks): TileId[] {
     }
 
     updateBuilding(state, id, { manaProgress: 0 });
-    const vein = target.terrain === 'crystal';
+    // the same VEIN_YIELD the mine job reads: the machine and the colonist
+    // agree about what a face is worth by construction
+    const yielded = veinYieldOf(target.terrain);
     updateTile(state, target.id, { terrain: 'grass', designation: null, walkable: true });
     // the yield lands on the machine's own tile, where the haul chain finds it
     const at = state.tiles[building.tileId];
-    if (vein) {
-      addItem(state, 'manaCrystal', CRYSTAL_PER_VEIN, at.x, at.y);
-      addLog(state, `the extractor at ${building.tileId} cut into a mana crystal vein`);
-    } else {
-      addItem(state, 'stone', STONE_PER_ROCK, at.x, at.y);
+    addItem(state, yielded.resource, yielded.quantity, at.x, at.y);
+    if (yielded.resource !== 'stone') {
+      addLog(state, 'extractorCutVein', { tile: building.tileId, resource: yielded.resource });
     }
     changed.push(target.id);
   }

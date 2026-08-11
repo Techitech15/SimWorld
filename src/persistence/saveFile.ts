@@ -5,12 +5,14 @@
 // reservations are, because losing them re-opens the "two colonists, one tree"
 // accident the moment a save is loaded.
 import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from '../core/constants';
+import { DEFAULT_BIOME } from '../core/biome';
+import { emptyResearch } from '../core/research';
 import { DEFAULT_SCENARIO } from '../core/scenario';
 import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 24;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -290,6 +292,139 @@ export const migrations: Record<number, Migration> = {
   16: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, width: state.width ?? 60, height: state.height ?? 60 };
+  },
+
+  /**
+   * 17 -> 18: the log stores events, not sentences (11章 フェーズ9). An old
+   * entry is a finished English sentence; parsing it back into an event would
+   * be guesswork that necessarily misses, so it is wrapped as `legacy` and
+   * shown verbatim in whatever language it was written. The ring buffer holds
+   * 100 entries, so a few days of play push the old lines out naturally.
+   */
+  17: (old) => {
+    const state = old as Omit<Partial<GameState>, 'log'> & {
+      log?: { tick: number; message?: string; kind?: 'incident'; key?: string }[];
+    };
+    const log = (state.log ?? []).map((entry) => {
+      if (entry.key !== undefined) return entry; // already structured
+      const { message, ...rest } = entry;
+      return { ...rest, key: 'legacy', params: { text: message ?? '' } };
+    });
+    return { ...state, log };
+  },
+
+  /**
+   * 18 -> 19: iron veins (design-phase10-ores.md 段階A). The same two gaps the
+   * mana crystal migration closed one ore ago, closed the same way.
+   *
+   * Old rock faces contain no iron, so veins are seeded into existing stone
+   * deterministically from the world seed - same world, same veins, however
+   * many times it is loaded. Fresh worldgen turns about a fifth of its rock
+   * into iron (median 114 veins of ~550 rock tiles, 200 seeds); the rate here
+   * is slightly under that because a migrated map has already been quarried,
+   * exactly as the crystal rate was set below its worldgen fraction.
+   *
+   * And storage zones that predate the resource would silently never take it,
+   * so `iron` joins every existing storage zone's accepts: the player chose to
+   * exclude nothing, so nothing should arrive excluded.
+   */
+  18: (old) => {
+    const state = old as Partial<GameState>;
+    const tiles = { ...(state.tiles ?? {}) };
+    const rnd = mulberry32(Math.abs(Math.floor(state.worldSeed ?? 0)) + 7211);
+    for (const id in tiles) {
+      const tile = tiles[id];
+      if (tile.terrain !== 'stone') continue;
+      if (rnd() < 0.18) tiles[id] = { ...tile, terrain: 'ironVein' };
+    }
+    const zones = { ...(state.zones ?? {}) };
+    for (const id in zones) {
+      const zone = zones[id];
+      if (zone.type !== 'storage' || zone.accepts?.includes('iron')) continue;
+      zones[id] = { ...zone, accepts: [...(zone.accepts ?? []), 'iron'] };
+    }
+    return { ...state, tiles, zones };
+  },
+
+  /**
+   * 19 -> 20: the research tree (11章 フェーズ12). No save from before this can
+   * have a desk, a selected tech or any progress, so the colony starts exactly
+   * where 3.1 promises it does: nothing unlocked, nothing re-locked, every
+   * existing building still standing. `research.research = 3` and
+   * `skills.research = 0` join every colonist the same way the traits and
+   * recreation migrations added a field nobody had touched yet.
+   */
+  19: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        workPriorities: { ...colonist.workPriorities, research: colonist.workPriorities?.research ?? 3 },
+        skills: { ...colonist.skills, research: colonist.skills?.research ?? 0 },
+      };
+    }
+    return { ...state, colonists, research: state.research ?? emptyResearch() };
+  },
+
+  /**
+   * 20 -> 21: biomes (11章 フェーズ11 段階A, docs/design-phase11-worldmap.md).
+   * Every existing save was generated before biomes existed, which means it
+   * was generated under exactly the rules `meadow` now names - the migration
+   * writes down what was already true rather than changing anything about the
+   * map the player has been playing on. `DEFAULT_BIOME` keeps this in step
+   * with `generateWorld`'s own default, the same relationship version 7's
+   * migration has with `DEFAULT_SCENARIO`.
+   */
+  20: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, biome: state.biome ?? DEFAULT_BIOME };
+  },
+
+  /**
+   * 21 -> 22: the world map (11章 フェーズ11 段階B,
+   * docs/design-phase11-worldmap.md 6章). Every existing save predates the
+   * world map, so it was never generated on a chosen cell - `worldCell: null`
+   * says exactly that, and `src/core/tribes.ts` reads a `null` cell as "nowhere
+   * near any tribe", which keeps every multiplier this phase adds at 1 for a
+   * migrated save. Nothing about `biome` changes: it stays whatever the
+   * previous migration (or fresh generation) already wrote there.
+   */
+  21: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, worldCell: state.worldCell ?? null };
+  },
+
+  /**
+   * 22 -> 23: the workbench and the craft column (design-next 提案3). The same
+   * shape as 19 -> 20: `workPriorities.craft = 3` and `skills.craft = 0` join
+   * every colonist, and nothing else moves - `Item.variant` and
+   * `Colonist.mealUntilTick` are optional fields whose absence already means
+   * "raw" and "no recent meal", so items and meals need no rewriting.
+   */
+  22: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        workPriorities: { ...colonist.workPriorities, craft: colonist.workPriorities?.craft ?? 3 },
+        skills: { ...colonist.skills, craft: colonist.skills?.craft ?? 0 },
+      };
+    }
+    return { ...state, colonists };
+  },
+
+  /**
+   * 23 -> 24: equipment (11章 フェーズ8). No save from before this can hold
+   * any gear, so an empty record says exactly that. `Building.craftOrders`
+   * is optional (absent = no orders) and needs nothing here.
+   */
+  23: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, equipment: state.equipment ?? {} };
   },
 };
 

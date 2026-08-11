@@ -20,8 +20,10 @@
 // data, ID references, nothing that JSON cannot represent.
 
 import type { ScenarioName } from './scenario';
+import type { BiomeName } from './biome';
 
 export type { ScenarioName };
+export type { BiomeName };
 export type { Season } from './season';
 
 export type TileId = string; // `${x},${y}`
@@ -44,9 +46,11 @@ export interface Vector2 {
  * It is a terrain rather than a building because mining it is the same act as
  * mining stone - the design document asked whether the existing `mine` job
  * could be extended rather than a new job added, and this is what makes the
- * answer yes.
+ * answer yes. `ironVein` is the second ore and follows the same precedent
+ * (フェーズ10): what differs between the two is a row in VEIN_YIELD, not a
+ * mechanism.
  */
-export type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal';
+export type TerrainType = 'grass' | 'forest' | 'stone' | 'crystal' | 'ironVein';
 
 /**
  * [ext] Player designation marking a tile as work to be done. `deconstruct`
@@ -73,15 +77,55 @@ export interface Tile {
   forage: number;
 }
 
-export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal';
+export type ResourceType = 'wood' | 'stone' | 'food' | 'manaCrystal' | 'iron';
 
 export interface Item {
   id: ItemId;
   type: ResourceType;
   quantity: number;
+  /**
+   * [ext] What was done to it, not what it is (design-next 提案3, foretold by
+   * design-phase2.5-animals.md 2章). A cooked meal is still `food` to every
+   * job, filter and trade - only stacking (variants never merge), eating (a
+   * meal restores more and leaves a thought) and the display read this.
+   * Absent on every item from before the field existed, which reads as "raw"
+   * and needs no migration.
+   */
+  variant?: 'meal';
   /** map coordinates; items inside a storage zone still carry real coordinates */
   position: Vector2;
   reservedByJobId: JobId | null;
+}
+
+export type EquipmentId = string;
+
+/**
+ * [ext] The gear the workbench can turn out (フェーズ8). The warm coat the
+ * design案 lists is deliberately absent: its material was left undecided there
+ * (8章「決めた顔をしないほうがよい」) and stays undecided here - E-5 is on
+ * hold until cloth exists. The sword and armor are E-6, materials from the
+ * existing four resources (iron carries both).
+ */
+export type EquipmentKind =
+  | 'axe'
+  | 'pickaxe'
+  | 'huntingBow'
+  | 'huntingSpear'
+  | 'sword'
+  | 'ironArmor';
+
+/** One per colonist per slot; the hand doubles as tool and weapon. */
+export type EquipmentSlot = 'hand' | 'body';
+
+export interface Equipment {
+  id: EquipmentId;
+  kind: EquipmentKind;
+  /** who wears it, or null while it lies somewhere */
+  wornBy: ColonistId | null;
+  /** where it lies, or null while worn - exactly one of the two is ever set */
+  position: Vector2 | null;
+  /** 0..1, worn down by use; at 0 it breaks and is gone (loudly - E-4) */
+  condition: number;
 }
 
 export type NeedType = 'hunger' | 'sleep';
@@ -121,7 +165,10 @@ export type ColonistActivity =
    */
   /**
    * [ext] Time off around the hearth. Not a job: nobody assigns it, and it
-   * cannot be prioritised away.
+   * cannot be prioritised away. Since フェーズ10 the id may also point at an
+   * armchair - the field keeps its old name so every save written before
+   * armchairs existed still reads without a migration, the same reason
+   * `fleeing.fromId` kept its shape when raiders arrived.
    */
   | { kind: 'relaxing'; hearthId: BuildingId | null; untilTick: number }
   /**
@@ -147,6 +194,8 @@ export type ColonistActivity =
 export interface CarriedStack {
   type: ResourceType;
   quantity: number;
+  /** [ext] rides along so a carried meal is still a meal when it is put down */
+  variant?: 'meal';
 }
 
 export interface Colonist {
@@ -184,6 +233,19 @@ export interface Colonist {
    * the game had before traits existed.
    */
   traits: TraitName[];
+  /**
+   * [ext] Ticks walked towards the next step (docs/design-phase7-time.md 2.3):
+   * the pace multipliers make "ticks per step" fractional, so the count has to
+   * live somewhere. The one saved field phase 7 adds; absent reads as 0.
+   */
+  stepProgress?: number;
+  /**
+   * [ext] Until when the "decent meal" thought lasts (design-next 提案3).
+   * Event state like a furnace's fuel: "ate a cooked meal recently" is not
+   * derivable from anything else. Absent on colonists from before the field
+   * existed, which reads as "no recent meal".
+   */
+  mealUntilTick?: number;
 }
 
 /** [ext] See src/core/traits.ts for what each one bends. */
@@ -218,6 +280,12 @@ export type BuildingType =
    * map whose season is winter. Nobody builds one.
    */
   | 'frostbloom'
+  /**
+   * [ext] The workbench (design-next 提案3): the entrance to second-stage
+   * goods. One recipe for now - raw food in, meals out - worked by the `craft`
+   * column.
+   */
+  | 'workbench'
   | 'storageZoneMarker'
   /**
    * [ext] The mana layer (11章 フェーズ2). A furnace burns crystal to supply a
@@ -236,11 +304,53 @@ export type BuildingType =
   /** [ext] mana-fed defence (11章 フェーズ4, depends on the phase 2 network) */
   | 'manaTurret'
   /** [ext] where a trader stands (11章 フェーズ5, design-phase5-trade.md 4.2) */
-  | 'tradingPost';
+  | 'tradingPost'
+  /**
+   * [ext] Furniture (11章 フェーズ10, design-phase10-ores.md 4章). Five pieces,
+   * no new needs and no new jobs: each one plugs into a system the game already
+   * had. The table, stool and statue are the mana lamp's shape (a thought for
+   * colonists near it), the dresser is the heavySleeper trait's shape (a
+   * multiplier on sleep recovery), and the armchair is the hearth's shape (a
+   * second place the `relaxing` activity can sit). Effect numbers live in a
+   * constants table beside the build costs, not on the building.
+   */
+  | 'table'
+  | 'stool'
+  | 'dresser'
+  | 'armchair'
+  | 'statue'
+  /**
+   * [ext] The research desk (11章 フェーズ12, design-phase12-research.md 2章).
+   * One building, one job, one column: it targets the desk the same way a
+   * farm plot targets `farm`, and what it unlocks lives in `TECHS`
+   * (src/core/constants.ts) rather than on the building, for the same reason
+   * `SPECIES` is a table and not a field.
+   */
+  | 'researchDesk';
 
 export interface RequiredResource {
   type: ResourceType;
   quantity: number;
+}
+
+/**
+ * [ext] The research tree (11章 フェーズ12, design-phase12-research.md 3.2).
+ * Four techs, two deep: `TECHS` (src/core/constants.ts) carries prerequisites,
+ * cost and what each unlocks - a kind's profile, not an instance's, so it is
+ * never saved (the same reasoning as `SPECIES`).
+ */
+export type TechName = 'woodcraft' | 'stonecarving' | 'ironwork' | 'crystallography';
+
+/**
+ * [ext] What the colony has done with the tree so far (design-phase12-research.md 5章).
+ * `progress` keeps every tech's tally, completed ones included: it is a
+ * history, not a derived value, so it is not reset on completion.
+ */
+export interface ResearchState {
+  /** the tech the desk is working on; null = nothing selected */
+  current: TechName | null;
+  progress: Record<TechName, number>;
+  unlocked: TechName[];
 }
 
 export interface Building {
@@ -265,6 +375,12 @@ export interface Building {
    * what running the network spends - so it is stored and saved.
    */
   manaFuel: number;
+  /**
+   * [ext] The workbench's order queue (フェーズ8 E-1): equipment the player
+   * asked for, crafted before any meal batch. Absent on every building from
+   * before the field existed and on everything that is not a workbench.
+   */
+  craftOrders?: EquipmentKind[];
   /**
    * [ext] How far an extractor has got into the rock face it is cutting. Stored
    * rather than derived from the tick because progress has to stop when the
@@ -338,7 +454,18 @@ export type JobType =
   | 'hunt'
   | 'handle'
   | 'deconstruct'
-  | 'repair';
+  | 'repair'
+  /**
+   * [ext] Working the research desk (11章 フェーズ12). Its own column, its own
+   * skill, default priority 3 (lowest) so a colonist never drifts to the desk
+   * unasked (design-phase12-research.md 2.2).
+   */
+  | 'research'
+  /**
+   * [ext] Working the workbench (design-next 提案3). Its own column and skill,
+   * the same defaults as research: nobody cooks until the player raises it.
+   */
+  | 'craft';
 
 /**
  * The columns of the work-priority table. `deconstruct` and `repair` are
@@ -353,6 +480,8 @@ export const JOB_TYPES: JobType[] = [
   'haul',
   'hunt',
   'handle',
+  'research',
+  'craft',
 ];
 
 /**
@@ -545,6 +674,14 @@ export interface GameState {
    * empty almost always: a visit is an event with an end, not a population.
    */
   traders: Record<TraderId, Trader>;
+  /**
+   * [ext] Tools and gear (11章 フェーズ8, docs/design-phase8-equipment.md 4章).
+   * Individuals rather than stacks - a bow has a condition of its own - so
+   * they live beside `items`, not in them, and `ResourceType` does not grow.
+   * The reference runs one way only: `wornBy` here, never a list on the
+   * colonist, so "who wears what" cannot disagree with itself.
+   */
+  equipment: Record<EquipmentId, Equipment>;
   reservations: Record<string, Reservation>;
   /**
    * [ext] How much woodland this map supports: the number of forest tiles it
@@ -567,6 +704,32 @@ export interface GameState {
    * map sustains is a rule that runs every day, not a one-off decision.
    */
   scenario: ScenarioName;
+  /**
+   * [ext] Which biome this map was generated under (11章 フェーズ11 段階A,
+   * src/core/biome.ts). Stored directly rather than derived, because stage A
+   * has no world map yet to derive it from - stage B will keep this field but
+   * make it a cached derivation of a `worldCell` (design-phase11-worldmap.md
+   * 6章). Like `scenario`, it keeps mattering after generation: forage and
+   * forest regrowth rates, wildlife respawn and the lamp's mood bonus all read
+   * it every day.
+   */
+  biome: BiomeName;
+  /**
+   * [ext] The world-map cell this colony was started on (11章 フェーズ11 段階B,
+   * docs/design-phase11-worldmap.md 6章), or `null` for a save from before the
+   * world map existed. Everything else about the world map - the 16x16 grid,
+   * every cell's biome, the tribal territories - is derived from `worldSeed`
+   * and never saved (2.1章); this coordinate is the one fact that cannot be
+   * derived, because nothing says which cell among equally valid ones a player
+   * picked. `biome` above is filled in from this cell at generation time and
+   * kept as a separate field rather than computed on every read, the same
+   * adaptation stage A already made (see the field's own comment).
+   *
+   * `null` means "treat this colony as if it were nowhere near any tribe" -
+   * `src/core/tribes.ts` returns every multiplier at 1 for it, so an old save
+   * behaves exactly as it did before this phase existed.
+   */
+  worldCell: { x: number; y: number } | null;
   /** monotonic counters so entity ids stay stable across save/load */
   nextIds: Record<string, number>;
   /**
@@ -582,11 +745,95 @@ export interface GameState {
   deaths: { colonistId: ColonistId; name: string; tick: number }[];
   /** rolling event log surfaced in the UI (failed jobs, deaths of crops, ...) */
   log: LogEntry[];
+  /** [ext] the research tree (11章 フェーズ12). The one field the phase adds. */
+  research: ResearchState;
 }
+
+/**
+ * [ext] What happened, as a key (11章 フェーズ9). The log stores the event -
+ * who, what, where - and the sentence is derived at display time in whichever
+ * language the player is reading (src/ui/strings.ts renders every key).
+ * `legacy` wraps entries written before this existed; they carry their original
+ * English sentence in `params.text` and are shown verbatim.
+ */
+export type LogKey =
+  | 'legacy'
+  | 'colonistArrived' // { name, tribe? } - tribe is 'waldkin' on the colonies that mention it (11章 段階C)
+  | 'skillLevelUp' // { name, skill, level }
+  | 'seasonArrived' // { season }
+  | 'colonistStarving' // { name }
+  | 'colonistCannotFindFood' // { name }
+  | 'breakBrooding' // { name, thought? }
+  | 'breakWandering' // { name, thought? }
+  | 'breakBinge' // { name, thought? }
+  | 'backToWork' // { name }
+  | 'orderedToMove' // { name, x, y }
+  | 'incidentBumperCrop' // { plots }
+  | 'incidentBlight' // { plots }
+  | 'incidentBerryGlut' // { bushes }
+  | 'incidentWolfPack' // { count }
+  | 'incidentHerd' // { count, species }
+  | 'incidentLostSupplies' // { quantity, resource }
+  | 'incidentRaid' // { count, tribe } - tribe is always 'parched' (11章 段階C, raiders are the Parched's raid)
+  | 'raiderCutDownBy' // { raider, colonist }
+  | 'raiderCutDownByTurret' // { raider }
+  | 'raidOver'
+  | 'raiderRetreats' // { raider }
+  | 'raiderBreaking' // { raider, building }
+  | 'buildingSmashed' // { building, tile }
+  | 'furnaceBurnedOut' // { tile }
+  | 'furnaceStoked' // { tile }
+  | 'extractorOutOfRock' // { tile }
+  | 'extractorCutVein' // { tile, resource? } - entries older than phase 10 have no resource
+  | 'veinCutOpen' // { x, y, resource? } - entries older than phase 10 have no resource
+  | 'buildingRepaired' // { building, tile }
+  | 'buildingDismantled' // { building, tile }
+  | 'animalTamed' // { name, species }
+  | 'animalTameFailed' // { name, species }
+  | 'jobFailed' // { job, jobType, reason }
+  | 'colonistStarvedToDeath' // { name }
+  | 'colonistKilledByRaider' // { name, raider }
+  | 'colonistKilledByAnimal' // { name, species }
+  | 'colonistKilled' // { name }
+  | 'colonyDiedOut'
+  | 'boarTurnedOn' // { name, hunter }
+  | 'animalTearing' // { name, species, building }
+  | 'buildingBrokenOpen' // { building, tile }
+  | 'animalBorn' // { name, species, calf }
+  | 'animalHunted' // { name, species }
+  | 'animalSlaughtered' // { name, species }
+  | 'animalStarvedToDeath' // { name, species }
+  | 'animalKilledByPredator' // { name, species, predator }
+  | 'wolfSpotted' // { name }
+  | 'rockeaterExposedVein' // { name, tile }
+  | 'traderArrived' // { name, kind, tribe } - tribe is always 'lanternfolk' (11章 段階C, traders are the Lanternfolk's)
+  | 'traderLeft' // { name }
+  | 'tradeSettled' // { gaveQuantity, gave, tookQuantity, took }
+  | 'researchUnlocked' // { tech }
+  | 'mealsCooked' // { count } (design-next 提案3)
+  | 'equipmentCrafted' // { kind } (フェーズ8)
+  | 'equipmentBroke'; // { kind } (フェーズ8 E-4: a broken tool is never silent)
+
+/**
+ * [ext] Why a job was given up on; rendered per language like everything else.
+ * These sit on `jobFailed` log entries as `params.reason`.
+ */
+export type JobFailReason =
+  | 'interrupted'
+  | 'noWorkSite'
+  | 'unreachable'
+  | 'animalUnreachable'
+  | 'itemUnreachable'
+  | 'noDestination'
+  | 'blueprintUnreachable'
+  | 'destinationGone'
+  | 'storageUnreachable';
+
+/** Parameters are primitives only: IDs and names as strings, counts as numbers. */
+export type LogParams = Record<string, string | number>;
 
 export interface LogEntry {
   tick: number;
-  message: string;
   /**
    * [ext] What sort of line this is, so the log can show a wolf pack arriving
    * differently from a colonist reaching Hauling level 2. Optional on purpose:
@@ -594,4 +841,6 @@ export interface LogEntry {
    * ordinary line and needs no migration.
    */
   kind?: 'incident';
+  key: LogKey;
+  params?: LogParams;
 }

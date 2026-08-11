@@ -4,10 +4,10 @@ import { createSimContext } from './derived';
 import type { SimContext } from './derived';
 import { tickOnce } from './simulation';
 import { placePastureZone } from './actions';
-import { tileIdOf } from './state';
+import { isRock, tileIdOf } from './state';
 import { generateWorld } from './worldgen';
 import type { WorldOptions } from './worldgen';
-import type { GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
+import type { BiomeName, GameState, LogEntry, TerrainType, TileId, ZoneId } from './types';
 
 export interface Harness {
   state: GameState;
@@ -33,9 +33,14 @@ export interface Harness {
  * a year at 120x120, `chaos.test.ts` checks the invariants there, and
  * `roundtrip.test.ts` round-trips both sizes in one process.
  */
-export function createHarness(seed = 42, size = 60): Harness {
+export function createHarness(
+  seed = 42,
+  size = 60,
+  biome?: BiomeName,
+  worldCell?: { x: number; y: number },
+): Harness {
   const harness: Harness = {
-    state: generateWorld({ seed, width: size, height: size }),
+    state: generateWorld({ seed, width: size, height: size, biome, worldCell }),
     ctx: undefined as unknown as SimContext,
     run(ticks, onTick) {
       for (let i = 0; i < ticks; i++) {
@@ -50,7 +55,7 @@ export function createHarness(seed = 42, size = 60): Harness {
 }
 
 /**
- * Every line the log emits during a run, truncation included.
+ * Every key the log emits during a run, truncation included.
  *
  * `state.log` keeps only its last hundred entries, so anything that reads the
  * log after a long run is measuring the buffer rather than the run - a year of
@@ -61,14 +66,15 @@ export function createHarness(seed = 42, size = 60): Harness {
  *
  * This records every entry written since the last one it saw, which is exact
  * whether a tick writes one line or several, and the reason it lives here
- * rather than being written out again at each call site.
+ * rather than being written out again at each call site. Since phase 9 the log
+ * stores keys, so tests assert the event rather than the wording.
  */
 export function recordLog(
   harness: Harness,
   ticks: number,
   onTick?: (state: GameState) => void,
 ): string[] {
-  return recordLogEntries(harness, ticks, onTick).map((entry) => entry.message);
+  return recordLogEntries(harness, ticks, onTick).map((entry) => entry.key);
 }
 
 /**
@@ -85,7 +91,7 @@ export function recordLogEntries(
   onTick?: (state: GameState) => void,
 ): LogEntry[] {
   const entries: LogEntry[] = [];
-  const keyOf = (entry: LogEntry) => `${entry.tick}:${entry.message}`;
+  const keyOf = (entry: LogEntry) => `${entry.tick}:${entry.key}:${JSON.stringify(entry.params ?? {})}`;
   let lastKey = '';
   const seed = harness.state.log[harness.state.log.length - 1];
   if (seed) lastKey = keyOf(seed);
@@ -221,6 +227,54 @@ export function placePastureNear(harness: Harness, size: number): ZoneId {
 
 export function anyColonistId(state: GameState): string {
   return Object.keys(state.colonists)[0];
+}
+
+/**
+ * The corridor a player has to cut to reach a vein, from the nearest open
+ * ground inward. Written for the mana crystal tests and reused unchanged for
+ * iron: a vein of anything sits inside a rock face, and designating the vein
+ * alone leaves a job nobody can reach - the corridor is how a test actually
+ * mines one. Returns the tiles to designate and how many of them carry the
+ * given vein terrain.
+ */
+export function quarryTo(
+  state: GameState,
+  veinId: TileId,
+  veinTerrain: TerrainType,
+): { tiles: TileId[]; veins: number } {
+  const parent = new Map<TileId, TileId | null>([[veinId, null]]);
+  let frontier = [state.tiles[veinId]];
+  let reached: TileId | null = null;
+  while (frontier.length > 0 && !reached) {
+    const next = [];
+    for (const tile of frontier) {
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const step = state.tiles[tileIdOf(tile.x + dx, tile.y + dy)];
+        if (!step || parent.has(step.id)) continue;
+        parent.set(step.id, tile.id);
+        if (!isRock(step.terrain)) {
+          reached = tile.id; // the last rock before open ground
+          break;
+        }
+        next.push(step);
+      }
+      if (reached) break;
+    }
+    frontier = next;
+  }
+  if (!reached) throw new Error('this vein has no route to open ground at all');
+
+  const tiles: TileId[] = [];
+  for (let at: TileId | null = reached; at; at = parent.get(at) ?? null) tiles.push(at);
+  return {
+    tiles,
+    veins: tiles.filter((id) => state.tiles[id].terrain === veinTerrain).length,
+  };
 }
 
 /**

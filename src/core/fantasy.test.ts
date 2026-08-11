@@ -22,7 +22,7 @@ import { FROSTBLOOM_GROWTH_BY_SEASON, SEASONS, TICKS_PER_SEASON, seasonOf } from
 import { killAnimal } from './animals';
 import { regionAt } from './derived';
 import { isRock, tileIdOf } from './state';
-import { createHarness, placePastureNear, recordLog } from './testUtils';
+import { createHarness, placePastureNear, recordLog, recordLogEntries } from './testUtils';
 import type { Harness } from './testUtils';
 import type { BuildingType, GameState } from './types';
 
@@ -395,7 +395,7 @@ describe('rockeater (段階 F-D)', () => {
 
     const lines = recordLog(harness, ROCKEATER_GNAW_TICKS + 200);
     expect(harness.state.buildings[wallId]).toBeUndefined();
-    expect(lines.some((line) => line.includes('broken open'))).toBe(true);
+    expect(lines).toContain('buildingBrokenOpen');
   });
 
   it('never touches a crystal vein: it opens the way to one instead', () => {
@@ -426,8 +426,16 @@ describe('rockeater (段階 F-D)', () => {
     };
     cull(harness.state);
 
-    const lines = recordLog(harness, TICKS_PER_DAY * 6, cull);
-    expect(lines.some((line) => line.includes('rockeater'))).toBe(false);
+    // Keys and params both: no line may name the rockeater as an aggressor.
+    // The one line it is allowed is rockeaterExposedVein - laying a vein bare
+    // is the point of the creature, not an attack - so that key is excluded.
+    const entries = recordLogEntries(harness, TICKS_PER_DAY * 6, cull);
+    const aggressive = entries.filter(
+      (e) =>
+        e.key !== 'rockeaterExposedVein' &&
+        `${e.key} ${JSON.stringify(e.params ?? {})}`.includes('rockeater'),
+    );
+    expect(aggressive).toEqual([]);
     for (const id in harness.state.colonists) {
       expect(harness.state.colonists[id].activity.kind).not.toBe('fleeing');
     }
@@ -443,7 +451,7 @@ describe('rockeater (段階 F-D)', () => {
     const before = harness.state.tiles[tileIdOf(at.x, at.y)].itemIds.length;
     // killed the way a hunt kills it, carcass and all: a zero yield must leave
     // nothing behind rather than an empty stack the haul chain carries for ever
-    killAnimal(harness.state, eater.id, 'was hunted', true);
+    killAnimal(harness.state, eater.id, { key: 'animalHunted' }, true);
     expect(harness.state.animals[eater.id]).toBeUndefined();
     expect(harness.state.tiles[tileIdOf(at.x, at.y)].itemIds.length).toBe(before);
   });
