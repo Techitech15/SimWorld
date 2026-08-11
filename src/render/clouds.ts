@@ -45,9 +45,24 @@ interface CloudDef {
 }
 
 /**
- * Five clouds, each with its own speed/size/phase, spread out so they do not
- * clump on one side of the map at t = 0. `x0`/`y0` are just a starting point
- * for the drift below, not a position tied to any particular map size.
+ * Thirteen clouds, each with its own speed/size/phase, spread out so they do
+ * not clump on one side of the map at t = 0. `x0`/`y0` are just a starting
+ * point for the drift below, not a position tied to any particular map size.
+ *
+ * This was five, and five turned out to be too few to be seen. Measuring the
+ * shipped 120x120 map over 20 minutes of drift against a viewport-sized window
+ * at many places found a shadow on screen only **16.0%** of the time - five
+ * times out of six the player is looking at ground with nothing crossing it,
+ * which is exactly how it was reported ("雲の影が見えない"). The original five
+ * were chosen when 60x60 was the default; the map got four times the area in
+ * フェーズ6 and the table never followed. Thirteen puts it at **40.5%**
+ * measured the same way. The first five entries are unchanged, so the clouds
+ * that were there before still drift exactly as they did.
+ *
+ * The count is what changed, deliberately - not the size, speed or alpha. A
+ * cloud shadow that is bigger or darker to compensate for being rare reads as
+ * weather; the thing being fixed here is only that there were not enough of
+ * them. Cost stays independent of map size (one sprite each).
  */
 const CLOUDS: CloudDef[] = [
   { x0: 5, y0: 8, speed: 0.0012, radius: 7, alphaScale: 1.0 },
@@ -55,6 +70,14 @@ const CLOUDS: CloudDef[] = [
   { x0: 70, y0: 5, speed: 0.0015, radius: 5, alphaScale: 0.85 },
   { x0: 20, y0: 45, speed: 0.001, radius: 8, alphaScale: 0.6 },
   { x0: 90, y0: 35, speed: 0.0009, radius: 6, alphaScale: 1.0 },
+  { x0: 85, y0: 52, speed: 0.0008, radius: 9, alphaScale: 0.75 },
+  { x0: 55, y0: 60, speed: 0.0011, radius: 9, alphaScale: 0.8 },
+  { x0: 110, y0: 62, speed: 0.0014, radius: 5, alphaScale: 0.85 },
+  { x0: 15, y0: 78, speed: 0.0013, radius: 6, alphaScale: 0.9 },
+  { x0: 100, y0: 88, speed: 0.0009, radius: 8, alphaScale: 0.65 },
+  { x0: 48, y0: 92, speed: 0.0013, radius: 6, alphaScale: 0.6 },
+  { x0: 75, y0: 105, speed: 0.0012, radius: 7, alphaScale: 0.95 },
+  { x0: 28, y0: 112, speed: 0.001, radius: 10, alphaScale: 0.7 },
 ];
 
 /**
