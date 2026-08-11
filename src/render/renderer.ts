@@ -12,6 +12,7 @@ import { paceMultiplierOf } from '../core/pace';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
 import { cloudsAt } from './clouds';
 import { NIGHT_ALPHA, litLamps, shadeAt } from './daylight';
+import { WIND_ANGLE, windAt } from './wind';
 import { interpolationSpeed, isTeleport } from './pace';
 import { damageStep, damageTint } from './damage';
 import { pickAt } from './pick';
@@ -44,6 +45,13 @@ export class GameRenderer {
   private app = new Application();
   private world = new Container();
   private terrainLayer = new Container();
+  /** wind gusts brightening the ground (issue #23) - ground-level, below
+   *  everything standing on the ground and below the cloud shadows overhead */
+  private windLayer = new Container();
+  private windSprites: Sprite[] = [];
+  private windTexture: Texture | null = null;
+  /** real ms accumulated while unpaused - a paused world does not drift (see syncWind) */
+  private windElapsedMs = 0;
   /** cloud shadows drifting over the ground (issue #15) - below the night tint,
    *  above everything they shade */
   private cloudLayer = new Container();
@@ -131,6 +139,7 @@ export class GameRenderer {
 
     this.world.addChild(
       this.terrainLayer,
+      this.windLayer,
       this.buildingLayer,
       this.itemLayer,
       this.overlay,
@@ -852,6 +861,74 @@ export class GameRenderer {
     return this.cloudTexture;
   }
 
+  /** A soft brightening band, drawn once in code - same zero-asset rule the
+   *  cloud and lamp-light textures follow (issue #23, option (c)). White,
+   *  additive blend, so it lifts whatever it is drawn over rather than
+   *  replacing it - the same trick `syncNight` uses for lamp glow. */
+  private ensureWindTexture(): Texture {
+    if (this.windTexture) return this.windTexture;
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d')!;
+    const gradient = context.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.4)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+    this.windTexture = Texture.from(canvas);
+    return this.windTexture;
+  }
+
+  /**
+   * Wind gusts brightening the ground. `windElapsedMs` is real time, not
+   * tick time, and only advances while the world is actually running -
+   * paused (`state.speed === 0`), the gusts hold still along with
+   * everything else, the same rule `syncClouds` follows below. Sprites sit
+   * at ground level (drawn under buildings, items, animals and colonists,
+   * and under the cloud shadows too), same order the layer list in `init`
+   * puts them in. One shared texture is stretched non-uniformly
+   * (`gust.length` along the wind, `gust.width` across it) and rotated to
+   * `WIND_ANGLE` to read as an elongated band rather than a round glow.
+   */
+  private syncWind(state: GameState, deltaMs: number): void {
+    if (state.speed > 0) this.windElapsedMs += deltaMs;
+    const gusts = windAt(this.windElapsedMs, state.width, state.height);
+    while (this.windSprites.length < gusts.length) {
+      const sprite = new Sprite(this.ensureWindTexture());
+      sprite.anchor.set(0.5);
+      sprite.blendMode = 'add';
+      sprite.rotation = WIND_ANGLE;
+      this.windLayer.addChild(sprite);
+      this.windSprites.push(sprite);
+    }
+    for (let i = 0; i < this.windSprites.length; i++) {
+      const sprite = this.windSprites[i];
+      const gust = gusts[i];
+      if (!gust) {
+        sprite.visible = false;
+        continue;
+      }
+      sprite.visible = true;
+      // texture is 256px across for length/width tiles of coverage along
+      // and across the wind direction - same scaling `syncClouds` uses,
+      // just non-uniform on the two axes instead of a single radius.
+      sprite.scale.set((gust.length * TILE_SIZE) / 256, (gust.width * TILE_SIZE) / 256);
+      sprite.x = gust.x * TILE_SIZE + TILE_SIZE / 2;
+      sprite.y = gust.y * TILE_SIZE + TILE_SIZE / 2;
+      sprite.alpha = gust.strength;
+    }
+  }
+
   /**
    * Ground shadows drifting overhead. `cloudElapsedMs` is real time, not tick
    * time, and only advances while the world is actually running - paused
@@ -969,6 +1046,7 @@ export class GameRenderer {
     this.syncRaiders(state, deltaMs);
     this.syncTraders(state);
     this.syncColonists(state, deltaMs);
+    this.syncWind(state, deltaMs);
     this.syncClouds(state, deltaMs);
     this.syncNight(state);
     this.consumeFocusRequest();
