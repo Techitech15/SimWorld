@@ -22,9 +22,23 @@ export interface CloudShadow {
   alpha: number;
 }
 
-/** A shadow, not a second night: stays faint enough to read as weather
- *  passing overhead rather than another darkening pass on top of daylight.ts. */
-export const CLOUD_ALPHA_MAX = 0.18;
+/**
+ * A shadow, not a second night: faint enough to read as weather passing
+ * overhead rather than another darkening pass on top of daylight.ts.
+ *
+ * 0.18 was too faint to see once there were enough clouds to look at. Note
+ * this is the value at the very centre of the sprite only - the texture's
+ * gradient is already at half strength 60% of the way out and zero at the rim,
+ * so most of a shadow's area was darkening the ground by well under a tenth,
+ * which on grass is nothing.
+ *
+ * 0.28 rather than a rounder 0.3 because clouds.test.ts already pins the
+ * ceiling under 0.3, and that rule is worth keeping: a shadow that approaches
+ * NIGHT_ALPHA (0.45) stops reading as weather and starts reading as darkness
+ * stacked on darkness. The test was left alone - it is the constraint doing
+ * its job, not an assumption that measurement disproved.
+ */
+export const CLOUD_ALPHA_MAX = 0.28;
 
 /** Every cloud drifts the same way - one wind, not a wind per cloud. */
 const WIND_DIR: Vector2 = { x: 1, y: 0.35 };
