@@ -12,6 +12,7 @@
 // the honest first state is silence with a switch in the top bar. Like the
 // language and the panel folds, none of this goes near `GameState`.
 import { create } from 'zustand';
+import { audioUrlsFor } from '../assets/audio';
 import { useGameStore } from '../store/gameStore';
 import { SFX, SFX_TIER, SFX_TIERS, SfxDirector } from './sfx';
 import type { SfxName, SfxTier } from './sfx';
@@ -58,7 +59,12 @@ export const useSoundStore = create<SoundStore>((set, get) => ({
     writeStored({ muted, volume: get().volume });
     // unmuting is always a click on the toggle, which is exactly the user
     // gesture the autoplay policy wants the AudioContext created inside
-    if (!muted) void ensureContext()?.resume();
+    if (!muted) {
+      const ctx = ensureContext();
+      void ctx?.resume();
+      // first unmute is also the first moment decoding is possible or worth it
+      if (ctx) loadSamples(ctx);
+    }
     set({ muted });
   },
   setVolume: (v: number) => {
@@ -104,14 +110,90 @@ function jitter(hz: number, tier: SfxTier): number {
   return hz * (1 + (Math.random() * 2 - 1) * AMBIENT_PITCH_JITTER);
 }
 
+/**
+ * Decoded audio files, by sound name (docs/design-phase15-audio.md 4章).
+ *
+ * A name is present here only once at least one of its files has decoded. The
+ * table is a *replacement* for the synthesised tones of that one sound and
+ * nothing more: names with no file, and names whose fetch or decode failed,
+ * are simply absent and fall through to the oscillators. That is the whole
+ * point of the design - a broken file costs the sound its upgrade, never its
+ * existence, because a sound that silently stops existing is a failure the
+ * player has no way to notice.
+ */
+const samples = new Map<string, AudioBuffer[]>();
+let samplesRequested = false;
+
+/**
+ * Decode whatever files were supplied. Called on the first unmute rather than
+ * at module load: the AudioContext needed to decode cannot exist before the
+ * player's gesture anyway, and a page that never unmutes should never spend
+ * anything on audio it will not play.
+ */
+function loadSamples(ctx: AudioContext): void {
+  if (samplesRequested) return;
+  samplesRequested = true;
+  for (const name of Object.keys(SFX) as SfxName[]) {
+    const urls = audioUrlsFor(name);
+    if (urls.length === 0) continue;
+    for (const url of urls) {
+      // Every step is allowed to fail on its own. One unreadable file must not
+      // take the rest of the set - or the synthesised floor - down with it.
+      void fetch(url)
+        .then((response) => response.arrayBuffer())
+        .then((bytes) => ctx.decodeAudioData(bytes))
+        .then((buffer) => {
+          samples.set(name, [...(samples.get(name) ?? []), buffer]);
+        })
+        .catch(() => {
+          /* stays synthesised; see the comment on `samples` */
+        });
+    }
+  }
+}
+
+/** Play one supplied file for this sound, if one has decoded. Returns whether
+ *  it did, so the caller knows whether the synthesised tones are still owed. */
+function playSample(ctx: AudioContext, name: SfxName, gain: number): boolean {
+  const buffers = samples.get(name);
+  if (!buffers || buffers.length === 0) return false;
+  // Variants exist so a repeating ambient sound is not one sample on a loop;
+  // with a single file this is just that file.
+  const buffer = buffers[Math.floor(Math.random() * buffers.length)];
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const tier = SFX_TIER[name];
+  // the same jitter the oscillators get, applied as playback rate - only for
+  // ambient, and small enough not to read as a pitch change
+  if (tier === 'ambient') source.playbackRate.value = jitter(1, tier);
+  const gainNode = ctx.createGain();
+  gainNode.gain.value = gain;
+  source.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  source.start();
+  activeVoices[tier]++;
+  setTimeout(
+    () => {
+      activeVoices[tier] = Math.max(0, activeVoices[tier] - 1);
+    },
+    buffer.duration * 1000 + 20,
+  );
+  return true;
+}
+
 /** Render one entry of the SFX table: oscillators with a 5ms attack and an
- *  exponential die-away, nothing else. The table is the whole sound. */
+ *  exponential die-away, nothing else - unless a file was supplied for this
+ *  sound, in which case that file is played instead (段階 S-2). */
 export function playSfx(name: SfxName, volume: number): void {
   const ctx = ensureContext();
   if (!ctx || ctx.state !== 'running') return;
   const tier = SFX_TIER[name];
   const { gain: tierGain, maxConcurrent } = SFX_TIERS[tier];
   if (activeVoices[tier] >= maxConcurrent) return;
+
+  // A supplied file is already mixed and mastered, so it takes the tier gain
+  // and the master volume but not the per-tone volumes of the table it replaces.
+  if (playSample(ctx, name, tierGain * volume)) return;
 
   const spec = SFX[name];
   const t0 = ctx.currentTime;
