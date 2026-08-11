@@ -30,7 +30,7 @@ RimWorld 風の 2D ブラウザ入植地シミュレーション。TypeScript + 
 
 ```bash
 npm install
-npm run sprites       # ドット絵アセットを再生成（src/assets 配下、49枚）
+npm run sprites       # ドット絵アセットを再生成（src/assets 配下、85枚）
 npm run dev           # http://localhost:5173
 npm test              # ヘッドレスシミュレーションのテスト
 npm run build         # 型チェック + 本番ビルド
@@ -89,7 +89,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | 9. 機能リスト     | 120×120マップ・地形4種・入植者3人から・仕事9種・建築17種・資源4種・速度4段                                                     |
 | 11. フェーズ4     | `src/core/raid.ts`（襲撃・民兵・タレット） |
 | 11. フェーズ2     | `src/core/mana.ts`（結晶・魔導炉・導管・魔力灯・自動採掘機、ネットワークは導出）                                                        |
-| 12. ドット絵      | `tools/generate-sprites.mjs` が 57 枚を決定論的に生成（`src/assets`）                                                       |
+| 12. ドット絵      | `tools/generate-sprites.mjs` が 85 枚を決定論的に生成（`src/assets`）                                                       |
 
 追加要素の一覧は [docs/design.md](docs/design.md) の9章、その設計思想は
 [docs/design-notes.md](docs/design-notes.md)。

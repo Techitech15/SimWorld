@@ -19,9 +19,13 @@ export function spriteUrl(relativePath: string): string {
 
 export const sprites = {
   grass: spriteUrl('terrain/grass.png'),
+  grass2: spriteUrl('terrain/grass_2.png'),
+  grass3: spriteUrl('terrain/grass_3.png'),
   forest1: spriteUrl('terrain/forest_1.png'),
   forest2: spriteUrl('terrain/forest_2.png'),
+  forest3: spriteUrl('terrain/forest_3.png'),
   stone: spriteUrl('terrain/stone.png'),
+  stone2: spriteUrl('terrain/stone_2.png'),
   crystal: spriteUrl('terrain/crystal.png'),
   ironVein: spriteUrl('terrain/iron_vein.png'),
   shallowWater: spriteUrl('terrain/shallow_water.png'),
@@ -38,6 +42,7 @@ export const sprites = {
   doorClosed: spriteUrl('buildings/door_closed.png'),
   doorOpen: spriteUrl('buildings/door_open.png'),
   bed: spriteUrl('buildings/bed.png'),
+  farmTilled: spriteUrl('buildings/farm_tilled.png'),
   farm0: spriteUrl('buildings/farm_0.png'),
   farm1: spriteUrl('buildings/farm_1.png'),
   farm2: spriteUrl('buildings/farm_2.png'),

@@ -18,6 +18,7 @@ import { pickAt } from './pick';
 import type { Camera } from './camera';
 import { loadTextures } from './textures';
 import type { GameTextures } from './textures';
+import { variantAt } from './tileVariant';
 
 const DIR_DOWN = 0;
 const DIR_LEFT = 1;
@@ -208,24 +209,36 @@ export class GameRenderer {
   }
 
   private terrainTexture(tile: Tile): Texture {
+    const t = this.textures.tiles;
     switch (tile.terrain) {
-      case 'forest':
-        // two variants keyed off the tile position so forests are not uniform
-        return (tile.x * 7 + tile.y * 13) % 2 === 0
-          ? this.textures.tiles.forest1
-          : this.textures.tiles.forest2;
-      case 'stone':
-        return this.textures.tiles.stone;
+      case 'forest': {
+        // three variants keyed off tile position so forests are not uniform.
+        // This used to be an inline `(tile.x * 7 + tile.y * 13) % 2` here;
+        // widening that same expression to `% 3` would have collapsed to
+        // `(x + y) % 3` (both 7 and 13 are ≡1 mod 3), which is constant along
+        // every diagonal and draws as a diagonal stripe across the map.
+        // `variantAt` mixes bits instead of relying on the multipliers'
+        // residues, so it survives being widened past 2 (see
+        // tileVariant.test.ts for the regression check).
+        const variant = variantAt(tile.x, tile.y, 3);
+        return variant === 0 ? t.forest1 : variant === 1 ? t.forest2 : t.forest3;
+      }
+      case 'stone': {
+        const variant = variantAt(tile.x, tile.y, 2);
+        return variant === 0 ? t.stone : t.stone2;
+      }
       case 'crystal':
-        return this.textures.tiles.crystal;
+        return t.crystal;
       case 'ironVein':
-        return this.textures.tiles.ironVein;
+        return t.ironVein;
       case 'shallowWater':
-        return this.textures.tiles.shallowWater;
+        return t.shallowWater;
       case 'deepWater':
-        return this.textures.tiles.deepWater;
-      default:
-        return this.textures.tiles.grass;
+        return t.deepWater;
+      default: {
+        const variant = variantAt(tile.x, tile.y, 3);
+        return variant === 0 ? t.grass : variant === 1 ? t.grass2 : t.grass3;
+      }
     }
   }
 
@@ -312,7 +325,7 @@ export class GameRenderer {
       case 'frostbloom':
         return building.growth >= 1 ? t.frostbloomBloom : t.frostbloomBare;
       case 'farmPlot':
-        if (!building.sown) return t.farm0;
+        if (!building.sown) return t.farmTilled;
         return building.growth >= 1 ? t.farm2 : building.growth > 0.35 ? t.farm1 : t.farm0;
       case 'storageZoneMarker':
         return t.storage;

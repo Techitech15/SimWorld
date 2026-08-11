@@ -88,23 +88,70 @@ function tileEdge(c, color) {
 }
 
 // --- terrain ---------------------------------------------------------------
-function grassTile() {
+/**
+ * Grass, in three variants (issue #19). Variant 1 is byte-identical to the
+ * original single grassTile() - same seed (1001), same draw order - so
+ * `npm run sprites` does not touch the shipped terrain/grass.png. Variants 2
+ * and 3 reuse the same 4-colour P.grass palette but shift which entry is the
+ * base fill and how many tufts are drawn, so the brightness/density differ
+ * a little without introducing a colour that would read as a different
+ * terrain next to variant 1.
+ */
+function grassTile(variant) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(1001);
-  c.fill(P.grass[1]);
-  for (let y = 0; y < TILE; y++) {
-    for (let x = 0; x < TILE; x++) {
-      const r = rnd();
-      if (r < 0.14) c.set(x, y, P.grass[0]);
-      else if (r < 0.26) c.set(x, y, P.grass[2]);
+  const rnd = mulberry32(variant === 1 ? 1001 : variant === 2 ? 1002 : 1003);
+  if (variant === 1) {
+    c.fill(P.grass[1]);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const r = rnd();
+        if (r < 0.14) c.set(x, y, P.grass[0]);
+        else if (r < 0.26) c.set(x, y, P.grass[2]);
+      }
     }
-  }
-  for (let i = 0; i < 14; i++) {
-    const x = Math.floor(rnd() * TILE);
-    const y = Math.floor(rnd() * (TILE - 3)) + 2;
-    c.set(x, y, P.grass[3]);
-    c.set(x, y - 1, P.grass[3]);
-    c.set(x + 1, y - 1, P.grass[2]);
+    for (let i = 0; i < 14; i++) {
+      const x = Math.floor(rnd() * TILE);
+      const y = Math.floor(rnd() * (TILE - 3)) + 2;
+      c.set(x, y, P.grass[3]);
+      c.set(x, y - 1, P.grass[3]);
+      c.set(x + 1, y - 1, P.grass[2]);
+    }
+  } else if (variant === 2) {
+    // a shade brighter/more saturated: base fill one step up the palette,
+    // fewer but higher-contrast tufts
+    c.fill(P.grass[2]);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const r = rnd();
+        if (r < 0.12) c.set(x, y, P.grass[0]);
+        else if (r < 0.22) c.set(x, y, P.grass[3]);
+      }
+    }
+    for (let i = 0; i < 10; i++) {
+      const x = Math.floor(rnd() * TILE);
+      const y = Math.floor(rnd() * (TILE - 3)) + 2;
+      c.set(x, y, P.grass[3]);
+      c.set(x, y - 1, P.grass[3]);
+      c.set(x + 1, y - 1, P.grass[1]);
+    }
+  } else {
+    // a shade darker/more muted, with denser tufts so it does not just read
+    // as a dimmer copy of variant 1
+    c.fill(P.grass[0]);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const r = rnd();
+        if (r < 0.18) c.set(x, y, P.grass[1]);
+        else if (r < 0.3) c.set(x, y, P.grass[2]);
+      }
+    }
+    for (let i = 0; i < 18; i++) {
+      const x = Math.floor(rnd() * TILE);
+      const y = Math.floor(rnd() * (TILE - 3)) + 2;
+      c.set(x, y, P.grass[2]);
+      c.set(x, y - 1, P.grass[2]);
+      c.set(x + 1, y - 1, P.grass[1]);
+    }
   }
   tileEdge(c, P.grass[0]);
   return c;
@@ -137,18 +184,31 @@ function forestTile(variant) {
     tree(c, 16, 22, 9, false);
     tree(c, 6, 11, 5, true);
     tree(c, 26, 13, 5, true);
-  } else {
+  } else if (variant === 2) {
     // sparser variant so forests do not look like one repeated stamp
     tree(c, 10, 24, 7, false);
     tree(c, 24, 17, 6, true);
+  } else {
+    // third variant: a denser small cluster with yet another silhouette
+    tree(c, 8, 21, 6, false);
+    tree(c, 21, 25, 7, true);
+    tree(c, 23, 10, 5, false);
+    tree(c, 9, 8, 4, true);
   }
   tileEdge(c, '#16331a');
   return c;
 }
 
-function stoneTile() {
+/**
+ * Rock, in two variants (issue #19). Variant 1 is byte-identical to the
+ * original single stoneTile() - same seed (3001), same chunk layout - so
+ * `npm run sprites` does not touch the shipped terrain/stone.png. Variant 2
+ * uses a different seed and a different chunk layout so adjacent stone tiles
+ * do not look like one repeated stamp.
+ */
+function stoneTile(variant) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(3001);
+  const rnd = mulberry32(variant === 1 ? 3001 : 3002);
   c.fill(P.stone[2]);
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
@@ -158,12 +218,21 @@ function stoneTile() {
     }
   }
   // rock chunks with highlight / shadow to read as an un-mined ore face
-  const chunks = [
-    [8, 9, 7],
-    [21, 13, 6],
-    [13, 23, 6],
-    [26, 25, 4],
-  ];
+  const chunks =
+    variant === 1
+      ? [
+          [8, 9, 7],
+          [21, 13, 6],
+          [13, 23, 6],
+          [26, 25, 4],
+        ]
+      : [
+          [24, 8, 6],
+          [10, 12, 5],
+          [19, 22, 7],
+          [6, 26, 4],
+          [28, 27, 3],
+        ];
   for (const [cx, cy, r] of chunks) {
     c.disc(cx, cy, r, P.stone[1]);
     c.disc(cx - 1, cy - 1, r - 2, P.stone[3]);
@@ -422,9 +491,14 @@ function bedTile() {
   return c;
 }
 
+/**
+ * Farm plot ground. `stage` is 'tilled' (sown === false: bare tilled earth,
+ * no sprouts - issue #19) or 0/1/2 (sown, keyed the same way growth already
+ * splits farm0/farm1/farm2 in renderer.ts).
+ */
 function farmTile(stage) {
   const c = new Canvas(TILE, TILE);
-  const rnd = mulberry32(4000 + stage);
+  const rnd = mulberry32(stage === 'tilled' ? 4003 : 4000 + stage);
   c.fill(P.soil[1]);
   for (let y = 0; y < TILE; y++) {
     for (let x = 0; x < TILE; x++) {
@@ -433,26 +507,30 @@ function farmTile(stage) {
       else if (r < 0.26) c.set(x, y, P.soil[2]);
     }
   }
-  // furrows
-  for (let y = 3; y < TILE; y += 8) {
+  // furrows: a dark trench beside a lit ridge every 4px, so tilled ground
+  // reads as tilled at a glance instead of getting lost under the speckle
+  // (the previous 1+1px line every 8px was almost invisible under it)
+  for (let y = 0; y < TILE; y += 4) {
     c.hline(0, y, TILE, P.soil[0]);
     c.hline(0, y + 1, TILE, P.soil[2]);
   }
-  const rows = [6, 14, 22, 30];
-  for (const y of rows) {
-    for (let x = 4; x < TILE - 2; x += 7) {
-      if (stage === 0) {
-        c.set(x, y - 1, P.sprout);
-        c.set(x, y - 2, P.sprout);
-      } else if (stage === 1) {
-        c.vline(x, y - 5, 5, P.crop);
-        c.set(x - 1, y - 4, P.crop);
-        c.set(x + 1, y - 3, P.crop);
-      } else {
-        c.vline(x, y - 7, 7, P.cropRipeDark);
-        c.rect(x - 1, y - 9, 3, 4, P.cropRipe);
-        c.set(x - 2, y - 7, P.cropRipeDark);
-        c.set(x + 2, y - 7, P.cropRipeDark);
+  if (stage !== 'tilled') {
+    const rows = [6, 14, 22, 30];
+    for (const y of rows) {
+      for (let x = 4; x < TILE - 2; x += 7) {
+        if (stage === 0) {
+          c.set(x, y - 1, P.sprout);
+          c.set(x, y - 2, P.sprout);
+        } else if (stage === 1) {
+          c.vline(x, y - 5, 5, P.crop);
+          c.set(x - 1, y - 4, P.crop);
+          c.set(x + 1, y - 3, P.crop);
+        } else {
+          c.vline(x, y - 7, 7, P.cropRipeDark);
+          c.rect(x - 1, y - 9, 3, 4, P.cropRipe);
+          c.set(x - 2, y - 7, P.cropRipeDark);
+          c.set(x + 2, y - 7, P.cropRipeDark);
+        }
       }
     }
   }
@@ -1779,10 +1857,14 @@ function traderSheet() {
 
 // --- main ------------------------------------------------------------------
 const written = [];
-written.push(save('terrain/grass.png', grassTile()));
+written.push(save('terrain/grass.png', grassTile(1)));
+written.push(save('terrain/grass_2.png', grassTile(2)));
+written.push(save('terrain/grass_3.png', grassTile(3)));
 written.push(save('terrain/forest_1.png', forestTile(1)));
 written.push(save('terrain/forest_2.png', forestTile(2)));
-written.push(save('terrain/stone.png', stoneTile()));
+written.push(save('terrain/forest_3.png', forestTile(3)));
+written.push(save('terrain/stone.png', stoneTile(1)));
+written.push(save('terrain/stone_2.png', stoneTile(2)));
 written.push(save('terrain/crystal.png', crystalTile()));
 written.push(save('terrain/iron_vein.png', ironVeinTile()));
 written.push(save('terrain/shallow_water.png', waterTile(false)));
@@ -1797,6 +1879,7 @@ written.push(save('buildings/stone_floor.png', stoneFloorTile()));
 written.push(save('buildings/door_closed.png', doorTile(false)));
 written.push(save('buildings/door_open.png', doorTile(true)));
 written.push(save('buildings/bed.png', bedTile()));
+written.push(save('buildings/farm_tilled.png', farmTile('tilled')));
 written.push(save('buildings/farm_0.png', farmTile(0)));
 written.push(save('buildings/farm_1.png', farmTile(1)));
 written.push(save('buildings/farm_2.png', farmTile(2)));
