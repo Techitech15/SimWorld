@@ -149,8 +149,15 @@ button.active {
   font: inherit;
 }
 
+/* A permanent slot in the first row (13章 段階A). The old `width: 100%` made
+   the flex row wrap a second line the moment a message appeared, shoving the
+   whole board down; this one takes the leftover width and clips instead. */
 .topbar__status {
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--accent);
   font-size: 12px;
 }
@@ -788,6 +795,15 @@ button.active {
 .overlay--tr {
   right: 8px;
   width: 220px;
+}
+
+/* the selection, on the board near what it describes (13章 段階B); bottom-left
+   because top-left is resources and top-right is the minimap */
+.overlay--bl {
+  left: 8px;
+  bottom: 8px;
+  top: auto;
+  max-width: 260px;
 }
 
 /* Over the map, so the panels behind them need to be readable rather than

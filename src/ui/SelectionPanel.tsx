@@ -26,7 +26,7 @@ export function describeTile(state: GameState, tileId: string | null, strings: S
   // one flat string per row keeps the selector shallow-comparable
   const add = (label: string, value: string) => rows.push(`${label}: ${value}`);
 
-  add(strings.rowTile, `${tile.x}, ${tile.y}`);
+  // the coordinates are the heading now (13章 段階B), not a row
   add(strings.rowSeason, strings.seasonLabels[seasonOf(state.tick)]);
   add(
     strings.rowTerrain,
@@ -190,13 +190,15 @@ function StorageFilters(): React.JSX.Element | null {
 export function SelectionPanel(): React.JSX.Element | null {
   const strings = useStrings();
   const rows = useGameStore(useShallow((s) => describeTile(s.state, s.selectedTileId, strings)));
+  const tileId = useGameStore((s) => s.selectedTileId);
   const clear = useGameStore((s) => s.selectTile);
-  if (rows.length === 0) return null;
+  if (rows.length === 0 || !tileId) return null;
+  const [x, y] = tileId.split(',').map(Number);
 
   return (
     <section className="panel">
       <h2>
-        {strings.panelSelection}
+        {strings.tileTitle(x, y)}
         <button
           type="button"
           className="panel__clear"

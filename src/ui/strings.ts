@@ -129,6 +129,7 @@ export interface Strings {
   autosaveTitle: string;
   newMapButton: string;
   languageToggleTitle: string;
+  soundToggleTitle: string;
   worldMapButton: string;
 
   // --- world map overlay (11章 フェーズ11 段階B, design-phase11-worldmap.md 5章) --
@@ -199,7 +200,9 @@ export interface Strings {
   expandTitle: string;
 
   // --- selection panel rows -------------------------------------------------
-  rowTile: string;
+  /** the tile panel's own heading; the wrapping Fold already says "selection"
+   *  (13章 段階B), so the panel names the tile instead of repeating the word */
+  tileTitle: (x: number, y: number) => string;
   rowSeason: string;
   rowTerrain: string;
   rowForage: string;
@@ -836,6 +839,7 @@ const en: Strings = {
   autosaveTitle: 'the game saves once per in-game day, into its own slot',
   newMapButton: 'New map',
   languageToggleTitle: 'Language',
+  soundToggleTitle: 'Sound effects on/off (off by default)',
   worldMapButton: 'World map',
 
   worldMapTitle: 'World map',
@@ -908,7 +912,7 @@ const en: Strings = {
   collapseTitle: 'collapse',
   expandTitle: 'expand',
 
-  rowTile: 'Tile',
+  tileTitle: (x, y) => `Tile ${x}, ${y}`,
   rowSeason: 'Season',
   rowTerrain: 'Terrain',
   rowForage: 'Forage',
@@ -1502,6 +1506,7 @@ const ja: Strings = {
   autosaveTitle: 'ゲーム内の1日ごとに専用スロットへ自動セーブされる',
   newMapButton: '新しいマップ',
   languageToggleTitle: '言語',
+  soundToggleTitle: '効果音のオン/オフ（既定はオフ）',
   worldMapButton: '世界地図',
 
   worldMapTitle: '世界地図',
@@ -1573,7 +1578,7 @@ const ja: Strings = {
   collapseTitle: '折りたたむ',
   expandTitle: '開く',
 
-  rowTile: 'タイル',
+  tileTitle: (x, y) => `タイル ${x}, ${y}`,
   rowSeason: '季節',
   rowTerrain: '地形',
   rowForage: '牧草',

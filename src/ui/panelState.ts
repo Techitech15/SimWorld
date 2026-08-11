@@ -22,7 +22,9 @@ export type PanelId =
   | 'log'
   | 'resources'
   | 'map'
-  | 'research';
+  | 'research'
+  // [ext] the selection overlay on the board (13章 段階B)
+  | 'selection';
 
 const KEY = 'simworld.panels';
 

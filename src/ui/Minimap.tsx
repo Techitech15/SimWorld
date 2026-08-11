@@ -146,9 +146,9 @@ export function Minimap(): React.JSX.Element {
     }
   }, [state, viewport]);
 
+  // Bare content: the Fold in App.tsx owns the section and heading (13章 段階B).
   return (
-    <section className="panel">
-      <h2>{strings.panelMap}</h2>
+    <>
       <canvas
         ref={canvasRef}
         className="minimap"
@@ -170,6 +170,6 @@ export function Minimap(): React.JSX.Element {
         <span className="minimap__dot" style={{ background: 'rgb(232,196,76)' }} /> {strings.keyTame}
         <span className="minimap__dot" style={{ background: 'rgb(176,132,84)' }} /> {strings.keyWild}
       </div>
-    </section>
+    </>
   );
 }

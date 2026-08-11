@@ -58,11 +58,12 @@ function ResourceRow({ type }: { type: ResourceType }): React.JSX.Element {
   );
 }
 
+// Bare content: the Fold that wraps this in App.tsx owns the section and the
+// heading, the same shape as every other folded panel (13章 段階B).
 export function ResourcePanel(): React.JSX.Element {
   const strings = useStrings();
   return (
-    <section className="panel">
-      <h2>{strings.panelResources}</h2>
+    <>
       <ul className="resources">
         {RESOURCE_TYPES.map((type) => (
           <ResourceRow key={type} type={type} />
@@ -70,6 +71,6 @@ export function ResourcePanel(): React.JSX.Element {
       </ul>
       <ManaGrids />
       <p className="muted small">{strings.resourceFootnote}</p>
-    </section>
+    </>
   );
 }

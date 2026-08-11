@@ -9,6 +9,7 @@ import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { getNetworks, useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 import { useLanguageStore, useStrings } from './language';
+import { useSoundStore } from './soundPlayer';
 import { STRINGS } from './strings';
 import type { Language } from './strings';
 import { WorldMapOverlay } from './WorldMapOverlay';
@@ -43,6 +44,15 @@ export function TopBar(): React.JSX.Element {
   const strings = useStrings();
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
+  const muted = useSoundStore((s) => s.muted);
+  const toggleMuted = useSoundStore((s) => s.toggleMuted);
+
+  // The status text lives in a slot that exists whether or not there is a
+  // message (13章 段階A): the old `width: 100%` line wrapped the flex row and
+  // pushed the whole board down a line every time a message appeared.
+  const statusText = statusMessage
+    ? strings.status[statusMessage.key](statusMessage.params ?? {})
+    : '';
 
   const day = Math.floor(tick / TICKS_PER_DAY) + 1;
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);
@@ -88,6 +98,13 @@ export function TopBar(): React.JSX.Element {
         {jobs.failed > 0 ? ` / ${strings.jobsFailed(jobs.failed)}` : ''}
         {/* one number for how the colony is bearing it; the panel has the detail */}
         <span title={strings.moodTitle}> · {strings.moodSummary(mood, moodLabel(mood))}</span>
+      </div>
+
+      {/* always rendered, so a message changes pixels inside the slot and
+          nothing else; the full text rides on `title` for the ones that get
+          cut by the ellipsis */}
+      <div className="topbar__status" title={statusText}>
+        {statusText}
       </div>
 
       <div className="topbar__actions">
@@ -141,6 +158,17 @@ export function TopBar(): React.JSX.Element {
             </option>
           ))}
         </select>
+        {/* sound on/off beside the language toggle (13章 段階C). Off is the
+            default; the click that turns it on is the user gesture the
+            browser's autoplay policy wants the AudioContext born inside. */}
+        <button
+          type="button"
+          title={strings.soundToggleTitle}
+          aria-pressed={!muted}
+          onClick={toggleMuted}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
         {/* "New map" opens the world-map overlay rather than generating on the
             spot (11章 段階B, 5章): the old one-click ease is kept by the
             overlay's own "start anywhere" button, not by skipping the overlay. */}
@@ -152,12 +180,6 @@ export function TopBar(): React.JSX.Element {
           {strings.newMapButton}
         </button>
       </div>
-
-      {statusMessage ? (
-        <div className="topbar__status">
-          {strings.status[statusMessage.key](statusMessage.params ?? {})}
-        </div>
-      ) : null}
 
       {mapOverlay ? (
         <WorldMapOverlay
