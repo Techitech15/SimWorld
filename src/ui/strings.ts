@@ -241,6 +241,8 @@ export interface Strings {
   cropGrowing: (percent: number) => string;
   itemLine: (quantity: number, resource: ResourceType) => string;
   itemClaimedSuffix: string;
+  /** shown after an item line when the stack is cooked (design-next 提案3) */
+  itemMealSuffix: string;
   animalLine: (name: string, species: AnimalSpecies, kind: AnimalKind) => string;
   ageYoung: string;
   agePregnant: string;
@@ -416,6 +418,7 @@ const EN_BUILDINGS: Record<BuildingType, string> = {
   armchair: 'Armchair',
   statue: 'Statue',
   researchDesk: 'Research desk',
+  workbench: 'Workbench',
 };
 
 const EN_SKILLS: Record<SkillName, string> = {
@@ -427,6 +430,7 @@ const EN_SKILLS: Record<SkillName, string> = {
   hunt: 'Hunting',
   handle: 'Animals',
   research: 'Research',
+  craft: 'Crafting',
 };
 
 const EN_TECHS: Record<TechName, string> = {
@@ -444,6 +448,7 @@ const EN_TITLES: Record<SkillName, string> = {
   build: 'Builder',
   haul: 'Hauler',
   hunt: 'Hunter',
+  craft: 'Cook',
   handle: 'Handler',
   research: 'Researcher',
 };
@@ -585,6 +590,7 @@ const en: Strings = {
     deconstruct: 'deconstruct',
     repair: 'repair',
     research: 'research',
+    craft: 'craft',
   },
   techLabels: EN_TECHS,
   titleLabels: EN_TITLES,
@@ -635,6 +641,7 @@ const en: Strings = {
     properFloor: () => 'A proper floor underfoot',
     manaLight: () => 'Mana light to work by',
     ateAtTable: () => 'Ate at a table',
+    decentMeal: () => 'Had a decent meal',
     fineStatue: () => 'A fine statue to look at',
     friendNearby: () => 'A friend close by',
     knowsNobody: () => 'Nobody here they are close to',
@@ -816,6 +823,7 @@ const en: Strings = {
     tradeSettled: (p) =>
       `traded ${p.gaveQuantity} ${EN_RESOURCES[p.gave as ResourceType]} for ${p.tookQuantity} ${EN_RESOURCES[p.took as ResourceType]}`,
     researchUnlocked: (p) => `${en.techLabels[p.tech as TechName]} research completed`,
+    mealsCooked: (p) => `${p.count} meals cooked at the workbench`,
   },
   jobFailReasons: {
     interrupted: 'interrupted by a need',
@@ -961,6 +969,7 @@ const en: Strings = {
   cropGrowing: (percent) => `growing (${percent}%)`,
   itemLine: (quantity, resource) => `${quantity} ${EN_RESOURCES[resource]}`,
   itemClaimedSuffix: ' (claimed)',
+  itemMealSuffix: ' (meal)',
   animalLine: (name, species, kind) =>
     `${name} — ${EN_SPECIES[species]} (${en.animalKinds[kind]})`,
   ageYoung: 'young',
@@ -1117,6 +1126,7 @@ const JA_BUILDINGS: Record<BuildingType, string> = {
   armchair: '安楽椅子',
   statue: '石像',
   researchDesk: '研究台',
+  workbench: '作業台',
 };
 
 const JA_SKILLS: Record<SkillName, string> = {
@@ -1128,6 +1138,7 @@ const JA_SKILLS: Record<SkillName, string> = {
   hunt: '狩猟',
   handle: '世話',
   research: '研究',
+  craft: '加工',
 };
 
 const JA_TECHS: Record<TechName, string> = {
@@ -1147,6 +1158,7 @@ const JA_TITLES: Record<SkillName, string> = {
   hunt: '狩人',
   handle: '世話係',
   research: '研究者',
+  craft: '料理人',
 };
 
 const JA_SEASONS: Record<Season, string> = {
@@ -1279,6 +1291,7 @@ const ja: Strings = {
     deconstruct: '解体',
     repair: '修理',
     research: '研究',
+    craft: '加工',
   },
   techLabels: JA_TECHS,
   titleLabels: JA_TITLES,
@@ -1329,6 +1342,7 @@ const ja: Strings = {
     properFloor: () => 'ちゃんとした床の上にいる',
     manaLight: () => '魔力の明かりの下で働ける',
     ateAtTable: () => '食卓で食べた',
+    decentMeal: () => 'まともな食事をとった',
     fineStatue: () => '見事な石像がある',
     friendNearby: () => '友人がそばにいる',
     knowsNobody: () => '親しい人がいない',
@@ -1491,6 +1505,7 @@ const ja: Strings = {
     tradeSettled: (p) =>
       `${JA_RESOURCES[p.gave as ResourceType]}${p.gaveQuantity}を${JA_RESOURCES[p.took as ResourceType]}${p.tookQuantity}と交換した`,
     researchUnlocked: (p) => `${ja.techLabels[p.tech as TechName]}の研究が完了した`,
+    mealsCooked: (p) => `作業台で${p.count}食の料理ができた`,
   },
   jobFailReasons: {
     interrupted: '欲求による中断',
@@ -1634,6 +1649,7 @@ const ja: Strings = {
   cropGrowing: (percent) => `生育中（${percent}%）`,
   itemLine: (quantity, resource) => `${JA_RESOURCES[resource]} ${quantity}`,
   itemClaimedSuffix: '（予約済み）',
+  itemMealSuffix: '（調理済み）',
   animalLine: (name, species, kind) =>
     `${name} — ${JA_SPECIES[species]}（${ja.animalKinds[kind]}）`,
   ageYoung: '幼体',

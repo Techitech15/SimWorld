@@ -260,7 +260,7 @@ describe('stage C: derived titles', () => {
     const id = Object.keys(harness.state.colonists)[0];
     harness.state.colonists[id] = {
       ...harness.state.colonists[id],
-      skills: { chop: 0, mine: 0, farm: 0, build: 0, haul: 0, hunt: 0, handle: 0, research: 0 },
+      skills: { chop: 0, mine: 0, farm: 0, build: 0, haul: 0, hunt: 0, handle: 0, research: 0, craft: 0 },
     };
     expect(titleSkillOf(harness.state.colonists[id])).toBeNull();
 

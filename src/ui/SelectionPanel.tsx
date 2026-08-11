@@ -113,6 +113,7 @@ export function describeTile(state: GameState, tileId: string | null, strings: S
       add(
         strings.rowItems,
         strings.itemLine(item.quantity, item.type) +
+          (item.variant === 'meal' ? strings.itemMealSuffix : '') +
           (item.reservedByJobId ? strings.itemClaimedSuffix : ''),
       );
     }

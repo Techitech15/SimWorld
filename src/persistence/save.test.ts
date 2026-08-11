@@ -244,6 +244,43 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 22 save into the craft column', () => {
+    // A real v22 save predates the workbench: no `craft` on any colonist's
+    // workPriorities or skills, and no `variant` on any item - which is the
+    // shape those optional fields are designed to read as-is.
+    const harness = createHarness(111);
+    harness.run(100);
+    const v22 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    for (const id in v22.colonists) {
+      const { craft: _wp, ...workPriorities } = v22.colonists[id].workPriorities as Record<
+        string,
+        number
+      >;
+      const { craft: _sk, ...skills } = v22.colonists[id].skills as Record<string, number>;
+      v22.colonists[id] = {
+        ...v22.colonists[id],
+        workPriorities: workPriorities as GameState['colonists'][string]['workPriorities'],
+        skills: skills as GameState['colonists'][string]['skills'],
+      };
+    }
+
+    const migrated = migrateSave({
+      schemaVersion: 22,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-11T00:00:00.000Z',
+      state: v22,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const id in migrated.state.colonists) {
+      // same defaults a fresh colonist gets: nobody cooks unasked
+      expect(migrated.state.colonists[id].workPriorities.craft).toBe(3);
+      expect(migrated.state.colonists[id].skills.craft).toBe(0);
+    }
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('migrates a version 5 save into traits', () => {
     const harness = createHarness(83);
     harness.run(100);

@@ -135,6 +135,7 @@ export const DEFAULT_JOB_PRIORITY: Record<JobType, number> = {
   // a colonist can only ever be sent here on purpose (2.2), so ties never
   // matter; grouped with haul so it never jumps the queue by accident
   research: 3,
+  craft: 3, // same reasoning as research: cooking is deliberate work
 };
 
 /** Work ticks required once the colonist stands in place. */
@@ -149,6 +150,7 @@ export const WORK_TICKS: Record<JobType, number> = {
   deconstruct: 30, // faster to tear down than to put up
   repair: 30,
   research: 50, // heavier than farm(25), lighter than mine(60)
+  craft: 50, // one batch of meals is a research cycle's worth of standing work
 };
 
 /**
@@ -294,6 +296,9 @@ export const BUILDING_COSTS: Record<BuildingType, RequiredResource[]> = {
     { type: 'wood', quantity: 20 },
     { type: 'stone', quantity: 5 },
   ],
+  // The workbench (design-next 提案3): between a bed (12) and a desk (20) -
+  // early enough to cook the first winter's stores, not free.
+  workbench: [{ type: 'wood', quantity: 15 }],
 };
 
 export const BUILDING_HP: Record<BuildingType, number> = {
@@ -320,6 +325,7 @@ export const BUILDING_HP: Record<BuildingType, number> = {
   statue: 120, // solid stone: it outlasts the wooden wall it decorates
   armchair: 60,
   researchDesk: 90,
+  workbench: 90,
 };
 
 /** Structures that block movement once finished. */
@@ -358,6 +364,7 @@ export const BLOCKS_MOVEMENT: Record<BuildingType, boolean> = {
   statue: true,
   // a desk you stand at, like the table it is built the same way as
   researchDesk: true,
+  workbench: true, // a bench you work at, not walk through
 };
 
 // --- furniture effects (design-phase10-ores.md 4.2 / 7.2) --------------------
@@ -766,3 +773,20 @@ export const PASTURE_TILES_PER_ANIMAL = 4;
 /** A* budget for animals per tick, so the herd cannot starve the colonists' pathfinding. */
 export const ANIMAL_PATH_BUDGET_PER_TICK = 3;
 export const ANIMAL_PATH_TTL_TICKS = 60;
+
+// --- the workbench and cooking (design-next 提案3) ---------------------------
+/** Raw food one cooking batch consumes. */
+export const CRAFT_MEAL_INPUT = 10;
+/** Meals one batch produces: cooking upgrades food, it does not multiply it. */
+export const CRAFT_MEAL_OUTPUT = 10;
+/**
+ * Raw food the colony keeps out of the pot. A batch is only started while raw
+ * stock exceeds input + reserve, so cooking can never carry the last meals off
+ * to the bench while somebody is starving.
+ */
+export const CRAFT_FOOD_RESERVE = 10;
+/** A cooked meal restores this much hunger (raw: HUNGER_RESTORED_PER_MEAL). */
+export const MEAL_HUNGER_RESTORED = 95;
+/** Mood for having eaten a cooked meal, and how long the glow lasts. */
+export const MEAL_THOUGHT_BONUS = 6;
+export const MEAL_THOUGHT_TICKS = 1500; // half a day

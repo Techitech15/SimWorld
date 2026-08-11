@@ -1524,6 +1524,56 @@ function iconResearch() {
   return c;
 }
 
+
+/** The workbench (design-next 提案3): a heavy bench top with a cleaver and a
+ *  chopping board - the entrance to second-stage goods. */
+function workbenchTile() {
+  const c = new Canvas(TILE, TILE);
+  // legs at the corners, like the table but stouter
+  for (const [x, y] of [
+    [4, 6],
+    [23, 6],
+    [4, 23],
+    [23, 23],
+  ]) {
+    c.rect(x, y, 5, 5, P.plankDark);
+  }
+  // the bench top: thicker than the table, scarred by use
+  c.rect(2, 7, 28, 18, P.plankMid);
+  c.hline(2, 7, 28, P.plankLight);
+  c.hline(2, 24, 28, P.plankDark);
+  c.vline(2, 7, 18, P.plankLight);
+  c.vline(29, 7, 18, P.plankDark);
+  // knife scars across the working half
+  c.hline(5, 12, 6, P.plankDark);
+  c.hline(7, 15, 5, P.plankDark);
+  c.hline(4, 18, 7, P.plankDark);
+  // the chopping board, offset to the right
+  c.rect(17, 10, 10, 9, '#ded1b8');
+  c.hline(17, 10, 10, '#ede0c8');
+  // the cleaver on the board: iron blade, wooden grip
+  c.rect(19, 12, 5, 3, P.iconMetal);
+  c.set(24, 13, P.iconMetalDark);
+  c.rect(24, 14, 3, 2, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
+/** The craft column icon: the cleaver over the board, readable at 22px. */
+function iconCraft() {
+  const c = new Canvas(ICON, ICON);
+  // the board
+  c.rect(3, 8, 16, 10, '#ded1b8');
+  c.hline(3, 8, 16, '#ede0c8');
+  c.hline(3, 17, 16, '#cbbda4');
+  // the cleaver: broad blade, short grip
+  c.rect(5, 10, 8, 5, P.iconMetal);
+  c.hline(5, 14, 8, P.iconMetalDark);
+  c.rect(13, 11, 4, 3, P.plankDark);
+  c.outline(P.outline);
+  return c;
+}
+
 /** A raider: the colonist silhouette in dark colours with a blade. */
 function raiderSheet() {
   const sheet = new Canvas(TILE * 2, TILE);
@@ -1662,6 +1712,7 @@ written.push(save('buildings/dresser.png', dresserTile()));
 written.push(save('buildings/armchair.png', armchairTile()));
 written.push(save('buildings/statue.png', statueTile()));
 written.push(save('buildings/research_desk.png', researchDeskTile()));
+written.push(save('buildings/workbench.png', workbenchTile()));
 written.push(save('raiders/raider.png', raiderSheet()));
 written.push(save('buildings/mana_turret.png', manaTurretTile(false)));
 written.push(save('buildings/mana_turret_live.png', manaTurretTile(true)));
@@ -1691,6 +1742,7 @@ written.push(save('buildings/pasture_marker.png', pastureMarker()));
 written.push(save('ui/job_hunt.png', iconHunt()));
 written.push(save('ui/job_handle.png', iconHandle()));
 written.push(save('ui/job_research.png', iconResearch()));
+written.push(save('ui/job_craft.png', iconCraft()));
 written.push(save('ui/need_health.png', iconHealth()));
 written.push(save('ui/need_mood.png', iconMood()));
 

@@ -85,7 +85,7 @@ function defaultPriorities(): Record<JobType, number> {
   // research starts at the lowest priority too (design-phase12-research.md
   // 2.2): a colonist should never drift to the desk before the player has
   // built one, picked a tech, and raised this column on purpose
-  for (const t of JOB_TYPES) table[t] = t === 'haul' || t === 'research' ? 3 : 2;
+  for (const t of JOB_TYPES) table[t] = t === 'haul' || t === 'research' || t === 'craft' ? 3 : 2;
   return table;
 }
 
@@ -126,13 +126,20 @@ export function addItem(
   quantity: number,
   x: number,
   y: number,
+  variant?: 'meal',
 ): Item {
   const tile = state.tiles[tileIdOf(x, y)];
   own(state, 'items');
-  // merge into an existing stack of the same type on this tile when possible
+  // merge into an existing stack of the same type - and the same variant - on
+  // this tile when possible. A meal merged into a raw stack would silently
+  // uncook it (design-next 提案3).
   for (const existingId of tile.itemIds) {
     const existing = state.items[existingId];
-    if (existing.type === type && existing.quantity + quantity <= STACK_MAX) {
+    if (
+      existing.type === type &&
+      (existing.variant ?? null) === (variant ?? null) &&
+      existing.quantity + quantity <= STACK_MAX
+    ) {
       const merged = { ...existing, quantity: existing.quantity + quantity };
       state.items[existingId] = merged;
       return merged;
@@ -146,6 +153,7 @@ export function addItem(
     position: { x, y },
     reservedByJobId: null,
   };
+  if (variant) item.variant = variant;
   state.items[id] = item;
   updateTile(state, tile.id, { itemIds: [...tile.itemIds, id] });
   return item;

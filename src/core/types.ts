@@ -83,6 +83,15 @@ export interface Item {
   id: ItemId;
   type: ResourceType;
   quantity: number;
+  /**
+   * [ext] What was done to it, not what it is (design-next 提案3, foretold by
+   * design-phase2.5-animals.md 2章). A cooked meal is still `food` to every
+   * job, filter and trade - only stacking (variants never merge), eating (a
+   * meal restores more and leaves a thought) and the display read this.
+   * Absent on every item from before the field existed, which reads as "raw"
+   * and needs no migration.
+   */
+  variant?: 'meal';
   /** map coordinates; items inside a storage zone still carry real coordinates */
   position: Vector2;
   reservedByJobId: JobId | null;
@@ -154,6 +163,8 @@ export type ColonistActivity =
 export interface CarriedStack {
   type: ResourceType;
   quantity: number;
+  /** [ext] rides along so a carried meal is still a meal when it is put down */
+  variant?: 'meal';
 }
 
 export interface Colonist {
@@ -191,6 +202,13 @@ export interface Colonist {
    * the game had before traits existed.
    */
   traits: TraitName[];
+  /**
+   * [ext] Until when the "decent meal" thought lasts (design-next 提案3).
+   * Event state like a furnace's fuel: "ate a cooked meal recently" is not
+   * derivable from anything else. Absent on colonists from before the field
+   * existed, which reads as "no recent meal".
+   */
+  mealUntilTick?: number;
 }
 
 /** [ext] See src/core/traits.ts for what each one bends. */
@@ -225,6 +243,12 @@ export type BuildingType =
    * map whose season is winter. Nobody builds one.
    */
   | 'frostbloom'
+  /**
+   * [ext] The workbench (design-next 提案3): the entrance to second-stage
+   * goods. One recipe for now - raw food in, meals out - worked by the `craft`
+   * column.
+   */
+  | 'workbench'
   | 'storageZoneMarker'
   /**
    * [ext] The mana layer (11章 フェーズ2). A furnace burns crystal to supply a
@@ -393,7 +417,12 @@ export type JobType =
    * skill, default priority 3 (lowest) so a colonist never drifts to the desk
    * unasked (design-phase12-research.md 2.2).
    */
-  | 'research';
+  | 'research'
+  /**
+   * [ext] Working the workbench (design-next 提案3). Its own column and skill,
+   * the same defaults as research: nobody cooks until the player raises it.
+   */
+  | 'craft';
 
 /**
  * The columns of the work-priority table. `deconstruct` and `repair` are
@@ -409,6 +438,7 @@ export const JOB_TYPES: JobType[] = [
   'hunt',
   'handle',
   'research',
+  'craft',
 ];
 
 /**
@@ -728,7 +758,8 @@ export type LogKey =
   | 'traderArrived' // { name, kind, tribe } - tribe is always 'lanternfolk' (11章 段階C, traders are the Lanternfolk's)
   | 'traderLeft' // { name }
   | 'tradeSettled' // { gaveQuantity, gave, tookQuantity, took }
-  | 'researchUnlocked'; // { tech }
+  | 'researchUnlocked' // { tech }
+  | 'mealsCooked'; // { count } (design-next 提案3)
 
 /**
  * [ext] Why a job was given up on; rendered per language like everything else.

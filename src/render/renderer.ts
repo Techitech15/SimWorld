@@ -274,6 +274,8 @@ export class GameRenderer {
         return t.statue;
       case 'researchDesk':
         return t.researchDesk;
+      case 'workbench':
+        return t.workbench;
       case 'tradingPost':
         return t.tradingPost;
       case 'manaTurret':

@@ -41,6 +41,8 @@ export const BUILD_MENU: BuildMenuEntry[] = [
   // the research desk (11章 フェーズ12): a structure like any other in the menu,
   // and never itself gated by a tech (design-phase12-research.md 3.1)
   { tool: { kind: 'build', building: 'researchDesk' }, category: 'structure' },
+  // the workbench (design-next 提案3): production furniture, so it lives with it
+  { tool: { kind: 'build', building: 'workbench' }, category: 'furniture' },
   // furniture: 7 - the largest category, which is what sets the visible-button
   // cap the switcher design is built around (design-phase10-ores.md 5.2)
   { tool: { kind: 'build', building: 'bed' }, category: 'furniture', shortcut: 'n' },

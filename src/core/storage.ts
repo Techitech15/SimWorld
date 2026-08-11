@@ -43,12 +43,18 @@ export function itemsOnTile(state: GameState, tileId: TileId): Item[] {
   return tile.itemIds.map((id) => state.items[id]).filter(Boolean);
 }
 
-/** Free capacity on a storage tile for a given resource type. */
-export function freeCapacity(state: GameState, tileId: TileId, type: ResourceType): number {
+/** Free capacity on a storage tile for a given resource type (and variant:
+ *  a raw stack has no room for meals - they are different stacks, 提案3). */
+export function freeCapacity(
+  state: GameState,
+  tileId: TileId,
+  type: ResourceType,
+  variant?: 'meal',
+): number {
   const items = itemsOnTile(state, tileId);
   if (items.length === 0) return STACK_MAX;
-  const same = items.find((i) => i.type === type);
-  if (!same) return 0; // one stack type per tile keeps the zone readable
+  const same = items.find((i) => i.type === type && (i.variant ?? null) === (variant ?? null));
+  if (!same) return 0; // one stack per tile keeps the zone readable
   return Math.max(0, STACK_MAX - same.quantity);
 }
 
@@ -73,12 +79,13 @@ export function findStorageDestination(
   type: ResourceType,
   quantity: number,
   from: Vector2,
+  variant?: 'meal',
 ): TileId | null {
   let best: TileId | null = null;
   let bestDistance = Infinity;
   for (const tileId of destinationTileIds(state, type)) {
     if (isReserved(state, tileId)) continue;
-    if (freeCapacity(state, tileId, type) < Math.min(quantity, 1)) continue;
+    if (freeCapacity(state, tileId, type, variant) < Math.min(quantity, 1)) continue;
     const tile = state.tiles[tileId];
     const distance = manhattan(from, { x: tile.x, y: tile.y });
     if (distance < bestDistance) {
@@ -118,7 +125,7 @@ export function findNearestItem(
   state: GameState,
   type: ResourceType,
   from: Vector2,
-  options: { preferStorage?: boolean; minQuantity?: number } = {},
+  options: { preferStorage?: boolean; minQuantity?: number; variant?: 'meal' | null } = {},
 ): Item | null {
   const minQuantity = options.minQuantity ?? 1;
   let best: Item | null = null;
@@ -126,6 +133,8 @@ export function findNearestItem(
   for (const id in state.items) {
     const item = state.items[id];
     if (item.type !== type || item.quantity < minQuantity) continue;
+    // variant: 'meal' = meals only, null = raw only, absent = either
+    if (options.variant !== undefined && (item.variant ?? null) !== options.variant) continue;
     if (isReserved(state, item.id)) continue;
     const tileId = tileIdOf(item.position.x, item.position.y);
     const stored = isStorageTile(state, tileId);

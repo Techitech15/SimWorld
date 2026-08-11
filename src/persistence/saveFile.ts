@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -394,6 +394,27 @@ export const migrations: Record<number, Migration> = {
   21: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, worldCell: state.worldCell ?? null };
+  },
+
+  /**
+   * 22 -> 23: the workbench and the craft column (design-next 提案3). The same
+   * shape as 19 -> 20: `workPriorities.craft = 3` and `skills.craft = 0` join
+   * every colonist, and nothing else moves - `Item.variant` and
+   * `Colonist.mealUntilTick` are optional fields whose absence already means
+   * "raw" and "no recent meal", so items and meals need no rewriting.
+   */
+  22: (old) => {
+    const state = old as Partial<GameState>;
+    const colonists: GameState['colonists'] = {};
+    for (const id in state.colonists ?? {}) {
+      const colonist = state.colonists![id];
+      colonists[id] = {
+        ...colonist,
+        workPriorities: { ...colonist.workPriorities, craft: colonist.workPriorities?.craft ?? 3 },
+        skills: { ...colonist.skills, craft: colonist.skills?.craft ?? 0 },
+      };
+    }
+    return { ...state, colonists };
   },
 };
 

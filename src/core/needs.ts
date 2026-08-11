@@ -17,6 +17,8 @@ import {
   FOOD_PER_MEAL,
   HUNGER_PER_TICK,
   HUNGER_RESTORED_PER_MEAL,
+  MEAL_HUNGER_RESTORED,
+  MEAL_THOUGHT_TICKS,
   HUNGER_THRESHOLD,
   SLEEP_PER_TICK,
   SLEEP_RECOVERY_ON_GROUND_PER_TICK,
@@ -393,6 +395,8 @@ function runBreak(state: GameState, colonistId: string): void {
     if (meal.quantity - eaten <= 0) removeItem(state, meal.id);
     else updateItem(state, meal.id, { quantity: meal.quantity - eaten });
     const needs = state.colonists[colonistId].needs;
+    // a binge burns through meals at raw value: wolfing the larder down is
+    // not what the cook had in mind, so no glow either
     updateColonist(state, colonistId, {
       needs: { ...needs, hunger: Math.max(0, needs.hunger - HUNGER_RESTORED_PER_MEAL) },
       activity: { ...activity, eaten: activity.eaten + eaten },
@@ -463,6 +467,7 @@ function runEating(state: GameState, ctx: SimContext, colonistId: string): void 
   }
 
   const eaten = Math.min(FOOD_PER_MEAL, item.quantity);
+  const cooked = item.variant === 'meal';
   if (item.quantity - eaten <= 0) removeItem(state, item.id);
   else
     updateItem(state, item.id, {
@@ -470,10 +475,13 @@ function runEating(state: GameState, ctx: SimContext, colonistId: string): void 
       reservedByJobId: null,
     });
 
-  const restored = (eaten / FOOD_PER_MEAL) * HUNGER_RESTORED_PER_MEAL;
+  // a cooked meal restores more and leaves a glow (design-next 提案3)
+  const perMeal = cooked ? MEAL_HUNGER_RESTORED : HUNGER_RESTORED_PER_MEAL;
+  const restored = (eaten / FOOD_PER_MEAL) * perMeal;
   const needs = state.colonists[colonistId].needs;
   updateColonist(state, colonistId, {
     needs: { ...needs, hunger: Math.max(0, needs.hunger - restored) },
+    ...(cooked ? { mealUntilTick: state.tick + MEAL_THOUGHT_TICKS } : {}),
   });
   releaseByJob(state, NEED_EAT_JOB_ID);
   endActivity(state, colonistId);

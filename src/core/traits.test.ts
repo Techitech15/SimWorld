@@ -113,7 +113,7 @@ describe('traits', () => {
       harness.state.colonists[only] = {
         ...harness.state.colonists[only],
         traits,
-        skills: { chop: 0, mine: 0, farm: 0, build: 0, haul: 0, hunt: 0, handle: 0, research: 0 },
+        skills: { chop: 0, mine: 0, farm: 0, build: 0, haul: 0, hunt: 0, handle: 0, research: 0, craft: 0 },
         workPriorities: { ...harness.state.colonists[only].workPriorities, chop: 1 },
       };
       const at = harness.state.colonists[only].position;

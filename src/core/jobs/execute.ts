@@ -8,6 +8,7 @@ import {
   BLOCKS_MOVEMENT,
   BUILDING_COSTS,
   COOLDOWN_TICKS,
+  CRAFT_MEAL_OUTPUT,
   DECONSTRUCT_REFUND,
   FAILED_JOB_RETENTION_TICKS,
   FOOD_PER_BERRY_HARVEST,
@@ -263,6 +264,19 @@ function applyJobEffect(
       }
       break;
     }
+    case 'craft': {
+      // The batch was delivered into the bench (its food line sits at 0);
+      // the finished meals appear beside it and the line is cleared so the
+      // generator can open the next batch. Nothing multiplies: ten in, ten out.
+      const bench = state.buildings[job.targetEntityId!];
+      const tile = state.tiles[bench.tileId];
+      updateBuilding(state, bench.id, {
+        requiredResources: bench.requiredResources.filter((r) => r.type !== 'food'),
+      });
+      addItem(state, 'food', CRAFT_MEAL_OUTPUT, tile.x, tile.y, 'meal');
+      addLog(state, 'mealsCooked', { count: CRAFT_MEAL_OUTPUT });
+      break;
+    }
     default:
       break;
   }
@@ -440,7 +454,9 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     }
 
     updateColonist(state, colonistId, {
-      carrying: { type: item.type, quantity: taken },
+      carrying: item.variant
+        ? { type: item.type, quantity: taken, variant: item.variant }
+        : { type: item.type, quantity: taken },
     });
     if (taken >= item.quantity) removeItem(state, item.id);
     else
@@ -541,7 +557,7 @@ function executeHaul(state: GameState, ctx: SimContext, jobId: string, colonistI
     updateColonist(state, colonistId, { carrying: null });
     if (leftover > 0) {
       const at = state.colonists[colonistId].position;
-      addItem(state, carrying.type, leftover, at.x, at.y);
+      addItem(state, carrying.type, leftover, at.x, at.y, carrying.variant);
     }
     completeJob(state, jobId, colonistId);
     return;

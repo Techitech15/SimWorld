@@ -22,6 +22,7 @@ import {
   TABLE_RADIUS,
   TABLE_THOUGHT_BONUS,
   TABLE_WITH_STOOL_THOUGHT_BONUS,
+  MEAL_THOUGHT_BONUS,
 } from './constants';
 import { biomeOf } from './biome';
 import { LAMP_RADIUS, isPowered } from './mana';
@@ -69,6 +70,7 @@ export type ThoughtKey =
   | 'properFloor'
   | 'manaLight'
   | 'ateAtTable'
+  | 'decentMeal'
   | 'fineStatue'
   | 'friendNearby'
   | 'knowsNobody'
@@ -264,6 +266,12 @@ export function thoughtsOf(
   // down makes the thought vanish on the next read with nothing to clean up.
   if (facts.tableBonus > 0) {
     thoughts.push({ key: 'ateAtTable', amount: facts.tableBonus });
+  }
+
+  // the glow of a cooked meal (design-next 提案3): event state on the
+  // colonist, like a furnace's fuel - it outlasts the moment and expires
+  if (colonist.mealUntilTick !== undefined && state.tick < colonist.mealUntilTick) {
+    thoughts.push({ key: 'decentMeal', amount: MEAL_THOUGHT_BONUS });
   }
   if (facts.nearStatue) {
     thoughts.push({ key: 'fineStatue', amount: STATUE_THOUGHT_BONUS });

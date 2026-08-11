@@ -31,12 +31,12 @@ export function depositCarried(
 ): void {
   const colonist = state.colonists[colonistId];
   if (!colonist?.carrying) return;
-  const { type, quantity } = colonist.carrying;
+  const { type, quantity, variant } = colonist.carrying;
   updateColonist(state, colonistId, { carrying: null });
   let remaining = quantity;
   while (remaining > 0) {
     const chunk = Math.min(remaining, STACK_MAX);
-    addItem(state, type, chunk, x, y);
+    addItem(state, type, chunk, x, y, variant);
     remaining -= chunk;
   }
 }
