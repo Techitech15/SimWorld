@@ -8,6 +8,7 @@ import type { ScenarioName } from '../core/scenario';
 import { DAYS_PER_SEASON, dayOfSeason, seasonOf, yearOf } from '../core/season';
 import { AUTOSAVE_SLOT } from '../persistence/indexeddb';
 import { getNetworks, useGameStore } from '../store/gameStore';
+import { useBgmStore } from './bgmPlayer';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 import { useLanguageStore, useStrings } from './language';
 import { useSoundStore } from './soundPlayer';
@@ -52,6 +53,12 @@ export function TopBar(): React.JSX.Element {
   const toggleMuted = useSoundStore((s) => s.toggleMuted);
   const volume = useSoundStore((s) => s.volume);
   const setVolume = useSoundStore((s) => s.setVolume);
+  // BGM's own fader, independent of the SFX one above (issue #22 acceptance
+  // condition 1) - distinct local names so neither pair collides with the other
+  const bgmMuted = useBgmStore((s) => s.muted);
+  const toggleBgmMuted = useBgmStore((s) => s.toggleMuted);
+  const bgmVolume = useBgmStore((s) => s.volume);
+  const setBgmVolume = useBgmStore((s) => s.setVolume);
 
   // The status text lives in a slot that exists whether or not there is a
   // message (13章 段階A): the old `width: 100%` line wrapped the flex row and
@@ -208,6 +215,38 @@ export function TopBar(): React.JSX.Element {
         />
         <span className="topbar__volume-label muted" title={strings.soundVolumeTitle}>
           {strings.soundVolumeLabel(Math.round(volume * 100))}
+        </span>
+        {/* BGM on/off, right after the SFX controls (段階 S-3, GitHub issue
+            #22). Its own store, its own mute default (off) and its own
+            slider - turning music off while keeping SFX on is the common
+            case (6章), so the two faders must not share state. A different
+            icon pair (🔕/🎵) keeps this button visually distinct from the
+            SFX one above. */}
+        <button
+          type="button"
+          title={strings.bgmToggleTitle}
+          aria-pressed={!bgmMuted}
+          onClick={toggleBgmMuted}
+        >
+          {bgmMuted ? '🔕' : '🎵'}
+        </button>
+        {/* disabled while muted for the same reason the SFX slider is: unmuting
+            is the deliberate act (and the user gesture the autoplay policy
+            wants), so dragging a disabled slider must not silently unmute */}
+        <input
+          className="topbar__bgm-volume"
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(bgmVolume * 100)}
+          disabled={bgmMuted}
+          title={strings.bgmVolumeTitle}
+          aria-label={strings.bgmVolumeTitle}
+          onChange={(event) => setBgmVolume(Number(event.target.value) / 100)}
+        />
+        <span className="topbar__bgm-volume-label muted" title={strings.bgmVolumeTitle}>
+          {strings.bgmVolumeLabel(Math.round(bgmVolume * 100))}
         </span>
         {/* "New map" opens the world-map overlay rather than generating on the
             spot (11章 段階B, 5章): the old one-click ease is kept by the

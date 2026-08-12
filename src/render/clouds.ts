@@ -22,9 +22,23 @@ export interface CloudShadow {
   alpha: number;
 }
 
-/** A shadow, not a second night: stays faint enough to read as weather
- *  passing overhead rather than another darkening pass on top of daylight.ts. */
-export const CLOUD_ALPHA_MAX = 0.18;
+/**
+ * A shadow, not a second night: faint enough to read as weather passing
+ * overhead rather than another darkening pass on top of daylight.ts.
+ *
+ * 0.18 was too faint to see once there were enough clouds to look at. Note
+ * this is the value at the very centre of the sprite only - the texture's
+ * gradient is already at half strength 60% of the way out and zero at the rim,
+ * so most of a shadow's area was darkening the ground by well under a tenth,
+ * which on grass is nothing.
+ *
+ * 0.28 rather than a rounder 0.3 because clouds.test.ts already pins the
+ * ceiling under 0.3, and that rule is worth keeping: a shadow that approaches
+ * NIGHT_ALPHA (0.45) stops reading as weather and starts reading as darkness
+ * stacked on darkness. The test was left alone - it is the constraint doing
+ * its job, not an assumption that measurement disproved.
+ */
+export const CLOUD_ALPHA_MAX = 0.28;
 
 /** Every cloud drifts the same way - one wind, not a wind per cloud. */
 const WIND_DIR: Vector2 = { x: 1, y: 0.35 };
@@ -45,9 +59,38 @@ interface CloudDef {
 }
 
 /**
- * Five clouds, each with its own speed/size/phase, spread out so they do not
- * clump on one side of the map at t = 0. `x0`/`y0` are just a starting point
- * for the drift below, not a position tied to any particular map size.
+ * Thirty-six clouds, each with its own speed/size/phase, spread out so they do
+ * not clump on one side of the map at t = 0. `x0`/`y0` are just a starting
+ * point for the drift below, not a position tied to any particular map size.
+ *
+ * This was five, and five turned out to be too few to be seen. Measuring the
+ * shipped 120x120 map over 20 minutes of drift against a viewport-sized window
+ * at many places found a shadow on screen only **14.3%** of the time - six
+ * times out of seven the player is looking at ground with nothing crossing it,
+ * which is exactly how it was reported ("雲の影が見えない"). The original five
+ * were chosen when 60x60 was the default; the map got four times the area in
+ * フェーズ6 and the table never followed. Twenty-six took it to 82.4% and
+ * thirty-six to **90.3%**, all measured the same way at the current
+ * WRAP_MARGIN_TILES.
+ *
+ * 90% is deliberately not 100%: what is being bought is a sky that is usually
+ * doing something, not permanent overcast. The measure counts *any* shadow
+ * touching the viewport, and most of those are a soft edge crossing a corner
+ * rather than the ground going dark, so the gap between this number and how
+ * shaded it feels is wide.
+ *
+ * The first five entries are unchanged, so the clouds that were there before
+ * still drift exactly as they did.
+ *
+ * Radius now spans 5 to 26 tiles rather than 5 to 10. The old spread was
+ * narrow enough that every shadow read as the same object at slightly
+ * different sizes; a sky needs big slow ones to have any sense of scale, and
+ * at 26 tiles a single shadow covers a whole settlement. Size and speed move
+ * together throughout - the biggest are also the slowest, because a shadow
+ * that wide crossing quickly stops being a cloud and becomes a passing wall.
+ *
+ * Cost stays independent of map size (one sprite each) - a bigger radius is a
+ * bigger scale on the same texture, not more work.
  */
 const CLOUDS: CloudDef[] = [
   { x0: 5, y0: 8, speed: 0.0012, radius: 7, alphaScale: 1.0 },
@@ -55,6 +98,48 @@ const CLOUDS: CloudDef[] = [
   { x0: 70, y0: 5, speed: 0.0015, radius: 5, alphaScale: 0.85 },
   { x0: 20, y0: 45, speed: 0.001, radius: 8, alphaScale: 0.6 },
   { x0: 90, y0: 35, speed: 0.0009, radius: 6, alphaScale: 1.0 },
+  { x0: 85, y0: 52, speed: 0.0008, radius: 9, alphaScale: 0.75 },
+  { x0: 55, y0: 60, speed: 0.0011, radius: 9, alphaScale: 0.8 },
+  { x0: 110, y0: 62, speed: 0.0014, radius: 5, alphaScale: 0.85 },
+  { x0: 15, y0: 78, speed: 0.0013, radius: 6, alphaScale: 0.9 },
+  { x0: 100, y0: 88, speed: 0.0009, radius: 8, alphaScale: 0.65 },
+  { x0: 48, y0: 92, speed: 0.0013, radius: 6, alphaScale: 0.6 },
+  { x0: 75, y0: 105, speed: 0.0012, radius: 7, alphaScale: 0.95 },
+  { x0: 28, y0: 112, speed: 0.001, radius: 10, alphaScale: 0.7 },
+  // The big, slow ones. Size and speed move together on purpose: a 30-tile
+  // shadow crossing as briskly as a 10-tile one reads as the camera moving,
+  // not as weather. These are what give the sky a sense of scale - before
+  // them every shadow was within a few tiles of the same size.
+  { x0: 60, y0: 15, speed: 0.0007, radius: 16, alphaScale: 0.8 },
+  { x0: 10, y0: 60, speed: 0.0008, radius: 14, alphaScale: 0.7 },
+  { x0: 95, y0: 8, speed: 0.0009, radius: 13, alphaScale: 0.85 },
+  { x0: 40, y0: 75, speed: 0.0007, radius: 15, alphaScale: 0.75 },
+  { x0: 115, y0: 30, speed: 0.001, radius: 12, alphaScale: 0.6 },
+  // The bank. These are the ones that cover a whole settlement at once, and
+  // they are the slowest in the table - a shadow this wide has to take its
+  // time crossing or it stops being a cloud and becomes a passing wall.
+  { x0: 30, y0: 28, speed: 0.0005, radius: 26, alphaScale: 0.7 },
+  { x0: 100, y0: 105, speed: 0.0006, radius: 24, alphaScale: 0.65 },
+  { x0: 68, y0: 70, speed: 0.0005, radius: 22, alphaScale: 0.8 },
+  { x0: 8, y0: 98, speed: 0.0006, radius: 20, alphaScale: 0.6 },
+  { x0: 112, y0: 12, speed: 0.0007, radius: 21, alphaScale: 0.75 },
+  { x0: 52, y0: 118, speed: 0.0005, radius: 25, alphaScale: 0.7 },
+  { x0: 88, y0: 42, speed: 0.0006, radius: 19, alphaScale: 0.85 },
+  { x0: 20, y0: 8, speed: 0.0007, radius: 23, alphaScale: 0.6 },
+  // Filling in. With composite silhouettes the shadows overlap into larger
+  // irregular masses rather than stacking into visibly rounder ones, which is
+  // what makes this density work where a table of circles would have turned
+  // the ground into polka dots.
+  { x0: 46, y0: 48, speed: 0.0009, radius: 11, alphaScale: 0.7 },
+  { x0: 78, y0: 88, speed: 0.0011, radius: 8, alphaScale: 0.8 },
+  { x0: 5, y0: 34, speed: 0.0012, radius: 9, alphaScale: 0.65 },
+  { x0: 62, y0: 32, speed: 0.0008, radius: 17, alphaScale: 0.7 },
+  { x0: 104, y0: 70, speed: 0.0007, radius: 18, alphaScale: 0.75 },
+  { x0: 34, y0: 90, speed: 0.001, radius: 12, alphaScale: 0.85 },
+  { x0: 92, y0: 118, speed: 0.0008, radius: 15, alphaScale: 0.6 },
+  { x0: 14, y0: 118, speed: 0.0009, radius: 13, alphaScale: 0.7 },
+  { x0: 118, y0: 92, speed: 0.0011, radius: 10, alphaScale: 0.8 },
+  { x0: 70, y0: 58, speed: 0.0006, radius: 21, alphaScale: 0.65 },
 ];
 
 /**
@@ -63,7 +148,7 @@ const CLOUDS: CloudDef[] = [
  * fadeFactor) before the wrap happens, so the modulo's discontinuity always
  * lands where the cloud is already invisible.
  */
-export const WRAP_MARGIN_TILES = 14;
+export const WRAP_MARGIN_TILES = 28;
 
 /** Wrap `value` into [-WRAP_MARGIN_TILES, span + WRAP_MARGIN_TILES). */
 function wrap(value: number, span: number): number {
