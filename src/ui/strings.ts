@@ -220,6 +220,18 @@ export interface Strings {
   collapseTitle: string;
   expandTitle: string;
 
+  // --- narrow-viewport layout (issue #26, layout.ts) -------------------------
+  /** the "..." button that opens topbar__actions when the viewport is too
+   *  narrow to show save/load/scenario/map size/world map/language/sound in
+   *  the row (layout.ts's `collapseActions`) */
+  actionsMenuButton: string;
+  /** opens the build toolbar as a drawer over the board, shown only when
+   *  layout.ts's `leftDocked` is false */
+  toolbarToggleTitle: string;
+  /** opens the read-panel column (colonists/work/research/animals/log) as a
+   *  drawer over the board, shown only when layout.ts's `rightDocked` is false */
+  panelsToggleTitle: string;
+
   // --- selection panel rows -------------------------------------------------
   /** the tile panel's own heading; the wrapping Fold already says "selection"
    *  (13章 段階B), so the panel names the tile instead of repeating the word */
@@ -990,6 +1002,10 @@ const en: Strings = {
   collapseTitle: 'collapse',
   expandTitle: 'expand',
 
+  actionsMenuButton: 'More',
+  toolbarToggleTitle: 'Build toolbar',
+  panelsToggleTitle: 'Panels',
+
   tileTitle: (x, y) => `Tile ${x}, ${y}`,
   rowSeason: 'Season',
   rowTerrain: 'Terrain',
@@ -1707,6 +1723,10 @@ const ja: Strings = {
   clearTitle: '閉じる',
   collapseTitle: '折りたたむ',
   expandTitle: '開く',
+
+  actionsMenuButton: 'もっと見る',
+  toolbarToggleTitle: '建築ツールバー',
+  panelsToggleTitle: 'パネル',
 
   tileTitle: (x, y) => `タイル ${x}, ${y}`,
   rowSeason: '季節',

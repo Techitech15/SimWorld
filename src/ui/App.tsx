@@ -9,7 +9,9 @@ import { EventLog } from './EventLog';
 import { Fold } from './Fold';
 import { GameCanvas } from './GameCanvas';
 import { GoalPanel } from './GoalPanel';
+import { layoutFor, useViewportSize } from './layout';
 import { Minimap } from './Minimap';
+import { usePanelFold } from './panelState';
 import { ResearchPanel } from './ResearchPanel';
 import { TradePanel } from './TradePanel';
 import { ResourcePanel } from './ResourcePanel';
@@ -56,15 +58,64 @@ export function App(): React.JSX.Element {
   const hasCreature = useGameStore((s) => s.selectedColonistId !== null || s.selectedAnimalId !== null);
   const hasTile = useGameStore((s) => s.selectedTileId !== null);
 
+  // Below ~1024px the two fixed-width sidebars (260px + 300px) left the board
+  // a thin strip (issue #26). `layoutFor` is the pure decision (layout.ts,
+  // tested in layout.test.ts); this is the one place it is turned into DOM.
+  // A sidebar that loses its dock becomes a drawer - `.sidebar--drawer` below
+  // - rather than disappearing, opened with the toggle buttons in the
+  // corners of the board. Its open/closed state is a `localStorage` fold
+  // (panelState.ts), same mechanism as every other panel, and starts closed:
+  // a drawer that reopens itself on every reload would eat the board space
+  // undocking it was meant to save.
+  const { width: viewportWidth, height: viewportHeight } = useViewportSize();
+  const layout = layoutFor(viewportWidth, viewportHeight);
+  const leftDrawer = usePanelFold('sidebarLeft', false);
+  const rightDrawer = usePanelFold('sidebarRight', false);
+  const leftSidebarClass = layout.leftDocked
+    ? 'sidebar sidebar--left'
+    : `sidebar sidebar--left sidebar--drawer${leftDrawer.open ? ' sidebar--drawer-open' : ''}`;
+  const rightSidebarClass = layout.rightDocked
+    ? 'sidebar sidebar--right'
+    : `sidebar sidebar--right sidebar--drawer${rightDrawer.open ? ' sidebar--drawer-open' : ''}`;
+
   return (
     <div className="app">
-      <TopBar />
+      <TopBar collapseActions={layout.collapseActions} />
       <div className="app__body">
-        <aside className="sidebar sidebar--left">
+        <aside className={leftSidebarClass}>
           <Toolbar />
         </aside>
         <main className="app__viewport">
           <GameCanvas />
+          {/* only rendered once the toolbar has actually lost its dock, same
+              rule as the selection overlays below: a control for a state that
+              cannot happen is not worth the corner of the board it costs */}
+          {!layout.leftDocked ? (
+            <button
+              type="button"
+              // slides along with the drawer's own edge while open, rather
+              // than sitting on top of the "Orders"/"Build" list it opened
+              className={`sidebar-toggle sidebar-toggle--left${leftDrawer.open ? ' sidebar-toggle--left-open' : ''}`}
+              aria-expanded={leftDrawer.open}
+              title={strings.toolbarToggleTitle}
+              aria-label={strings.toolbarToggleTitle}
+              onClick={leftDrawer.toggle}
+            >
+              🛠
+            </button>
+          ) : null}
+          {!layout.rightDocked ? (
+            <button
+              type="button"
+              className={`sidebar-toggle sidebar-toggle--right${rightDrawer.open ? ' sidebar-toggle--right-open' : ''}`}
+              aria-expanded={rightDrawer.open}
+              title={strings.panelsToggleTitle}
+              aria-label={strings.panelsToggleTitle}
+              onClick={rightDrawer.toggle}
+            >
+              📋
+            </button>
+          ) : null}
           <div className="overlay overlay--tl">
             <Fold id="resources" title={strings.panelResources}>
               <ResourcePanel />
@@ -96,7 +147,7 @@ export function App(): React.JSX.Element {
             </div>
           ) : null}
         </main>
-        <aside className="sidebar sidebar--right">
+        <aside className={rightSidebarClass}>
           <TradePanel />
           <GoalPanel />
           <Fold id="colonists" title={strings.panelColonists}>

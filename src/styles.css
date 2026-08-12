@@ -74,6 +74,20 @@ button.active {
   display: flex;
   flex: 1;
   min-height: 0;
+  /* the containing block for `.sidebar--drawer` (issue #26): without this,
+     an absolutely positioned drawer's `top: 0` resolves against the whole
+     page, not this row, and it slides out from under `.topbar` instead of
+     from beside it. */
+  position: relative;
+  /* A closed drawer parks at `translateX(100%)`, i.e. 300px past the right
+     edge, which grows the page's scrollWidth by exactly that much (measured:
+     body.scrollWidth - innerWidth === 300 at every width where the right
+     sidebar is a drawer). Today `body { overflow: hidden }` happens to clip
+     it, so nothing is reachable - but that is incidental protection, and a
+     parked drawer should not be part of the page's width in the first place.
+     `clip` rather than `hidden`: it does not make this a scroll container, so
+     the sidebars keep their own `overflow-y: auto`. */
+  overflow-x: clip;
 }
 
 .app__viewport {
@@ -113,6 +127,14 @@ button.active {
 }
 
 /* --- top bar ------------------------------------------------------------- */
+/* `flex-wrap` used to be `wrap` here, which is what issue #26 was about: a
+   narrow viewport wrapped this into two or three lines, pushing the whole
+   board down by that much every time. `nowrap` (the flex default, spelled
+   out so the intent survives an edit) plus `.topbar__actions` collapsing
+   into a menu (layout.ts's `collapseActions`, TopBar.tsx) keeps this to one
+   line at every width layout.test.ts checks. `overflow-x: auto` is the
+   fallback for anything narrower than that was tuned for: a horizontal
+   scrollbar on the bar itself, never a second row. */
 .topbar {
   display: flex;
   align-items: center;
@@ -120,24 +142,91 @@ button.active {
   padding: 8px 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
+/* `flex-shrink: 0` on the clock/speed/actions below: `.topbar` no longer
+   wraps, so at any width tighter than everything's natural size, these three
+   stay legible rather than being squeezed into unreadable slivers - the
+   clock is the one thing every screen reads first, the speed buttons are the
+   most-clicked control in the bar, and the actions button (or, collapsed,
+   the "..." menu - `ACTIONS_COLLAPSE_WIDTH` in layout.ts) is how the player
+   reaches save/load. `.topbar__jobs` gives width up instead, same as
+   `.topbar__status` (13章 段階A) - it is the single widest section (measured
+   ~400px with a few active jobs) and the least urgent to read at a glance,
+   so it is the one built to truncate. `overflow-x: auto` above is only the
+   fallback past that: at 640px, clock + speed + a truncated jobs chip + the
+   collapsed actions button fit without it. */
 .topbar__clock {
   display: flex;
   gap: 8px;
   align-items: baseline;
+  flex-shrink: 0;
 }
 
 .topbar__speed {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
+}
+
+.topbar__jobs {
+  min-width: 3em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar__actions {
   margin-left: auto;
   display: flex;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+/* the collapsed form of .topbar__actions below ACTIONS_COLLAPSE_WIDTH
+   (layout.ts, issue #26): a native <details> disclosure, so opening it needs
+   no state beyond what the browser already tracks. */
+.topbar__actions--menu {
+  position: relative;
+  display: block;
+}
+
+.topbar__actions--menu > summary {
+  list-style: none;
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.topbar__actions--menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.topbar__actions--menu > summary:hover {
+  border-color: var(--accent);
+}
+
+.topbar__actions-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  /* the row's own content (select/input/button) sizes each line; the menu
+     itself just needs to not go narrower than its widest child */
+  min-width: max-content;
 }
 
 .topbar__scenario {
@@ -194,6 +283,78 @@ button.active {
   width: 300px;
   border-right: none;
   border-left: 1px solid var(--line);
+}
+
+/* A sidebar that `layoutFor` (layout.ts, issue #26) decided not to dock: it
+   leaves the flex row (`position: absolute`) so it costs no board width
+   while closed, and slides in over the board - not into it - while open, so
+   opening it never shrinks `boardShare`. Opened from `.sidebar-toggle` below;
+   its open/closed bit is a `localStorage` fold (panelState.ts's
+   `sidebarLeft` / `sidebarRight`), same mechanism as every other panel. */
+.sidebar--drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
+  transform: translateX(-100%);
+  transition: transform 0.15s ease;
+}
+
+.sidebar--drawer.sidebar--drawer-open {
+  transform: translateX(0);
+}
+
+.sidebar--left.sidebar--drawer {
+  left: 0;
+  transform: translateX(-100%);
+}
+
+.sidebar--right.sidebar--drawer {
+  right: 0;
+  transform: translateX(100%);
+}
+
+.sidebar--left.sidebar--drawer.sidebar--drawer-open,
+.sidebar--right.sidebar--drawer.sidebar--drawer-open {
+  transform: translateX(0);
+}
+
+/* The open/close tab for an undocked sidebar (only rendered while it is
+   undocked - App.tsx). Sits over the board's own corner rather than in the
+   topbar, since the sidebar it opens overlays the board, not the topbar.
+   Vertically centered rather than pinned to top/bottom, so it never sits on
+   top of the corner overlays (.overlay--tl/tr/bl/br), which are anchored to
+   those corners. */
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 21;
+  font-size: 16px;
+  line-height: 1;
+  padding: 8px 6px;
+}
+
+.sidebar-toggle--left {
+  left: 8px;
+}
+
+.sidebar-toggle--right {
+  right: 8px;
+}
+
+/* while its drawer is open, the tab rides along its outer edge instead of
+   sitting on top of the panel content it just opened. The 260px / 300px
+   below are `.sidebar` / `.sidebar--right`'s own widths (and
+   layout.ts's SIDEBAR_LEFT_WIDTH / SIDEBAR_RIGHT_WIDTH) - keep in sync if
+   either changes. */
+.sidebar-toggle--left-open {
+  left: 268px;
+}
+
+.sidebar-toggle--right-open {
+  right: 308px;
 }
 
 .panel {

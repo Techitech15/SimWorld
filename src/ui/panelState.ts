@@ -28,7 +28,14 @@ export type PanelId =
   // [ext] the colonist/animal-selection overlay on the board, bottom-right
   // (段階 U-1: split out of 'selection' so a creature and its tile can show
   // at once - see SelectionFrame.tsx)
-  | 'selectionCreature';
+  | 'selectionCreature'
+  // [ext] whether the two sidebars, when the viewport is too narrow to dock
+  // them (layout.ts), are open as a drawer over the board (issue #26). Not
+  // covered by `defaultOpenFrom` below - App.tsx calls `usePanelFold`
+  // directly with `false`, since a drawer should start closed regardless of
+  // what the colony looks like.
+  | 'sidebarLeft'
+  | 'sidebarRight';
 
 const KEY = 'simworld.panels';
 

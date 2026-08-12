@@ -26,7 +26,12 @@ const LANGUAGES: Language[] = ['en', 'ja'];
  */
 type MapOverlayState = { mode: 'select' | 'view'; worldSeed: number } | null;
 
-export function TopBar(): React.JSX.Element {
+/**
+ * `collapseActions`: from `layoutFor` (layout.ts, issue #26) - below
+ * `ACTIONS_COLLAPSE_WIDTH` the button group folds into a `<details>` menu
+ * instead of sitting in the row, since `.topbar` no longer wraps.
+ */
+export function TopBar({ collapseActions }: { collapseActions: boolean }): React.JSX.Element {
   const [scenario, setScenario] = useState<ScenarioName>(DEFAULT_SCENARIO);
   // the board size for the *next* map (design-phase6-space.md 3.5 / A-4): a
   // property of generation like the scenario, so it sits in the same select row
@@ -72,6 +77,110 @@ export function TopBar(): React.JSX.Element {
     (step) => ({ value: step.value, label: step.label(strings), hint: step.hint(strings) }),
   );
 
+  // Save/load/scenario/map size/world map/language/sound/new-map - the same
+  // buttons whether they sit in the row or inside the collapsed `<details>`
+  // menu below (issue #26), so this is built once rather than duplicated.
+  const actions = (
+    <>
+      <button type="button" onClick={() => void save()}>
+        {strings.saveButton}
+      </button>
+      <button type="button" onClick={() => void load()}>
+        {strings.loadButton}
+      </button>
+      {hasAutosave ? (
+        <button type="button" title={strings.autosaveTitle} onClick={() => void load(AUTOSAVE_SLOT)}>
+          {strings.loadAutosaveButton}
+        </button>
+      ) : null}
+      {/* the scenario picks itself when the player just wants a new map, and
+          is one click away when they want a different game */}
+      <select
+        className="topbar__scenario"
+        value={scenario}
+        onChange={(event) => setScenario(event.target.value as ScenarioName)}
+        title={strings.scenarioDescriptions[scenario]}
+      >
+        {SCENARIO_NAMES.map((name) => (
+          <option key={name} value={name}>
+            {strings.scenarioLabels[name]}
+          </option>
+        ))}
+      </select>
+      {/* board size for the next map (フェーズ6 A-4): two sizes, measured -
+          the proposed 180x180 costs 27.9ms/tick and is deliberately absent */}
+      <select
+        className="topbar__scenario"
+        value={mapSize}
+        onChange={(event) => setMapSize(event.target.value as MapSizeName)}
+        title={strings.mapSizeTitle}
+      >
+        {MAP_SIZE_NAMES.map((name) => (
+          <option key={name} value={name}>
+            {strings.mapSizeLabels[name]}
+          </option>
+        ))}
+      </select>
+      {/* the world map, view-only during play (11章 段階B, 5章: "プレイ中は
+          TopBar から閲覧だけできる"). Biome now comes from the cell the
+          colony was started on, not a select here. */}
+      <button type="button" onClick={() => setMapOverlay({ mode: 'view', worldSeed })}>
+        {strings.worldMapButton}
+      </button>
+      {/* the language toggle lives beside the scenario select (phase 9). The
+          option shows each language in its own name, so the menu is readable
+          from either side of the switch. */}
+      <select
+        className="topbar__scenario"
+        value={language}
+        onChange={(event) => setLanguage(event.target.value as Language)}
+        title={strings.languageToggleTitle}
+      >
+        {LANGUAGES.map((code) => (
+          <option key={code} value={code}>
+            {STRINGS[code].languageName}
+          </option>
+        ))}
+      </select>
+      {/* sound on/off beside the language toggle (13章 段階C). Off is the
+          default; the click that turns it on is the user gesture the
+          browser's autoplay policy wants the AudioContext born inside. */}
+      <button type="button" title={strings.soundToggleTitle} aria-pressed={!muted} onClick={toggleMuted}>
+        {muted ? '🔇' : '🔊'}
+      </button>
+      {/* the volume slider (段階 S-1, GitHub issue #17). Disabled while
+          muted rather than auto-unmuting on drag: unmuting is a deliberate
+          act (it is also the user gesture the autoplay policy wants), so
+          dragging a disabled slider should not have the side effect of
+          turning sound on - the mute button stays the one control for that. */}
+      <input
+        className="topbar__volume"
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={Math.round(volume * 100)}
+        disabled={muted}
+        title={strings.soundVolumeTitle}
+        aria-label={strings.soundVolumeTitle}
+        onChange={(event) => setVolume(Number(event.target.value) / 100)}
+      />
+      <span className="topbar__volume-label muted" title={strings.soundVolumeTitle}>
+        {strings.soundVolumeLabel(Math.round(volume * 100))}
+      </span>
+      {/* "New map" opens the world-map overlay rather than generating on the
+          spot (11章 段階B, 5章): the old one-click ease is kept by the
+          overlay's own "start anywhere" button, not by skipping the overlay. */}
+      <button
+        type="button"
+        onClick={() => setMapOverlay({ mode: 'select', worldSeed: Math.floor(Math.random() * 0x7fffffff) })}
+        title={strings.scenarioDescriptions[scenario]}
+      >
+        {strings.newMapButton}
+      </button>
+    </>
+  );
+
   return (
     <header className="topbar">
       <div className="topbar__clock">
@@ -114,113 +223,20 @@ export function TopBar(): React.JSX.Element {
         {statusText}
       </div>
 
-      <div className="topbar__actions">
-        <button type="button" onClick={() => void save()}>
-          {strings.saveButton}
-        </button>
-        <button type="button" onClick={() => void load()}>
-          {strings.loadButton}
-        </button>
-        {hasAutosave ? (
-          <button
-            type="button"
-            title={strings.autosaveTitle}
-            onClick={() => void load(AUTOSAVE_SLOT)}
-          >
-            {strings.loadAutosaveButton}
-          </button>
-        ) : null}
-        {/* the scenario picks itself when the player just wants a new map, and
-            is one click away when they want a different game */}
-        <select
-          className="topbar__scenario"
-          value={scenario}
-          onChange={(event) => setScenario(event.target.value as ScenarioName)}
-          title={strings.scenarioDescriptions[scenario]}
-        >
-          {SCENARIO_NAMES.map((name) => (
-            <option key={name} value={name}>
-              {strings.scenarioLabels[name]}
-            </option>
-          ))}
-        </select>
-        {/* board size for the next map (フェーズ6 A-4): two sizes, measured -
-            the proposed 180x180 costs 27.9ms/tick and is deliberately absent */}
-        <select
-          className="topbar__scenario"
-          value={mapSize}
-          onChange={(event) => setMapSize(event.target.value as MapSizeName)}
-          title={strings.mapSizeTitle}
-        >
-          {MAP_SIZE_NAMES.map((name) => (
-            <option key={name} value={name}>
-              {strings.mapSizeLabels[name]}
-            </option>
-          ))}
-        </select>
-        {/* the world map, view-only during play (11章 段階B, 5章: "プレイ中は
-            TopBar から閲覧だけできる"). Biome now comes from the cell the
-            colony was started on, not a select here. */}
-        <button type="button" onClick={() => setMapOverlay({ mode: 'view', worldSeed })}>
-          {strings.worldMapButton}
-        </button>
-        {/* the language toggle lives beside the scenario select (phase 9). The
-            option shows each language in its own name, so the menu is readable
-            from either side of the switch. */}
-        <select
-          className="topbar__scenario"
-          value={language}
-          onChange={(event) => setLanguage(event.target.value as Language)}
-          title={strings.languageToggleTitle}
-        >
-          {LANGUAGES.map((code) => (
-            <option key={code} value={code}>
-              {STRINGS[code].languageName}
-            </option>
-          ))}
-        </select>
-        {/* sound on/off beside the language toggle (13章 段階C). Off is the
-            default; the click that turns it on is the user gesture the
-            browser's autoplay policy wants the AudioContext born inside. */}
-        <button
-          type="button"
-          title={strings.soundToggleTitle}
-          aria-pressed={!muted}
-          onClick={toggleMuted}
-        >
-          {muted ? '🔇' : '🔊'}
-        </button>
-        {/* the volume slider (段階 S-1, GitHub issue #17). Disabled while
-            muted rather than auto-unmuting on drag: unmuting is a deliberate
-            act (it is also the user gesture the autoplay policy wants), so
-            dragging a disabled slider should not have the side effect of
-            turning sound on - the mute button stays the one control for that. */}
-        <input
-          className="topbar__volume"
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={Math.round(volume * 100)}
-          disabled={muted}
-          title={strings.soundVolumeTitle}
-          aria-label={strings.soundVolumeTitle}
-          onChange={(event) => setVolume(Number(event.target.value) / 100)}
-        />
-        <span className="topbar__volume-label muted" title={strings.soundVolumeTitle}>
-          {strings.soundVolumeLabel(Math.round(volume * 100))}
-        </span>
-        {/* "New map" opens the world-map overlay rather than generating on the
-            spot (11章 段階B, 5章): the old one-click ease is kept by the
-            overlay's own "start anywhere" button, not by skipping the overlay. */}
-        <button
-          type="button"
-          onClick={() => setMapOverlay({ mode: 'select', worldSeed: Math.floor(Math.random() * 0x7fffffff) })}
-          title={strings.scenarioDescriptions[scenario]}
-        >
-          {strings.newMapButton}
-        </button>
-      </div>
+      {collapseActions ? (
+        // `.topbar` no longer wraps (issue #26); below `ACTIONS_COLLAPSE_WIDTH`
+        // (layout.ts) this whole group folds into a native disclosure instead
+        // of forcing the row to wrap. No new state to manage - the browser
+        // owns `<details>`'s open/closed itself.
+        <details className="topbar__actions topbar__actions--menu">
+          <summary title={strings.actionsMenuButton} aria-label={strings.actionsMenuButton}>
+            {strings.actionsMenuButton}
+          </summary>
+          <div className="topbar__actions-menu">{actions}</div>
+        </details>
+      ) : (
+        <div className="topbar__actions">{actions}</div>
+      )}
 
       {mapOverlay ? (
         <WorldMapOverlay
