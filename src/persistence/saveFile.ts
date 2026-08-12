@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -485,6 +485,19 @@ export const migrations: Record<number, Migration> = {
       };
     }
     return { ...state, colonists };
+  },
+
+  /**
+   * 27 -> 28: the chronicle (issue #28, src/core/chronicle.ts). A curated
+   * history distinct from `log` above - state.log's own migration (17 -> 18)
+   * already established the pattern of "an old save simply has none of this
+   * yet": nobody reloading a pre-chronicle save has lost any history, because
+   * there was nowhere for that history to have been written down before now.
+   * The colony's story starts being kept from the moment it is next loaded.
+   */
+  27: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, chronicle: state.chronicle ?? [] };
   },
 };
 

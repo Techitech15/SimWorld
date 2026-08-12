@@ -25,6 +25,7 @@ import { perSpan } from './scenario';
 import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
+import { recordChronicle } from './chronicle';
 import { addLog, updateBuilding, updateColonist } from './state';
 import { tribalInfluence } from './tribes';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
@@ -298,5 +299,11 @@ export function runIncidents(state: GameState): void {
   });
   if (!incident) return;
   const report = incident.apply(state, rnd);
-  if (report) addLog(state, report.key, report.params, 'incident');
+  if (!report) return;
+  addLog(state, report.key, report.params, 'incident');
+  // Of every incident this rolls, only a raid's start belongs in the
+  // chronicle (issue #28) - the rest (a bumper crop, a blight, a wolf pack)
+  // are weather, not a story beat. The raid's *outcome* is recorded
+  // separately in raid.ts, at the point the raid actually ends.
+  if (report.key === 'incidentRaid') recordChronicle(state, report.key, report.params);
 }

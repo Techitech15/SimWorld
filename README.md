@@ -85,7 +85,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | 5. ニーズ         | `src/core/needs.ts`（空腹・睡眠のみ、直線減衰＋しきい値で自動遷移）                                                         |
 | 6. ジョブシステム | `src/core/jobs/`（generator → assign（候補フィルタ＋予約）→ execute → release）                                             |
 | 7. 経路探索       | `src/core/pathfinding.ts`（4方向グリッドA\*）、`src/core/movement.ts`（経路キャッシュ）、`src/core/derived.ts`（PathIndex・領域ラベル） |
-| 8. セーブ／ロード | `src/persistence/saveFile.ts`（`schemaVersion` 16・移行チェーン）, `indexeddb.ts`                                            |
+| 8. セーブ／ロード | `src/persistence/saveFile.ts`（`schemaVersion` 28・移行チェーン）, `indexeddb.ts`                                            |
 | 9. 機能リスト     | 120×120マップ・地形4種・入植者3人から・仕事9種・建築17種・資源4種・速度4段                                                     |
 | 11. フェーズ4     | `src/core/raid.ts`（襲撃・民兵・タレット） |
 | 11. フェーズ2     | `src/core/mana.ts`（結晶・魔導炉・導管・魔力灯・自動採掘機、ネットワークは導出）                                                        |
@@ -125,6 +125,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/jobs.test.ts`        | Week 4: 大量の伐採指定でも2人が同じ木に向かわない。Week 6: 資材を運搬して壁が完成する       |
 | `src/core/survival.test.ts`    | Week 5: 無操作で食事・睡眠を取り餓死しない。Week 7: 4日放置しても生産チェーンが回り続ける   |
 | `src/core/state.test.ts`       | 3章: tick が前の状態を書き換えない（購読側の差分検知の前提）                                |
+| `src/core/chronicle.test.ts`   | 年代記が上限に達しても**最初のエントリが消えない**こと／日常のイベント（季節・ブレイク）から先に間引かれること／日常が尽きたら重要イベントも間引いて記録が止まらないこと（#28） |
 | `src/core/animals.test.ts`     | 生物レイヤーの段階 A〜D の受け入れ条件と、動物の A\* 予算の上限（設計案 10 章）             |
 | `src/core/death.test.ts`       | 入植者を失ってもジョブ・予約・運搬物が取り残されない                                        |
 | `src/core/zones.test.ts`       | ゾーンの撤去でマーカー建築・予約・家畜の紐付けが道連れになる                                 |

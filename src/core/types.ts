@@ -803,6 +803,16 @@ export interface GameState {
   log: LogEntry[];
   /** [ext] the research tree (11章 フェーズ12). The one field the phase adds. */
   research: ResearchState;
+  /**
+   * [ext] The colony's curated history (issue #28, src/core/chronicle.ts).
+   * Unlike `log` above this is not a rolling notification buffer - it is the
+   * handful of events (deaths, raids, arrivals, tamings, breaks, season
+   * turns, completed research) worth reading back after the fact, capped at
+   * `CHRONICLE_MAX` with its own eviction rule rather than `log`'s "drop the
+   * oldest" one, so the colony's opening chapter survives a long game rather
+   * than being the first thing pushed out.
+   */
+  chronicle: ChronicleEntry[];
 }
 
 /**
@@ -899,6 +909,19 @@ export interface LogEntry {
    * ordinary line and needs no migration.
    */
   kind?: 'incident';
+  key: LogKey;
+  params?: LogParams;
+}
+
+/**
+ * [ext] One entry in `GameState.chronicle` (issue #28, src/core/chronicle.ts).
+ * Same shape as `LogEntry` minus `kind` - the chronicle only ever holds the
+ * seven kinds of event the design calls for, so there is nothing for a kind
+ * flag to distinguish - and the same reason: a dictionary key and primitive
+ * params rendered per language at display time, never a stored sentence.
+ */
+export interface ChronicleEntry {
+  tick: number;
   key: LogKey;
   params?: LogParams;
 }

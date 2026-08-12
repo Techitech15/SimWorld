@@ -22,6 +22,7 @@ import {
   wildPlantOf,
 } from './constants';
 import type { WildPlantType } from './constants';
+import { recordChronicle } from './chronicle';
 import { invalidateTile, rebuildRegions } from './derived';
 import {
   CROP_GROWTH_BY_SEASON,
@@ -46,7 +47,9 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   if (ctx.regionsDirty) rebuildRegions(ctx, next);
 
   if (isSeasonBoundary(next.tick)) {
-    addLog(next, 'seasonArrived', { season: seasonOf(next.tick) });
+    const params = { season: seasonOf(next.tick) };
+    addLog(next, 'seasonArrived', params);
+    recordChronicle(next, 'seasonArrived', params); // a season/year turning (issue #28)
   }
   growCrops(next);
   regrowForest(next);

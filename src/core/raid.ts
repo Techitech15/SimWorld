@@ -30,6 +30,7 @@ import {
   TURRET_RANGE,
 } from './constants';
 import type { SimContext } from './derived';
+import { recordChronicle } from './chronicle';
 import { killColonist } from './death';
 import { isPowered, refreshNetworks } from './mana';
 import { chase, chaseRaider } from './movement';
@@ -199,7 +200,12 @@ export function damageRaider(
       updateColonist(state, id, { activity: { kind: 'none' } });
     }
   }
-  if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
+  if (!isUnderAttack(state)) {
+    addLog(state, 'raidOver', undefined, 'incident');
+    // The raid's outcome (issue #28); its start is recorded where
+    // `incidentRaid` fires, in events.ts.
+    recordChronicle(state, 'raidOver');
+  }
 }
 
 /** One tick of every raider on the map. */
@@ -237,7 +243,12 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
         state.tick > raider.leavesAtTick + RAID_LEAVE_GRACE_TICKS;
       if (gone) {
         removeRaider(state, id);
-        if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
+        if (!isUnderAttack(state)) {
+          addLog(state, 'raidOver', undefined, 'incident');
+          // The raid's outcome (issue #28); its start is recorded where
+          // `incidentRaid` fires, in events.ts.
+          recordChronicle(state, 'raidOver');
+        }
       }
       continue;
     }

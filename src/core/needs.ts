@@ -30,6 +30,7 @@ import {
   STARVATION_WARNING_INTERVAL_TICKS,
 } from './constants';
 import type { SimContext } from './derived';
+import { recordChronicle } from './chronicle';
 import { refreshNetworks } from './mana';
 import { friendNearby } from './relationships';
 import { MOOD_BREAK, MOOD_BREAK_TICKS, moodOf, thoughtsOf } from './mood';
@@ -40,7 +41,7 @@ import { NIGHT_WAKE_HUNGER, isNight, sleepThresholdMultiplier } from './daynight
 import { addLog, removeItem, tileIdOf, updateColonist, updateItem } from './state';
 import { findNearestItem } from './storage';
 import { traitMultiplier } from './traits';
-import type { Colonist, GameState, LogKey } from './types';
+import type { Colonist, GameState, LogKey, LogParams } from './types';
 import {
   NEED_EAT_JOB_ID,
   NEED_SLEEP_JOB_ID,
@@ -370,12 +371,11 @@ function runMoodBreak(state: GameState, ctx: SimContext, colonistId: string): vo
           ? { kind: 'wandering', untilTick }
           : { kind: 'brooding', untilTick },
   });
-  addLog(
-    state,
-    BREAK_LOG[kind],
-    worst ? { name: colonist.name, thought: worst.key } : { name: colonist.name },
-    'incident',
-  );
+  const breakParams: LogParams = worst
+    ? { name: colonist.name, thought: worst.key }
+    : { name: colonist.name };
+  addLog(state, BREAK_LOG[kind], breakParams, 'incident');
+  recordChronicle(state, BREAK_LOG[kind], breakParams); // a mental break (issue #28)
 }
 
 /**

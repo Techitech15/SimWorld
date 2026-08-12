@@ -88,6 +88,7 @@ export function createEmptyState(
     deaths: [],
     log: [],
     research: emptyResearch(),
+    chronicle: [],
   };
 }
 

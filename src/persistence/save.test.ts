@@ -604,6 +604,29 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 27 save into an empty chronicle (issue #28)', () => {
+    // A real v27 save predates the chronicle entirely: no `chronicle` field at
+    // all, the same shape state.log's own migration (17 -> 18) dealt with.
+    const harness = createHarness(211);
+    harness.run(50);
+    const v27 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { chronicle: _chronicle, ...v27Rest } = v27;
+    void _chronicle;
+
+    const migrated = migrateSave({
+      schemaVersion: 27,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-12T00:00:00.000Z',
+      state: v27Rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // an old colony has no history recorded yet, not a fabricated one
+    expect(migrated.state.chronicle).toEqual([]);
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);
