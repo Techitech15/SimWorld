@@ -11,6 +11,7 @@ import { getNetworks, useGameStore } from '../store/gameStore';
 import { useJobCounts, useSpeed, useTick } from './hooks';
 import { useLanguageStore, useStrings } from './language';
 import { useSoundStore } from './soundPlayer';
+import { SPEED_STEPS } from './speedSteps';
 import { STRINGS } from './strings';
 import type { Language } from './strings';
 import { WorldMapOverlay } from './WorldMapOverlay';
@@ -64,12 +65,12 @@ export function TopBar(): React.JSX.Element {
   const hour = Math.floor((tick % TICKS_PER_DAY) / TICKS_PER_HOUR);
   const minute = Math.floor(((tick % TICKS_PER_DAY) % TICKS_PER_HOUR) * (60 / TICKS_PER_HOUR));
 
-  const speeds: { value: GameState['speed']; label: string; hint: string }[] = [
-    { value: 0, label: '⏸', hint: strings.pauseHint },
-    { value: 1, label: '▶', hint: strings.speedHint(1) },
-    { value: 3, label: '▶▶▶', hint: strings.speedHint(3) },
-    { value: 10, label: '▶▶▶▶', hint: strings.speedFastHint },
-  ];
+  // drawn from SPEED_STEPS (speedSteps.ts) rather than a local table, so the
+  // buttons and the '1'/'2'/'3'/'4' keys (useKeyboardShortcuts.ts) can never
+  // drift apart again (issue #27)
+  const speeds: { value: GameState['speed']; label: string; hint: string }[] = SPEED_STEPS.map(
+    (step) => ({ value: step.value, label: step.label(strings), hint: step.hint(strings) }),
+  );
 
   return (
     <header className="topbar">

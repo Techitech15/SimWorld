@@ -120,6 +120,11 @@ export interface Strings {
   pauseHint: string;
   speedHint: (multiplier: number) => string;
   speedFastHint: string;
+  /** the pause button's own text (GitHub issue #27) */
+  speedPauseLabel: string;
+  /** the numbered speed buttons' own text, e.g. "3x" / "3倍" - distinct from
+   *  speedHint, whose "x倍速" phrasing is for the hover title, not the button */
+  speedLabel: (multiplier: number) => string;
   populationCount: (count: number) => string;
   jobsSummary: (active: number, queued: number) => string;
   jobsFailed: (failed: number) => string;
@@ -883,6 +888,8 @@ const en: Strings = {
   pauseHint: 'Pause',
   speedHint: (multiplier) => `${multiplier}x`,
   speedFastHint: '10x — a day a minute',
+  speedPauseLabel: '⏸',
+  speedLabel: (multiplier) => `${multiplier}x`,
   populationCount: (count) => `${count} ${n(count, 'colonist', 'colonists')}`,
   jobsSummary: (active, queued) => `jobs: ${active} active / ${queued} queued`,
   jobsFailed: (failed) => `${failed} failed`,
@@ -1600,6 +1607,8 @@ const ja: Strings = {
   pauseHint: '一時停止',
   speedHint: (multiplier) => `${multiplier}倍速`,
   speedFastHint: '10倍速 — 1分で1日',
+  speedPauseLabel: '⏸',
+  speedLabel: (multiplier) => `${multiplier}倍`,
   populationCount: (count) => `入植者${count}人`,
   jobsSummary: (active, queued) => `仕事：進行${active} / 待機${queued}`,
   jobsFailed: (failed) => `失敗${failed}`,

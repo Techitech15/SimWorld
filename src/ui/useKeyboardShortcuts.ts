@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
+import type { GameState } from '../core/types';
 import type { Tool } from '../store/gameStore';
 import { useGameStore } from '../store/gameStore';
 import { BUILD_MENU, useBuildCategoryStore } from './buildMenu';
 import type { BuildMenuEntry } from './buildMenu';
+import { SPEED_STEPS, SPEED_STEP_KEYS } from './speedSteps';
 
 /**
  * Keyboard shortcuts for the things a player does constantly.
@@ -34,6 +36,15 @@ const MENU_KEYS: Record<string, BuildMenuEntry> = Object.fromEntries(
   ]),
 );
 
+/**
+ * '1'/'2'/'3'/'4' -> the speed value at that index of SPEED_STEPS
+ * (speedSteps.ts), so this table and the speed buttons in TopBar.tsx can
+ * never disagree about which key sets which speed (issue #27).
+ */
+const SPEED_KEYS: Record<string, GameState['speed']> = Object.fromEntries(
+  SPEED_STEP_KEYS.map((key, index) => [key, SPEED_STEPS[index].value]),
+);
+
 export function useKeyboardShortcuts(): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -50,8 +61,12 @@ export function useKeyboardShortcuts(): void {
         store.setSpeed(store.state.speed === 0 ? 1 : 0);
         return;
       }
-      if (event.key === '1' || event.key === '2' || event.key === '3' || event.key === '4') {
-        store.setSpeed(({ '1': 0, '2': 1, '3': 3, '4': 10 } as const)[event.key]);
+      // a lookup, not `event.key in SPEED_KEYS`: `in` also answers true for
+      // 'constructor' and friends off the prototype, and MENU_KEYS below is
+      // read the same way
+      const speed = SPEED_KEYS[event.key];
+      if (speed !== undefined) {
+        store.setSpeed(speed);
         return;
       }
 
