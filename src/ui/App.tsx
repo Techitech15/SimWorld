@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { startGameLoop } from '../game/loop';
 import { useGameStore } from '../store/gameStore';
+import { wireBgm } from './bgmPlayer';
 import { wireSfx } from './soundPlayer';
 import { AlertPanel } from './AlertPanel';
 import { AnimalPanel } from './AnimalPanel';
@@ -49,6 +50,9 @@ export function App(): React.JSX.Element {
   // sound is wired here rather than inside the loop: the player can place
   // blueprints while paused, and those clicks come from store changes, not ticks
   useEffect(() => wireSfx(), []);
+  // BGM is its own subscription (bgmPlayer.ts), independent of SFX - see the
+  // header comment there for why the two stay split
+  useEffect(() => wireBgm(), []);
   useKeyboardShortcuts();
   const strings = useStrings();
   // selectedTileId is not exclusive with the other two (handleSelectClick in

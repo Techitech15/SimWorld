@@ -141,6 +141,12 @@ export interface Strings {
   soundVolumeTitle: string;
   /** e.g. "Volume 50%" - read by the number next to the slider, not a tooltip alone */
   soundVolumeLabel: (percent: number) => string;
+  /** BGM's own mute toggle, independent of soundToggleTitle (段階 S-3, GitHub issue #22) */
+  bgmToggleTitle: string;
+  /** the volume slider next to the BGM mute toggle, independent of soundVolumeTitle */
+  bgmVolumeTitle: string;
+  /** e.g. "Music volume 50%" - same shape as soundVolumeLabel, distinguishable at a glance */
+  bgmVolumeLabel: (percent: number) => string;
   mapSizeLabels: Record<MapSizeName, string>;
   mapSizeTitle: string;
   equipmentLabels: Record<EquipmentKind, string>;
@@ -916,6 +922,9 @@ const en: Strings = {
   soundToggleTitle: 'Sound effects on/off (off by default)',
   soundVolumeTitle: 'Sound volume',
   soundVolumeLabel: (percent) => `Volume ${percent}%`,
+  bgmToggleTitle: 'Music on/off (off by default)',
+  bgmVolumeTitle: 'Music volume',
+  bgmVolumeLabel: (percent) => `Music volume ${percent}%`,
   mapSizeLabels: { vale: 'Vale (60)', frontier: 'Frontier (120)' },
   mapSizeTitle: 'Board size for the next map',
   equipmentLabels: {
@@ -1639,6 +1648,9 @@ const ja: Strings = {
   soundToggleTitle: '効果音のオン/オフ（既定はオフ）',
   soundVolumeTitle: '音量',
   soundVolumeLabel: (percent) => `音量 ${percent}%`,
+  bgmToggleTitle: 'BGMのオン/オフ（既定はオフ）',
+  bgmVolumeTitle: 'BGM音量',
+  bgmVolumeLabel: (percent) => `BGM音量 ${percent}%`,
   mapSizeLabels: { vale: '狭い谷（60）', frontier: '辺境（120）' },
   mapSizeTitle: '次の地図の広さ',
   equipmentLabels: {

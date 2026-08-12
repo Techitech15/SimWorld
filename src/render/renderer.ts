@@ -12,6 +12,7 @@ import { paceMultiplierOf } from '../core/pace';
 import { clampCamera, createCamera, screenToTile, zoomAt } from './camera';
 import { cloudsAt } from './clouds';
 import { NIGHT_ALPHA, litLamps, shadeAt } from './daylight';
+import { WIND_ANGLE, windAt } from './wind';
 import { interpolationSpeed, isTeleport } from './pace';
 import { damageStep, damageTint } from './damage';
 import { pickAt } from './pick';
@@ -44,11 +45,19 @@ export class GameRenderer {
   private app = new Application();
   private world = new Container();
   private terrainLayer = new Container();
+  /** wind gusts brightening the ground (issue #23) - ground-level, below
+   *  everything standing on the ground and below the cloud shadows overhead */
+  private windLayer = new Container();
+  private windSprites: Sprite[] = [];
+  private windTexture: Texture | null = null;
+  /** real ms accumulated while unpaused - a paused world does not drift (see syncWind) */
+  private windElapsedMs = 0;
   /** cloud shadows drifting over the ground (issue #15) - below the night tint,
    *  above everything they shade */
   private cloudLayer = new Container();
   private cloudSprites: Sprite[] = [];
-  private cloudTexture: Texture | null = null;
+  /** three silhouettes, handed out by index - see ensureCloudTextures */
+  private cloudTextures: Texture[] = [];
   /** real ms accumulated while unpaused - a paused world does not drift (see syncClouds) */
   private cloudElapsedMs = 0;
   /** the day/night tint and the lamp glows over it (docs/design-phase7-time.md 3) */
@@ -131,6 +140,7 @@ export class GameRenderer {
 
     this.world.addChild(
       this.terrainLayer,
+      this.windLayer,
       this.buildingLayer,
       this.itemLayer,
       this.overlay,
@@ -826,30 +836,214 @@ export class GameRenderer {
   }
 
   // --- cloud shadows (issue #15) --------------------------------------------
-  /** A soft dark blob, drawn once in code - the same zero-asset rule
-   *  ensureLightTexture follows, just dark instead of warm. */
-  private ensureCloudTexture(): Texture {
-    if (this.cloudTexture) return this.cloudTexture;
+
+  /**
+   * The three cloud silhouettes, as clusters of overlapping lobes in
+   * normalised (0..1) texture space. `r` is a radius in the same units.
+   *
+   * One perfect circle was what this drew before, and a sky of circles reads
+   * as a sky of circles - the more shadows there are, the more obviously they
+   * are all the same stamp. Each entry here is a handful of lobes with one
+   * dominant mass and smaller ones crowding it off-centre, which is enough to
+   * break the outline without any of them stopping looking like a cloud.
+   *
+   * Three rather than one because repetition is the thing being fixed, and
+   * three rather than twenty-six because they are seen minutes apart, drifting,
+   * at different scales, under a day/night tint - past a handful nobody is
+   * comparing silhouettes. Fixed tables, no randomness, same rule CLOUDS and
+   * STREAKS follow: the table is the asset.
+   *
+   * The cluster has to *fill* the texture, not sit in the middle of it. The
+   * single gradient this replaced had radius 0.5 and reached the edge, and
+   * syncClouds scales the sprite so 256px covers `radius * 2` tiles - so a
+   * cluster that only spans the middle silently shrinks every cloud in the
+   * table. The first attempt at these shapes topped out at r 0.28 and did
+   * exactly that: the shadows were roughly half the size they claimed and
+   * vanished off the ground. Lobes now reach ~0.95 at their furthest, which
+   * is as close to the edge as they can go while still landing on a soft
+   * gradient rim - a lobe clipped flat by the sprite's edge is the one
+   * artefact that would read as a bug rather than as weather.
+   */
+  private static readonly CLOUD_SHAPES: { cx: number; cy: number; r: number; a: number }[][] = [
+    [
+      { cx: 0.44, cy: 0.47, r: 0.33, a: 1.0 },
+      { cx: 0.65, cy: 0.42, r: 0.26, a: 0.92 },
+      { cx: 0.57, cy: 0.65, r: 0.27, a: 0.86 },
+      { cx: 0.29, cy: 0.6, r: 0.22, a: 0.74 },
+      { cx: 0.72, cy: 0.62, r: 0.19, a: 0.6 },
+    ],
+    [
+      { cx: 0.5, cy: 0.5, r: 0.35, a: 1.0 },
+      { cx: 0.27, cy: 0.45, r: 0.24, a: 0.88 },
+      { cx: 0.71, cy: 0.54, r: 0.25, a: 0.9 },
+      { cx: 0.45, cy: 0.72, r: 0.21, a: 0.66 },
+      { cx: 0.6, cy: 0.28, r: 0.2, a: 0.7 },
+    ],
+    [
+      { cx: 0.47, cy: 0.54, r: 0.31, a: 0.96 },
+      { cx: 0.66, cy: 0.45, r: 0.28, a: 1.0 },
+      { cx: 0.33, cy: 0.39, r: 0.23, a: 0.8 },
+      { cx: 0.55, cy: 0.73, r: 0.19, a: 0.62 },
+      { cx: 0.76, cy: 0.63, r: 0.17, a: 0.56 },
+      { cx: 0.24, cy: 0.62, r: 0.18, a: 0.62 },
+    ],
+  ];
+
+  /**
+   * The cloud shadow textures, drawn once in code - the same zero-asset rule
+   * ensureLightTexture follows.
+   *
+   * A light blue for MULTIPLY (see syncClouds), not a dark one for mixing.
+   * Two earlier versions were muddy, and both for the same reason: the sprite
+   * was alpha-blended, which drags every pixel it covers toward one flat
+   * colour. Whatever that colour is, the ground's own variation goes with it,
+   * and flattened colour is what "くすんだ" means. Multiply does not flatten -
+   * it scales each channel, so the grass keeps its own texture and only loses
+   * the light this filters out.
+   *
+   * Under multiply the colour to pick is what the light *becomes*, not what
+   * the shadow is: near-white keeps a channel, dark kills it. Red and green
+   * down to roughly a half and two-thirds with blue nearly intact is sunlight
+   * minus the sun - the ground keeps its hue, dims, and goes blue at once.
+   * They also had to go darker than the first multiply attempt (128,168,248),
+   * because keeping the ground's texture costs contrast: numbers that read as
+   * a shadow while they flattened the ground read as nothing once they stop.
+   *
+   * Each lobe holds near full opacity out to 55% of its radius before falling
+   * away. An even ramp from the centre gives a bright core and a long weak
+   * skirt, and the skirt is most of what ends up on screen; this gives the
+   * shadow a body instead of a highlight, without touching CLOUD_ALPHA_MAX
+   * (clouds.test.ts pins that under 0.3 and that ceiling still does its job).
+   */
+  private ensureCloudTextures(): Texture[] {
+    if (this.cloudTextures.length > 0) return this.cloudTextures;
+    const size = 256;
+    for (const shape of GameRenderer.CLOUD_SHAPES) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d')!;
+      for (const lobe of shape) {
+        const cx = lobe.cx * size;
+        const cy = lobe.cy * size;
+        const r = lobe.r * size;
+        const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, r);
+        gradient.addColorStop(0, `rgba(36, 84, 196, ${lobe.a})`);
+        gradient.addColorStop(0.55, `rgba(36, 84, 196, ${lobe.a * 0.88})`);
+        gradient.addColorStop(0.8, `rgba(36, 84, 196, ${lobe.a * 0.45})`);
+        gradient.addColorStop(1, 'rgba(36, 84, 196, 0)');
+        context.fillStyle = gradient;
+        // Lobes are laid down with the default source-over, so where they
+        // overlap the shadow genuinely deepens. That is the point: an outline
+        // alone would still read as a stamp, and the density variation is what
+        // sells it as depth rather than a cut-out.
+        context.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+      this.cloudTextures.push(Texture.from(canvas));
+    }
+    return this.cloudTextures;
+  }
+
+  /**
+   * A gust drawn as a handful of thin streaks, once in code - same zero-asset
+   * rule the cloud and lamp-light textures follow (issue #23, option (c)).
+   * White, additive blend, so it lifts whatever it is drawn over rather than
+   * replacing it - the same trick `syncNight` uses for lamp glow.
+   *
+   * This was a radial gradient stretched into an ellipse, and that is exactly
+   * what it looked like in play: a patch of glow or mist drifting over the
+   * ground, not wind. A soft blob has no direction in it, so no speed or
+   * placement could make it read as moving air. Streaks carry the direction in
+   * the shape itself, which is why every game that draws wind draws lines.
+   *
+   * STREAKS is a fixed table for the same reason GUSTS is one (wind.ts): the
+   * table *is* the asset, and nothing here rolls dice. Each streak fades to
+   * nothing at both ends so it has no hard tip, and the whole set is confined
+   * to the middle of the texture's height so the sprite's own edges stay soft.
+   */
+  private ensureWindTexture(): Texture {
+    if (this.windTexture) return this.windTexture;
     const size = 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
     const context = canvas.getContext('2d')!;
-    const gradient = context.createRadialGradient(
-      size / 2,
-      size / 2,
-      0,
-      size / 2,
-      size / 2,
-      size / 2,
-    );
-    gradient.addColorStop(0, 'rgba(20, 26, 45, 1)');
-    gradient.addColorStop(0.6, 'rgba(20, 26, 45, 0.5)');
-    gradient.addColorStop(1, 'rgba(20, 26, 45, 0)');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, size, size);
-    this.cloudTexture = Texture.from(canvas);
-    return this.cloudTexture;
+
+    // y: where the streak sits across the gust (0..1 of the texture height)
+    // half/thickness: how long and how thick, both as a fraction of the size
+    // alpha: the streak's own weight, so they do not all read as one slab
+    // Two, not the six this started with: six read as a hatched band rather
+    // than as wind. A pair still carries the direction - one leading streak
+    // and one shorter, lighter one offset across the gust - without the set
+    // closing up into a texture of its own.
+    const STREAKS = [
+      { y: 0.44, half: 0.48, thickness: 5, alpha: 1.0 },
+      { y: 0.6, half: 0.33, thickness: 4, alpha: 0.6 },
+    ];
+
+    for (const streak of STREAKS) {
+      const cy = streak.y * size;
+      const x0 = size / 2 - streak.half * size;
+      const x1 = size / 2 + streak.half * size;
+      // Along the streak: nothing, up to full in the middle, back to nothing.
+      // The two inner stops sit close to the ends so the body stays even and
+      // only the tips taper - a linear ramp would read as a lens, not a line.
+      const along = context.createLinearGradient(x0, 0, x1, 0);
+      along.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      along.addColorStop(0.22, `rgba(255, 255, 255, ${streak.alpha})`);
+      along.addColorStop(0.78, `rgba(255, 255, 255, ${streak.alpha})`);
+      along.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      context.fillStyle = along;
+      // Across the streak the edge is left to the browser's own filtering:
+      // the texture is drawn at a few pixels thick and never magnified on this
+      // axis (syncWind scales y by width*TILE_SIZE/256, which is ~1), so a
+      // hard-edged rect stays a crisp thin line instead of blurring into the
+      // haze this replaced.
+      context.fillRect(x0, cy - streak.thickness / 2, x1 - x0, streak.thickness);
+    }
+
+    this.windTexture = Texture.from(canvas);
+    return this.windTexture;
+  }
+
+  /**
+   * Wind gusts brightening the ground. `windElapsedMs` is real time, not
+   * tick time, and only advances while the world is actually running -
+   * paused (`state.speed === 0`), the gusts hold still along with
+   * everything else, the same rule `syncClouds` follows below. Sprites sit
+   * at ground level (drawn under buildings, items, animals and colonists,
+   * and under the cloud shadows too), same order the layer list in `init`
+   * puts them in. One shared texture is stretched non-uniformly
+   * (`gust.length` along the wind, `gust.width` across it) and rotated to
+   * `WIND_ANGLE` to read as an elongated band rather than a round glow.
+   */
+  private syncWind(state: GameState, deltaMs: number): void {
+    if (state.speed > 0) this.windElapsedMs += deltaMs;
+    const gusts = windAt(this.windElapsedMs, state.width, state.height);
+    while (this.windSprites.length < gusts.length) {
+      const sprite = new Sprite(this.ensureWindTexture());
+      sprite.anchor.set(0.5);
+      sprite.blendMode = 'add';
+      sprite.rotation = WIND_ANGLE;
+      this.windLayer.addChild(sprite);
+      this.windSprites.push(sprite);
+    }
+    for (let i = 0; i < this.windSprites.length; i++) {
+      const sprite = this.windSprites[i];
+      const gust = gusts[i];
+      if (!gust) {
+        sprite.visible = false;
+        continue;
+      }
+      sprite.visible = true;
+      // texture is 256px across for length/width tiles of coverage along
+      // and across the wind direction - same scaling `syncClouds` uses,
+      // just non-uniform on the two axes instead of a single radius.
+      sprite.scale.set((gust.length * TILE_SIZE) / 256, (gust.width * TILE_SIZE) / 256);
+      sprite.x = gust.x * TILE_SIZE + TILE_SIZE / 2;
+      sprite.y = gust.y * TILE_SIZE + TILE_SIZE / 2;
+      sprite.alpha = gust.strength;
+    }
   }
 
   /**
@@ -863,9 +1057,17 @@ export class GameRenderer {
   private syncClouds(state: GameState, deltaMs: number): void {
     if (state.speed > 0) this.cloudElapsedMs += deltaMs;
     const shadows = cloudsAt(this.cloudElapsedMs, state.width, state.height);
+    const textures = this.ensureCloudTextures();
     while (this.cloudSprites.length < shadows.length) {
-      const sprite = new Sprite(this.ensureCloudTexture());
+      // Silhouette by index, so a given cloud in the CLOUDS table always wears
+      // the same shape - the assignment has to be stable or a cloud would
+      // change form whenever the pool grew.
+      const sprite = new Sprite(textures[this.cloudSprites.length % textures.length]);
       sprite.anchor.set(0.5);
+      // Multiply, not the default mix - see ensureCloudTextures for why. The
+      // texture is a *light* blue because of this; the two have to change
+      // together or the shadow inverts into a bright patch.
+      sprite.blendMode = 'multiply';
       this.cloudLayer.addChild(sprite);
       this.cloudSprites.push(sprite);
     }
@@ -969,6 +1171,7 @@ export class GameRenderer {
     this.syncRaiders(state, deltaMs);
     this.syncTraders(state);
     this.syncColonists(state, deltaMs);
+    this.syncWind(state, deltaMs);
     this.syncClouds(state, deltaMs);
     this.syncNight(state);
     this.consumeFocusRequest();

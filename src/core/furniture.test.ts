@@ -19,7 +19,7 @@ import {
 } from './constants';
 import { TRAITS } from './traits';
 import { thoughtsOf } from './mood';
-import { tileIdOf } from './state';
+import { isWater, tileIdOf } from './state';
 import { createHarness, idleColony } from './testUtils';
 import { addItem } from './worldgen';
 import type { BuildingType, GameState } from './types';
@@ -57,6 +57,39 @@ function putBlueprint(state: GameState, type: BuildingType, x: number, y: number
   const id = put(state, type, x, y);
   state.buildings[id] = { ...state.buildings[id], isBlueprint: true, buildProgress: 0 };
   return id;
+}
+
+/**
+ * The nearest free tile to (x, y) that a fixed offset can no longer promise:
+ * water terrain (フェーズ14 段階 W-1) reshuffled where this seed's ore veins
+ * and shores land, so a hardcoded `at.x + 1` can now land on an unwalkable
+ * rock face or unbuildable water instead of the plain ground it used to be.
+ * Searches outward ring by ring - same pattern as `storageAt` in
+ * hauling.test.ts - and skips tiles already handed out so callers can ask
+ * for several distinct spots near the same colonist. `buildable` additionally
+ * excludes water, since shallow water is walkable ground a hauler can stand
+ * on but not ground a blueprint can go down on (`placeBuildingBlueprint`).
+ */
+function groundNear(
+  state: GameState,
+  x: number,
+  y: number,
+  taken: Set<string>,
+  buildable: boolean,
+): { x: number; y: number } {
+  for (let radius = 0; radius < 12; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const tile = state.tiles[tileIdOf(x + dx, y + dy)];
+        if (!tile || !tile.walkable || tile.buildingId || taken.has(tile.id)) continue;
+        if (buildable && isWater(tile.terrain)) continue;
+        taken.add(tile.id);
+        return { x: tile.x, y: tile.y };
+      }
+    }
+  }
+  throw new Error(`no free ${buildable ? 'buildable' : 'walkable'} ground near (${x}, ${y})`);
 }
 
 /** One fed, rested colonist with no traits, so multipliers read exactly. */
@@ -333,18 +366,26 @@ describe('what furniture costs', () => {
   it('is built through the ordinary blueprint chain, iron hauling included', () => {
     const harness = createHarness(10151);
     const at = Object.values(harness.state.colonists)[0].position;
-    // materials on the ground beside the camp: the existing haul chain does the rest
-    addItem(harness.state, 'wood', 60, at.x + 1, at.y);
-    addItem(harness.state, 'iron', 10, at.x, at.y + 1);
-    addItem(harness.state, 'stone', 30, at.x + 1, at.y + 1);
+    const taken = new Set<string>([tileIdOf(at.x, at.y)]);
+    // materials on the ground beside the camp: the existing haul chain does the
+    // rest. Ground picked by `groundNear` rather than a fixed offset - see its
+    // comment for why a fixed offset stopped being safe for this seed.
+    const woodAt = groundNear(harness.state, at.x, at.y, taken, false);
+    const ironAt = groundNear(harness.state, at.x, at.y, taken, false);
+    const stoneAt = groundNear(harness.state, at.x, at.y, taken, false);
+    addItem(harness.state, 'wood', 60, woodAt.x, woodAt.y);
+    addItem(harness.state, 'iron', 10, ironAt.x, ironAt.y);
+    addItem(harness.state, 'stone', 30, stoneAt.x, stoneAt.y);
 
     // the dresser is gated behind ironwork (11章 フェーズ12); the table and
     // stool stayed free on purpose (design-phase12-research.md 3.1), which is
     // exactly what this test is about, so only the dresser's tech is unlocked
     harness.state.research = { ...harness.state.research, unlocked: ['ironwork'] };
 
-    const tableTile = tileIdOf(at.x + 3, at.y);
-    const dresserTile = tileIdOf(at.x + 3, at.y + 2);
+    const tableAt = groundNear(harness.state, at.x, at.y, taken, true);
+    const dresserAt = groundNear(harness.state, at.x, at.y, taken, true);
+    const tableTile = tileIdOf(tableAt.x, tableAt.y);
+    const dresserTile = tileIdOf(dresserAt.x, dresserAt.y);
     harness.state = placeBuildingBlueprint(harness.state, 'table', [tableTile]);
     harness.state = placeBuildingBlueprint(harness.state, 'dresser', [dresserTile]);
 

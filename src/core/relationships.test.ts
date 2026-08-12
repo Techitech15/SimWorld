@@ -18,6 +18,7 @@ import {
   pairKey,
   recordDeath,
 } from './relationships';
+import { COLONIST_MAX_HEALTH } from './constants';
 import { killColonist } from './death';
 import { moodOf, thoughtsOf } from './mood';
 import { createHarness, idleColony } from './testUtils';
@@ -43,7 +44,20 @@ function pair(seed: number, apart: number) {
   return { harness, a, b };
 }
 
-/** Hold two colonists still, since needs would otherwise send them wandering. */
+/**
+ * Hold two colonists still, since needs would otherwise send them wandering.
+ *
+ * Also pins `health` at max. This is the same idiom several other tests use
+ * (mood.test.ts, recreation.test.ts, craft.test.ts, research.test.ts,
+ * raid.test.ts) to keep an unrelated hazard from confounding the measurement.
+ * It matters more here than most: `position` is forced back to the same spot
+ * every tick, which means a colonist under this pin can never actually flee a
+ * predator (`runFleeing`'s step only ever gets overwritten), so without a
+ * health pin they are a stationary target for however long the run lasts. A
+ * real colonist would run; this fixture holds two of them still on purpose to
+ * isolate the bond math, so it has to supply the safety a real colonist's own
+ * flee response would have provided instead.
+ */
 function pin(state: GameState, a: string, b: string, apart: number): void {
   const at = { x: 20, y: 20 };
   if (state.colonists[a]) {
@@ -52,6 +66,7 @@ function pin(state: GameState, a: string, b: string, apart: number): void {
       position: { ...at },
       needs: { hunger: 10, sleep: 10 , recreation: 0 },
       activity: { kind: 'none' },
+      health: COLONIST_MAX_HEALTH,
     };
   }
   if (state.colonists[b]) {
@@ -60,6 +75,7 @@ function pin(state: GameState, a: string, b: string, apart: number): void {
       position: { x: at.x + apart, y: at.y },
       needs: { hunger: 10, sleep: 10 , recreation: 0 },
       activity: { kind: 'none' },
+      health: COLONIST_MAX_HEALTH,
     };
   }
 }

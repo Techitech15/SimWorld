@@ -79,7 +79,7 @@ export const useSoundStore = create<SoundStore>((set, get) => ({
 
 let context: AudioContext | null = null;
 
-function ensureContext(): AudioContext | null {
+export function ensureContext(): AudioContext | null {
   if (typeof AudioContext === 'undefined') return null;
   context ??= new AudioContext();
   return context;

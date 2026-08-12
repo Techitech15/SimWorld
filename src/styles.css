@@ -249,6 +249,18 @@ button.active {
   min-width: 3.5em;
 }
 
+/* BGM's own volume slider, right after the SFX one (段階 S-3, GitHub issue
+   #22). Same fixed sizing so the two sliders read as a matched pair rather
+   than one styled and one default-width. */
+.topbar__bgm-volume {
+  width: 72px;
+}
+
+.topbar__bgm-volume-label {
+  font-size: 12px;
+  min-width: 3.5em;
+}
+
 /* A permanent slot in the first row (13章 段階A). The old `width: 100%` made
    the flex row wrap a second line the moment a message appeared, shoving the
    whole board down; this one takes the leftover width and clips instead. */

@@ -1,0 +1,69 @@
+# Publish the built game to GitHub Pages.
+#
+# Why this exists: the single-file build (tools/bundle-single-file.mjs) folds
+# every asset in as a data URI, and once the BGM tracks landed that file
+# measured 16,339,023 bytes - past the 16 MB ceiling a Claude artifact will
+# accept (GitHub issue #22). Rather than degrade the audio to fit, the game is
+# served from Pages, where the ordinary Vite build keeps the two BGM tracks as
+# separate cacheable files (assetsInlineLimit stays 200 kB for that build -
+# see vite.config.ts) and total 12.8 MB against a 1 GB site limit.
+#
+# The single-file build is NOT deleted. It is still the thing issue #22's
+# acceptance condition names ("data URI で同梱され、外部リクエストはゼロ"),
+# and it is still how the game travels as one file. Pages is an additional
+# delivery path, not a replacement.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # so a deploy can be re-run without an empty commit
+  workflow_dispatch:
+
+# GITHUB_TOKEN needs to be allowed to publish the artifact and claim the
+# deployment; nothing here writes to the repository contents.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. In-progress runs are allowed to finish rather
+# than being cancelled: a half-published site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Typecheck and tests gate the deploy on purpose. The site is the
+      # playable artifact; publishing a build whose simulation tests fail
+      # would put a broken colony in front of anyone who opens the link.
+      - run: npm run typecheck
+      - run: npm test
+
+      - run: npx vite build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
