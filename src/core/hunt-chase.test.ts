@@ -90,6 +90,18 @@ interface HuntRun {
 function runHunt(seed: number, species: AnimalSpecies, distance: number, maxTicks: number): HuntRun {
   const harness = createHarness(seed);
   harness.state.animals = {};
+  // The animal's id feeds `wander`'s per-tick RNG salt (hashId(id) in animals.ts),
+  // so two runs that are identical in every other way take a different wander
+  // path if the id differs. `createHarness` already spawned and discarded a
+  // map's worth of wildlife before this point, and how many it spawned depends
+  // on `SPECIES[...].initialCount` for every species - a constant this file has
+  // no business caring about. Pinning the id counter here is what makes this
+  // fixture's outcome depend only on `seed` and `species`, the two things the
+  // test is actually about (see docs/design-notes.md 「野生動物の密度（#10）」
+  // for the incident this caught: halving SPECIES.initialCount shifted every
+  // test animal from id a39 to a21, which alone moved the deer escape average
+  // from ~1.2 to ~2.6 with the chase logic completely unchanged).
+  harness.state.nextIds = { ...harness.state.nextIds, a: 0 };
   onlyWork(harness.state, ['hunt']);
 
   const centre = centreOf(harness.state);
@@ -176,17 +188,34 @@ describe('issue #9: hunting chase does not wander', () => {
         expect(r.completedWithin!).toBeLessThan(400);
       }
 
-      // measured post-fix: rabbit ~0.17, deer ~0.73 escape events on average
-      // (vs. ~1.2 and ~2.6 before). Slack to 2 keeps this from being flaky on
-      // an unlucky seed while still catching a regression back to the old
-      // "re-closes every few ticks for the whole hunt" behaviour.
+      // measured post-fix, 12 seeds, current SPECIES.initialCount (#10):
+      // rabbit ~0, deer ~1.58 escape events on average. Slack to 2 keeps this
+      // from being flaky on an unlucky seed while still catching a regression
+      // back to the old "re-closes every few ticks for the whole hunt"
+      // behaviour (~2.6, the original before-fix number below and also what
+      // this average read as before `runHunt` started pinning the test
+      // animal's id - see the comment on `harness.state.nextIds` above).
+      //
+      // The ~0.17 / ~0.73 this comment used to cite was measured before issue
+      // #10 halved SPECIES.initialCount for the seven non-predator species.
+      // That change does not touch chase or wander directly, but it moves how
+      // many wildlife `createHarness` spawns and discards before `runHunt`
+      // creates its one test animal - which used to shift the test animal's
+      // id (`wander`'s RNG salt is `hashId(id)`, animals.ts) and, with it,
+      // this average, even though the actual chase/wander code never changed.
+      // Confirmed by re-running these 12 seeds with the id forced back to
+      // what it would have been pre-#10 (a39): deer dropped from 2.58 (the
+      // regression this file first caught) to 1.17, entirely from the id
+      // change alone. Pinning `nextIds.a` removes that coupling; the numbers
+      // above are what the fixture reports once it does.
       const avgEscapes = results.reduce((a, r) => a + r.escapeEventsAfterFirstArrival, 0) / results.length;
       expect(avgEscapes).toBeLessThanOrEqual(2);
 
-      // measured post-fix: ~0.63 (rabbit) / ~0.69 (deer) of work-ticks are
-      // productive (chase returns 'arrived') rather than spent re-closing;
-      // before the fix this was ~0.58 / ~0.63. 0.5 leaves slack for seed
-      // variance while still catching a regression to the old ratio.
+      // measured post-fix (same 12 seeds, id pinned): ~0.72 (rabbit) / ~0.73
+      // (deer) of work-ticks are productive (chase returns 'arrived') rather
+      // than spent re-closing. 0.5 leaves slack for seed variance while still
+      // catching a regression to the pre-#9 ratio (~0.58 / ~0.63, see the
+      // file header).
       const totalWork = results.reduce((a, r) => a + r.workTicks, 0);
       const totalProgress = results.reduce((a, r) => a + r.progressTicks, 0);
       expect(totalProgress / totalWork).toBeGreaterThanOrEqual(0.5);
