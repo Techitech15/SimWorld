@@ -150,14 +150,95 @@ function fadeFactor(position: number, span: number): number {
 }
 
 /**
+ * Area GUSTS was tuned against (docs/design.md 11 phase 6's shipped
+ * default, `frontier`, src/core/constants.ts MAP_SIZES). `gustCountFor`
+ * divides by this, so at exactly this area it returns `GUSTS.length` and
+ * `activeGusts` below takes the "count === GUSTS.length" branch, which
+ * returns GUSTS itself unchanged - this is what keeps 120x120 output
+ * bit-identical to before this module started scaling with map size
+ * (mirrors clouds.ts's REFERENCE_AREA / activeClouds).
+ */
+const REFERENCE_AREA = 120 * 120;
+
+/**
+ * Never go below this many gusts, no matter how small the map (mirrors
+ * clouds.ts's MIN_CLOUDS). This repo ships a 60x60 map (`vale`, MAP_SIZES)
+ * this floor has to still look reasonable on.
+ */
+const MIN_GUSTS = 3;
+
+/**
+ * Upper bound so a hypothetical future map size many times larger than
+ * `frontier` cannot make this draw an unbounded number of sprites (mirrors
+ * clouds.ts's MAX_CLOUDS).
+ */
+const MAX_GUSTS = GUSTS.length * 6;
+
+/**
+ * How many gusts to draw for a `width` x `height` map, derived from area so
+ * it tracks whichever MAP_SIZES entries exist rather than a size hand-picked
+ * for one shipped map (issue #30, mirrors clouds.ts's cloudCountFor).
+ */
+function gustCountFor(width: number, height: number): number {
+  const raw = Math.round((GUSTS.length * (width * height)) / REFERENCE_AREA);
+  return Math.min(MAX_GUSTS, Math.max(MIN_GUSTS, raw));
+}
+
+/**
+ * Deterministic per-lap position offset for `activeGusts`'s cycling branch
+ * below (count > GUSTS.length). Mirrors clouds.ts's LAP_OFFSET_X/Y - see
+ * that comment for why these are arbitrary, not map-size-derived.
+ */
+const LAP_OFFSET_X = 47;
+const LAP_OFFSET_Y = 23;
+
+/**
+ * The `count` gust definitions actually in play for one call to `windAt`.
+ * Same three cases as clouds.ts's `activeClouds`, mirrored here:
+ *
+ * - `count === GUSTS.length` (the reference 120x120 area): the table
+ *   unchanged, in order - keeps 120x120 bit-for-bit stable.
+ * - `count < GUSTS.length` (smaller maps): thinned by evenly spaced index,
+ *   not a prefix, so short/long and narrow/wide gusts stay mixed at any
+ *   count instead of collapsing to whichever happen to be listed first.
+ * - `count > GUSTS.length` (larger maps): the table repeated
+ *   (`index % GUSTS.length`), each lap (`Math.floor(index / GUSTS.length)`)
+ *   nudged by a fixed offset so laps do not retrace each other.
+ */
+function activeGusts(count: number): GustDef[] {
+  if (count === GUSTS.length) return GUSTS;
+  if (count < GUSTS.length) {
+    const result: GustDef[] = [];
+    for (let i = 0; i < count; i++) {
+      const idx = Math.min(GUSTS.length - 1, Math.round((i * GUSTS.length) / count));
+      result.push(GUSTS[idx]);
+    }
+    return result;
+  }
+  const result: GustDef[] = [];
+  for (let index = 0; index < count; index++) {
+    const base = GUSTS[index % GUSTS.length];
+    const lap = Math.floor(index / GUSTS.length);
+    result.push(
+      lap === 0
+        ? base
+        : { ...base, x0: base.x0 + lap * LAP_OFFSET_X, y0: base.y0 + lap * LAP_OFFSET_Y },
+    );
+  }
+  return result;
+}
+
+/**
  * Wind gust positions and strengths at a moment in time. Pure: the same
- * `elapsedMs` always returns the same list in the same order (index i is
- * always GUSTS[i]'s gust), and nothing in this module reads a clock or rolls
- * dice of any kind - the renderer accumulates elapsed time and hands it in,
- * exactly as it does for cloudsAt.
+ * `elapsedMs`, `width` and `height` always return the same list (issue #30:
+ * the list's *length* now depends on map area too, via `gustCountFor` /
+ * `activeGusts`), and nothing in this module reads a clock or rolls dice of
+ * any kind - the renderer accumulates elapsed time and hands it in, exactly
+ * as it does for cloudsAt.
  */
 export function windAt(elapsedMs: number, width: number, height: number): WindGust[] {
-  return GUSTS.map((gust) => {
+  const gusts = activeGusts(gustCountFor(width, height));
+  return gusts.map((gust) => {
     const t = elapsedMs + phaseOffsetMs(gust);
     const x = wrap(gust.x0 + WIND_X * gust.speed * t, width);
     const y = wrap(gust.y0 + WIND_Y * gust.speed * t, height);
