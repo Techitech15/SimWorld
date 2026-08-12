@@ -55,8 +55,12 @@ describe('any seed makes a playable map', () => {
   it.each(SEEDS)('seed %i runs a day without falling over', (seed) => {
     const state = testWorld({ seed });
     const ctx = createSimContext(state);
+    // A new world's clock opens at dawn rather than zero (START_TICK, issue
+    // #25), so the claim here is that a day's worth of ticks actually ran -
+    // elapsed, not an absolute reading of the clock.
+    const startTick = state.tick;
     const after = tickMany(state, ctx, 1200);
-    expect(after.tick).toBe(1200);
+    expect(after.tick - startTick).toBe(1200);
     // nobody has been left standing outside the map or inside a rock
     for (const id in after.colonists) {
       const at = after.colonists[id].position;

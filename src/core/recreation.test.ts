@@ -12,6 +12,7 @@ import {
   RELAX_TICKS,
   SLEEP_THRESHOLD,
 } from './constants';
+import { SLEEP_DAY_FACTOR } from './daynight';
 import { MOOD_BREAK_TICKS } from './mood';
 import { thoughtsOf } from './mood';
 import { tileIdOf } from './state';
@@ -100,7 +101,14 @@ describe('the third need', () => {
         ...harness.state.colonists[id],
         needs: {
           hunger: worse === 'hunger' ? HUNGER_THRESHOLD + 5 : 10,
-          sleep: worse === 'sleep' ? SLEEP_THRESHOLD + 5 : 10,
+          // Above the sleep threshold *at any hour*. The threshold is scaled
+          // by the time of day (sleepThresholdMultiplier, docs/design-phase7-
+          // time.md 3.4: lower at night, higher in daylight), and a new world
+          // now opens at 07:00 rather than midnight (START_TICK, issue #25),
+          // where the daylight factor applies. `SLEEP_THRESHOLD + 5` only
+          // cleared the night-time bar, so what this test is about - time off
+          // yielding to the older need - has to use the daylight one.
+          sleep: worse === 'sleep' ? SLEEP_THRESHOLD * SLEEP_DAY_FACTOR + 5 : 10,
           recreation: RECREATION_THRESHOLD + 20,
         },
       };
