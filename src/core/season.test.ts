@@ -110,8 +110,13 @@ describe('growth follows the season', () => {
     // year has always been able to end with a wolf getting somebody (seed 743
     // loses a founder on the pre-merge sim too). Re-pinned from 727 when the
     // iron veins (フェーズ10 段階A) changed the terrain under the old seed and
-    // its year rolled a wolf kill.
-    const harness = createHarness(733);
+    // its year rolled a wolf kill; re-pinned again from 733 when 段階 R-1
+    // (issue #29) delayed a raid's spawn from the instant it is rolled to
+    // `RAID_WARNING_TICKS` later, which shifts every raid's exact tick and
+    // spawn-side roll and, with them, which colonist a raider that seed ever
+    // reaches happens to catch - 733 now loses a founder to a raid at tick
+    // 41580 (measured) that the old immediate-spawn timing did not.
+    const harness = createHarness(734);
     const founders = Object.keys(harness.state.colonists);
     let autumnPeak = 0;
     let springLow = Infinity;

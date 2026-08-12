@@ -75,6 +75,7 @@ export function createEmptyState(
     zones: {},
     animals: {},
     raiders: {},
+    pendingRaid: null,
     traders: {},
     equipment: {},
     reservations: {},

@@ -627,6 +627,31 @@ describe('save file versioning', () => {
     expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
   });
 
+  it('migrates a version 28 save into an empty pending raid (段階 R-1, issue #29)', () => {
+    // A real v28 save predates the raid warning entirely: no `pendingRaid`
+    // field at all, the same shape state.chronicle's own migration (27 -> 28)
+    // dealt with.
+    const harness = createHarness(213);
+    harness.run(50);
+    const v28 = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    const { pendingRaid: _pendingRaid, ...v28Rest } = v28;
+    void _pendingRaid;
+
+    const migrated = migrateSave({
+      schemaVersion: 28,
+      savedAtTick: harness.state.tick,
+      savedAtRealTime: '2026-08-12T00:00:00.000Z',
+      state: v28Rest as GameState,
+    });
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    // nobody was mid-warning in a save from before the warning existed - a
+    // raid used to spawn the instant it was rolled, so there was never a gap
+    expect(migrated.state.pendingRaid).toBeNull();
+    const ctx = createSimContext(migrated.state);
+    expect(tickMany(migrated.state, ctx, 300).tick).toBe(harness.state.tick + 300);
+  });
+
   it('rejects malformed json and missing fields', () => {
     expect(() => parseSave('{oops')).toThrow(SaveLoadError);
     expect(() => parseSave('{"schemaVersion":1,"state":{}}')).toThrow(SaveLoadError);

@@ -716,6 +716,8 @@ const en: Strings = {
       `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} badly hurt`,
     colonistsIll: (p) =>
       `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} ill — needs treating`,
+    raidWarning: (p) =>
+      `A raid of ${p.count} ${n(p.count as number, 'raider is', 'raiders are')} coming, in about ${p.hours} ${n(p.hours as number, 'hour', 'hours')}`,
     predatorNear: (p) => `Predator near the camp (${enSpeciesList(p.species)})`,
     nowhereToStore: (p) =>
       `Nowhere to store ${enResourceList(p.resources)} — the stacks are lying where they fell`,
@@ -1460,6 +1462,7 @@ const ja: Strings = {
     foodLow: (p) => `食料が残り少ない（${p.food}）`,
     colonistsHurt: (p) => `${p.count}人の入植者が重傷を負っている`,
     colonistsIll: (p) => `${p.count}人の入植者が病気だ — 治療が要る`,
+    raidWarning: (p) => `襲撃者${p.count}人が接近中 — あと約${p.hours}時間`,
     predatorNear: (p) => `野営地の近くに肉食獣（${jaSpeciesList(p.species)}）`,
     nowhereToStore: (p) =>
       `${jaResourceList(p.resources)}の置き場がない — 落ちた場所に積まれたまま`,

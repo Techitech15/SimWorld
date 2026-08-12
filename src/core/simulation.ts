@@ -9,7 +9,7 @@ import { runArrivals } from './arrivals';
 import { runIncidents } from './events';
 import { runMana, refreshNetworks } from './mana';
 import { runTrade } from './trade';
-import { runDefenders, runRaiders, runTurrets } from './raid';
+import { runDefenders, runPendingRaid, runRaiders, runTurrets } from './raid';
 import { runRelationships } from './relationships';
 import { regrowForest } from './regrowth';
 import {
@@ -54,6 +54,11 @@ export function tickOnce(state: GameState, ctx: SimContext): GameState {
   growCrops(next);
   regrowForest(next);
   runIncidents(next);
+  // Turns a warning into raiders the moment it comes due (段階 R-1, issue #29).
+  // Runs right after `runIncidents` so a raid scheduled on an earlier day and a
+  // raid whose warning expires *this* tick are both on the map before
+  // `runRaiders`/`runDefenders` act on them further down this same tick.
+  runPendingRaid(next);
   runArrivals(next);
   // traders come and go on the same footing as arrivals: schedule from the
   // tick, conditions from the state, and no pathfinding at all

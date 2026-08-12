@@ -12,7 +12,7 @@ import { mulberry32 } from '../core/rng';
 import { emptySkills } from '../core/skills';
 import type { GameState } from '../core/types';
 
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 export interface SaveFile {
   schemaVersion: number;
@@ -498,6 +498,19 @@ export const migrations: Record<number, Migration> = {
   27: (old) => {
     const state = old as Partial<GameState>;
     return { ...state, chronicle: state.chronicle ?? [] };
+  },
+
+  /**
+   * 28 -> 29: raids get a warning before they arrive (段階 R-1, issue #29).
+   * Nobody is mid-warning in a save from before this existed - a raid used to
+   * spawn the instant it was rolled, so there was never a gap for a schedule
+   * to sit in - and `pendingRaid: null` says exactly that: the old save's
+   * next raid roll starts a fresh warning rather than resuming one that was
+   * never recorded.
+   */
+  28: (old) => {
+    const state = old as Partial<GameState>;
+    return { ...state, pendingRaid: state.pendingRaid ?? null };
   },
 };
 

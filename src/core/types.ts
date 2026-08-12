@@ -726,6 +726,18 @@ export interface GameState {
    */
   raiders: Record<RaiderId, Raider>;
   /**
+   * [ext] A raid that has been rolled but has not arrived yet (段階 R-1,
+   * issue #29). `null` almost always - the same "event, not a population"
+   * shape as `raiders` above. This is the one field the stage adds: the
+   * future cannot be derived from anything else on the state (unlike mood or
+   * the mana network), the same reasoning the chronicle was allowed under
+   * (CLAUDE.md「導出できるものは保存しない」の対象外の側). `size` is decided
+   * and frozen the moment the warning is issued - `events.ts` rolls it once
+   * here, and `raid.ts` spawns exactly this many when `atTick` arrives, never
+   * a fresh roll - so what the player was warned about is what shows up.
+   */
+  pendingRaid: { atTick: number; size: number; tribe: 'parched' } | null;
+  /**
    * [ext] Traders standing at the post (11章 フェーズ5). Like raiders this is
    * empty almost always: a visit is an event with an end, not a population.
    */

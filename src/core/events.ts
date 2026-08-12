@@ -16,16 +16,16 @@ import {
   FOOD_PER_HARVEST,
   ILLNESS_ONSET_TICKS,
   RAID_FIRST_DAY,
+  RAID_WARNING_TICKS,
   TICKS_PER_DAY,
   WOOD_PER_TREE,
 } from './constants';
 import { MOOD_BASE, colonyMood } from './mood';
-import { isUnderAttack, raidSize, spawnRaid } from './raid';
+import { isUnderAttack, raidSize } from './raid';
 import { perSpan } from './scenario';
 import { mulberry32 } from './rng';
 import { seasonOf } from './season';
 import type { Season } from './season';
-import { recordChronicle } from './chronicle';
 import { addLog, updateBuilding, updateColonist } from './state';
 import { tribalInfluence } from './tribes';
 import { addItem, createAnimal, findSpawnTile } from './worldgen';
@@ -207,6 +207,15 @@ export const INCIDENTS: Incident[] = [
    * The one incident that comes for the colony rather than happening to it
    * (11章 フェーズ4). Held back until day 8: a colony with no walls, no hunter
    * and three people is not a story, it is a wipe.
+   *
+   * Since 段階 R-1 (issue #29) this only *schedules* the raid on
+   * `state.pendingRaid` - it never spawns a raider itself. The size is rolled
+   * and frozen right here, the moment the warning goes out, so what the
+   * player is warned about is exactly what shows up (CLAUDE.md: 予告と実際の
+   * 食い違いは最悪の裏切り). `raid.ts`'s `runPendingRaid` is what turns the
+   * schedule into raiders once `atTick` arrives, and that is also where the
+   * `incidentRaid` log line and chronicle entry are written - not here, since
+   * nothing has actually happened to the colony yet when this fires.
    */
   {
     name: 'raid',
@@ -218,13 +227,21 @@ export const INCIDENTS: Incident[] = [
     apply: (state, rnd) => {
       if (state.tick < RAID_FIRST_DAY * TICKS_PER_DAY) return null;
       if (isUnderAttack(state)) return null;
+      // Do not double-book a second raid on top of a warning that is already
+      // running: one incoming raid at a time, exactly as `isUnderAttack`
+      // already keeps one *active* raid at a time above.
+      if (state.pendingRaid) return null;
       // Raiders are the Parched's raid (11章 段階C, design-phase11-worldmap.md
       // 4.1章) whether or not this world happens to be near their territory -
       // proximity only bends the size, not who they are.
       const tribal = tribalInfluence(state);
-      const spawned = spawnRaid(state, raidSize(state, rnd, tribal.parched.raidSizeMultiplier), rnd);
-      if (spawned.length === 0) return null;
-      return { key: 'incidentRaid', params: { count: spawned.length, tribe: 'parched' } };
+      const size = raidSize(state, rnd, tribal.parched.raidSizeMultiplier);
+      state.pendingRaid = { atTick: state.tick + RAID_WARNING_TICKS, size, tribe: 'parched' };
+      // No report: the warning itself is not a log line (CLAUDE.md 「予告まで
+      // 入れると密度が変わる」 for the chronicle applies to the log too here) -
+      // it surfaces only as the `raidWarning` alert (src/core/alerts.ts) until
+      // the raid actually arrives.
+      return null;
     },
   },
 ];
@@ -299,11 +316,12 @@ export function runIncidents(state: GameState): void {
   });
   if (!incident) return;
   const report = incident.apply(state, rnd);
+  // A picked 'raid' always returns null here - it only ever schedules
+  // `state.pendingRaid` (see the incident's own comment above). Its log line
+  // and chronicle entry are written later, in raid.ts's `runPendingRaid`, at
+  // the tick raiders actually arrive - which is also the only place any
+  // incident's start is recorded in the chronicle (issue #28); the rest (a
+  // bumper crop, a blight, a wolf pack) are weather, not a story beat.
   if (!report) return;
   addLog(state, report.key, report.params, 'incident');
-  // Of every incident this rolls, only a raid's start belongs in the
-  // chronicle (issue #28) - the rest (a bumper crop, a blight, a wolf pack)
-  // are weather, not a story beat. The raid's *outcome* is recorded
-  // separately in raid.ts, at the point the raid actually ends.
-  if (report.key === 'incidentRaid') recordChronicle(state, report.key, report.params);
 }

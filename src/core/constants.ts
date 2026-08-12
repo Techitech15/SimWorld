@@ -97,6 +97,23 @@ export const RECREATION_ALONE_MULTIPLIER = 0.45;
  * adjusted below in docs/design-notes.md.
  */
 export const RAID_FIRST_DAY = 8; // nothing before this: a colony needs walls first
+/**
+ * How long the warning lasts before a scheduled raid actually arrives (段階
+ * R-1, issue #29). Half a day, not a whole one, and measured against what
+ * the time buys rather than guessed: `createHarness`, one colonist on
+ * build+haul with wood already stocked nearby, a wall blueprint went up in
+ * 60-130 ticks including the haul (single wall: 61 and 67 ticks at 0 and 15
+ * tiles from the wood; three in a row: 129 ticks total, so travel is most of
+ * the marginal cost once the first haul is done). At 1,500 ticks a single
+ * defender-builder can still raise most of a short wall, and a colony that
+ * instead just pulls its hunting column onto defence (`defends()`, raid.ts)
+ * and gets everyone off open ground - the realistic use of the warning for
+ * a colony with no standing fortification yet - has many times that margin
+ * to do it in. A full day would only stretch a margin that already isn't
+ * the bottleneck; the point of the warning is noticing it and reacting, not
+ * finishing a fortress.
+ */
+export const RAID_WARNING_TICKS = TICKS_PER_DAY / 2; // 1500
 export const RAIDER_HEALTH = 60;
 export const RAIDER_DAMAGE = 6;
 export const RAIDER_ATTACK_INTERVAL_TICKS = 30;

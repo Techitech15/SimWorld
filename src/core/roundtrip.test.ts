@@ -134,6 +134,22 @@ describe('saving in the middle of everything', () => {
     expect(continued.chronicle.length).toBeGreaterThanOrEqual(reloaded.chronicle.length);
   });
 
+  it('keeps a pending raid across a save round trip (段階 R-1, issue #29)', () => {
+    const harness = createHarness(1917);
+    harness.state.pendingRaid = { atTick: harness.state.tick + 900, size: 3, tribe: 'parched' };
+
+    const reloaded = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    expect(reloaded.pendingRaid).toEqual(harness.state.pendingRaid);
+
+    // and the save keeps running: the raid still lands on the promised tick,
+    // with the promised size - a reload must not let a colony dodge the
+    // warning it already had, or change what it was warned about
+    const ctx = createSimContext(reloaded);
+    const continued = tickMany(reloaded, ctx, 900);
+    expect(continued.pendingRaid).toBe(null);
+    expect(Object.keys(continued.raiders).length).toBe(3);
+  });
+
   it('never lets two colonists hold the same entity after a reload', () => {
     const harness = createHarness(1907);
     const at = Object.values(harness.state.colonists)[0].position;
