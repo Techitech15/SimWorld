@@ -949,6 +949,21 @@ button.active {
   opacity: 1;
 }
 
+/* the year heading a run of chronicle entries sits under (issue #28) */
+.chronicle__year {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.chronicle__year:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .log--scroll {
   max-height: 190px;
   overflow-y: auto;

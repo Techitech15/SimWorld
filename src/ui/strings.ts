@@ -220,6 +220,9 @@ export interface Strings {
   panelWork: string;
   panelResources: string;
   panelLog: string;
+  // [ext] the colony's curated history panel (issue #28), separate from the
+  // notification log above
+  panelChronicle: string;
   panelMap: string;
   panelGoals: string;
   clearTitle: string;
@@ -1005,6 +1008,7 @@ const en: Strings = {
   panelWork: 'Work',
   panelResources: 'Resources',
   panelLog: 'Log',
+  panelChronicle: 'Chronicle',
   panelMap: 'Map',
   panelGoals: 'Next steps',
   clearTitle: 'clear',
@@ -1730,6 +1734,7 @@ const ja: Strings = {
   panelWork: '仕事',
   panelResources: '資源',
   panelLog: '記録',
+  panelChronicle: '年代記',
   panelMap: '地図',
   panelGoals: '次の一手',
   clearTitle: '閉じる',

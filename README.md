@@ -126,6 +126,7 @@ npm run build:single  # 単一HTMLに固めた版（dist/simworld.html）。ダ�
 | `src/core/survival.test.ts`    | Week 5: 無操作で食事・睡眠を取り餓死しない。Week 7: 4日放置しても生産チェーンが回り続ける   |
 | `src/core/state.test.ts`       | 3章: tick が前の状態を書き換えない（購読側の差分検知の前提）                                |
 | `src/core/chronicle.test.ts`   | 年代記が上限に達しても**最初のエントリが消えない**こと／日常のイベント（季節・ブレイク）から先に間引かれること／日常が尽きたら重要イベントも間引いて記録が止まらないこと（#28） |
+| `src/ui/ChroniclePanel.test.ts` | 年代記の7種すべてが en / ja の両方で文言になること（訳し漏れを型で捕まえられない部分をここで捕まえる）／新しいものが上に並ぶこと／表示件数の上限／既定で閉じていること（#28） |
 | `src/core/animals.test.ts`     | 生物レイヤーの段階 A〜D の受け入れ条件と、動物の A\* 予算の上限（設計案 10 章）             |
 | `src/core/death.test.ts`       | 入植者を失ってもジョブ・予約・運搬物が取り残されない                                        |
 | `src/core/zones.test.ts`       | ゾーンの撤去でマーカー建築・予約・家畜の紐付けが道連れになる                                 |

@@ -20,6 +20,9 @@ export type PanelId =
   | 'work'
   | 'animals'
   | 'log'
+  // [ext] the colony's curated history (issue #28) - a separate panel from
+  // 'log' on purpose, see ChroniclePanel.tsx's header comment
+  | 'chronicle'
   | 'resources'
   | 'map'
   | 'research'
@@ -85,6 +88,9 @@ export function defaultOpenFrom(id: PanelId, shape: ColonyShape): boolean {
     case 'research':
       return shape.hasResearchDesk;
     case 'log':
+    case 'chronicle':
+      // both are read-back-later panels, not glance-at-always ones (see 'log'
+      // above; 'chronicle' is read even less often, once a season at most)
       return false;
     default:
       return true;

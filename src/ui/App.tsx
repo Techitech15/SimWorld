@@ -5,6 +5,7 @@ import { wireBgm } from './bgmPlayer';
 import { wireSfx } from './soundPlayer';
 import { AlertPanel } from './AlertPanel';
 import { AnimalPanel } from './AnimalPanel';
+import { ChroniclePanel } from './ChroniclePanel';
 import { ColonistPanel } from './ColonistPanel';
 import { EventLog } from './EventLog';
 import { Fold } from './Fold';
@@ -168,6 +169,12 @@ export function App(): React.JSX.Element {
           </Fold>
           <Fold id="log" title={strings.panelLog}>
             <EventLog />
+          </Fold>
+          {/* separate panel from 'log' above, deliberately (issue #28) - see
+              ChroniclePanel.tsx's header comment for why the two are not one
+              panel with a bigger cap */}
+          <Fold id="chronicle" title={strings.panelChronicle}>
+            <ChroniclePanel />
           </Fold>
         </aside>
       </div>
