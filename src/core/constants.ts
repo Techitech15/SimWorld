@@ -45,6 +45,18 @@ export const TICK_MS = 200;
 export const TICKS_PER_DAY = 3000;
 export const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
 
+/**
+ * The hour a new world's clock starts at (issue #25). A fresh colony used to
+ * begin at tick 0 - `hourOf(0)` is 00:00 - so the very first screen a player
+ * saw was the night tint, with none of the daylight terrain/cloud/farm-growth
+ * work visible. This is a real starting tick, not a display offset: every
+ * system that reads `state.tick` (seasons, arrivals, trade, regrowth,
+ * day/night) sees the same clock a player would, so nothing has to special-case
+ * "the derived hour disagrees with the tick".
+ */
+export const START_HOUR = 7;
+export const START_TICK = START_HOUR * TICKS_PER_HOUR;
+
 /** Colonists move one tile every N ticks. */
 export const TICKS_PER_STEP = 2;
 
