@@ -170,13 +170,104 @@ function fadeFactor(position: number, span: number): number {
 }
 
 /**
+ * Area CLOUDS was tuned against (docs/design.md 11 phase 6's shipped
+ * default, `frontier`, src/core/constants.ts MAP_SIZES). `cloudCountFor`
+ * divides by this, so at exactly this area it returns `CLOUDS.length` and
+ * `activeClouds` below takes the "count === CLOUDS.length" branch, which
+ * returns CLOUDS itself unchanged - this is what keeps 120x120 output
+ * bit-identical to before this module started scaling with map size.
+ */
+const REFERENCE_AREA = 120 * 120;
+
+/**
+ * Never go below this many clouds, no matter how small the map. Below three
+ * a sky reads as "isolated shadows", not weather - and this repo ships a
+ * 60x60 map (`vale`, MAP_SIZES) that this floor has to still look reasonable
+ * on, not just protect degenerate/test sizes.
+ */
+const MIN_CLOUDS = 3;
+
+/**
+ * Upper bound so a hypothetical future map size many times larger than
+ * `frontier` cannot make this draw an unbounded number of sprites. 6x
+ * CLOUDS.length comfortably covers 180x180 (2.25x the reference area, see
+ * clouds.test.ts) with headroom to spare, while still being a cap rather
+ * than "whatever the area formula says".
+ */
+const MAX_CLOUDS = CLOUDS.length * 6;
+
+/**
+ * How many clouds to draw for a `width` x `height` map, derived from area so
+ * it tracks whichever MAP_SIZES entries exist rather than a size hand-picked
+ * for one shipped map (issue #30). Rounds rather than floors/ceils so the
+ * reference area maps back onto `CLOUDS.length` exactly.
+ */
+function cloudCountFor(width: number, height: number): number {
+  const raw = Math.round((CLOUDS.length * (width * height)) / REFERENCE_AREA);
+  return Math.min(MAX_CLOUDS, Math.max(MIN_CLOUDS, raw));
+}
+
+/**
+ * Deterministic per-lap position offset for `activeClouds`'s cycling branch
+ * below (count > CLOUDS.length). Arbitrary tile-space values with no common
+ * factor with either table length, chosen only so repeated laps land in
+ * visibly different spots rather than retracing the first lap's path
+ * exactly offset by wrap's period. Not tied to map size - `wrap` folds any
+ * starting position into whatever span it is given (see cloudsAt).
+ */
+const LAP_OFFSET_X = 53;
+const LAP_OFFSET_Y = 31;
+
+/**
+ * The `count` cloud definitions actually in play for one call to `cloudsAt`.
+ *
+ * - `count === CLOUDS.length` (the reference 120x120 area): the table
+ *   unchanged, in order - the identity case that keeps 120x120 bit-for-bit
+ *   stable across this module's introduction of area scaling.
+ * - `count < CLOUDS.length` (smaller maps): thinned by picking every
+ *   `CLOUDS.length / count`-th entry, *not* the first `count` entries. The
+ *   table is ordered small -> large -> the big bank -> fill-in (see CLOUDS'
+ *   comment), so taking a prefix would drop every big, slow cloud and leave
+ *   only small ones; picking evenly spaced indices keeps the same mix of
+ *   sizes at any count.
+ * - `count > CLOUDS.length` (larger maps): the table repeated as many times
+ *   as needed (`index % CLOUDS.length`), with each successive lap
+ *   (`Math.floor(index / CLOUDS.length)`) nudged by a fixed offset so laps
+ *   do not sit exactly on top of each other.
+ */
+function activeClouds(count: number): CloudDef[] {
+  if (count === CLOUDS.length) return CLOUDS;
+  if (count < CLOUDS.length) {
+    const result: CloudDef[] = [];
+    for (let i = 0; i < count; i++) {
+      const idx = Math.min(CLOUDS.length - 1, Math.round((i * CLOUDS.length) / count));
+      result.push(CLOUDS[idx]);
+    }
+    return result;
+  }
+  const result: CloudDef[] = [];
+  for (let index = 0; index < count; index++) {
+    const base = CLOUDS[index % CLOUDS.length];
+    const lap = Math.floor(index / CLOUDS.length);
+    result.push(
+      lap === 0
+        ? base
+        : { ...base, x0: base.x0 + lap * LAP_OFFSET_X, y0: base.y0 + lap * LAP_OFFSET_Y },
+    );
+  }
+  return result;
+}
+
+/**
  * Cloud shadow positions and strengths at a moment in time. Pure: the same
- * `elapsedMs` always returns the same list in the same order (index i is
- * always CLOUDS[i]'s shadow), and nothing in this module reads a clock -
- * the renderer is the one that accumulates elapsed time and hands it in.
+ * `elapsedMs`, `width` and `height` always return the same list (issue #30:
+ * the list's *length* now depends on map area too, via `cloudCountFor` /
+ * `activeClouds`), and nothing in this module reads a clock - the renderer
+ * is the one that accumulates elapsed time and hands it in.
  */
 export function cloudsAt(elapsedMs: number, width: number, height: number): CloudShadow[] {
-  return CLOUDS.map((cloud) => {
+  const clouds = activeClouds(cloudCountFor(width, height));
+  return clouds.map((cloud) => {
     const x = wrap(cloud.x0 + WIND_X * cloud.speed * elapsedMs, width);
     const y = wrap(cloud.y0 + WIND_Y * cloud.speed * elapsedMs, height);
     const alpha =

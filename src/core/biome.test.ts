@@ -99,8 +99,12 @@ describe('a year unattended, per biome (stage A acceptance)', () => {
     // deepwood's heavier wolves are meant to bite) - what stage A actually
     // promises is that nothing crashes and the state stays internally
     // consistent the whole way through, not a survival guarantee
+    // Elapsed ticks, not an absolute reading: a new world's clock opens at
+    // dawn rather than zero (START_TICK, issue #25). What stage A promises is
+    // that a whole year actually ran, wherever the clock started.
+    const startTick = harness.state.tick;
     harness.run(YEAR);
-    expect(harness.state.tick).toBe(YEAR);
+    expect(harness.state.tick - startTick).toBe(YEAR);
     assertDescribable(harness.state);
   });
 });

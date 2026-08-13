@@ -4,10 +4,11 @@
 // leaves work that can never finish or an entity two colonists both own.
 import { describe, expect, it } from 'vitest';
 import { designateAnimals, placeBuildingBlueprint, setDesignation } from './actions';
+import { killColonist } from './death';
 import { createSimContext } from './derived';
 import { tickMany } from './simulation';
 import { tileIdOf } from './state';
-import { createHarness, nearestTilesWithTerrain } from './testUtils';
+import { anyColonistId, createHarness, nearestTilesWithTerrain } from './testUtils';
 import { createAnimal } from './worldgen';
 import type { GameState } from './types';
 
@@ -116,6 +117,37 @@ describe('saving in the middle of everything', () => {
     if (survivor?.reservedByJobId) {
       expect(continued.jobs[survivor.reservedByJobId]).toBeDefined();
     }
+  });
+
+  it('keeps the chronicle across a save round trip (issue #28)', () => {
+    const harness = createHarness(1913);
+    const id = anyColonistId(harness.state);
+    killColonist(harness.state, id, { key: 'colonistKilled' });
+    harness.run(60);
+
+    expect(harness.state.chronicle.length).toBeGreaterThan(0);
+    const reloaded = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    expect(reloaded.chronicle).toEqual(harness.state.chronicle);
+    // and the save keeps running - the chronicle is plain data, nothing to rebuild
+    const ctx = createSimContext(reloaded);
+    const continued = tickMany(reloaded, ctx, 60);
+    expect(continued.chronicle.length).toBeGreaterThanOrEqual(reloaded.chronicle.length);
+  });
+
+  it('keeps a pending raid across a save round trip (段階 R-1, issue #29)', () => {
+    const harness = createHarness(1917);
+    harness.state.pendingRaid = { atTick: harness.state.tick + 900, size: 3, tribe: 'parched' };
+
+    const reloaded = JSON.parse(JSON.stringify(harness.state)) as GameState;
+    expect(reloaded.pendingRaid).toEqual(harness.state.pendingRaid);
+
+    // and the save keeps running: the raid still lands on the promised tick,
+    // with the promised size - a reload must not let a colony dodge the
+    // warning it already had, or change what it was warned about
+    const ctx = createSimContext(reloaded);
+    const continued = tickMany(reloaded, ctx, 900);
+    expect(continued.pendingRaid).toBe(null);
+    expect(Object.keys(continued.raiders).length).toBe(3);
   });
 
   it('never lets two colonists hold the same entity after a reload', () => {

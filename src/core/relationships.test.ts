@@ -155,8 +155,18 @@ describe('bonds grow from time spent together', () => {
 
   it('runs on an interval, not every tick', () => {
     const { harness, a, b } = pair(5017, 1);
-    harness.run(SOCIAL_INTERVAL_TICKS - 2, (state) => pin(state, a, b, 1));
-    expect(affinityOf(harness.state, a, b)).toBe(0);
+    // A new world's clock starts at dawn rather than zero (START_TICK, issue
+    // #25), so "run a few ticks from the start and nothing accrues" is not the
+    // claim this test can make - the run would straddle a boundary. Step onto
+    // one first; the claim is about the gap *between* boundaries either way.
+    const toBoundary = SOCIAL_INTERVAL_TICKS - (harness.state.tick % SOCIAL_INTERVAL_TICKS);
+    harness.run(toBoundary, (state) => pin(state, a, b, 1));
+    const atBoundary = affinityOf(harness.state, a, b);
+
+    // a whole interval minus one: every tick in here is a non-boundary tick,
+    // so affinity must not move at all
+    harness.run(SOCIAL_INTERVAL_TICKS - 1, (state) => pin(state, a, b, 1));
+    expect(affinityOf(harness.state, a, b)).toBe(atBoundary);
   });
 
   it('lets a sociable colonist warm faster than a private one', () => {

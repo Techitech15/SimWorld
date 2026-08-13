@@ -11,6 +11,7 @@ import {
 } from './constants';
 import { runIncidents } from './events';
 import { buildNetworks } from './mana';
+import { runPendingRaid } from './raid';
 import { runTrade } from './trade';
 import { testWorld } from './testUtils';
 import { TRIBE_NAMES, tribalInfluence } from './tribes';
@@ -213,13 +214,20 @@ describe('the Parched raid pressure', () => {
     for (let day = RAID_FIRST_DAY + 1; day <= RAID_FIRST_DAY + days; day++) {
       state.raiders = {};
       state.tick = day * TICKS_PER_DAY;
-      const before = state.log.length;
       runIncidents(state);
-      if (state.log.length === before) continue;
-      const entry = state.log[state.log.length - 1];
-      if (entry.key === 'incidentRaid') {
+      // The size is frozen at warning time, which is exactly what this is
+      // measuring - the incidentRaid log line only appears later, when the
+      // raid actually lands (raid.ts's runPendingRaid).
+      const pending = state.pendingRaid;
+      if (pending) {
         raids++;
-        raiders += Number(entry.params?.count ?? 0);
+        raiders += pending.size;
+        // Since 段階 R-1 (issue #29) a picked 'raid' refuses to book a second
+        // warning while one is outstanding. This loop rolls one day at a time
+        // with nothing in between, so the schedule has to be cleared after
+        // counting it - otherwise the first roll blocks every later day and
+        // this measures one raid per world instead of the raid *rate*.
+        state.pendingRaid = null;
       }
     }
     return { raids, raiders };
@@ -275,11 +283,23 @@ describe('the Parched raid pressure', () => {
     for (let day = RAID_FIRST_DAY + 1; day <= RAID_FIRST_DAY + 400 && raids < 5; day++) {
       state.raiders = {};
       state.tick = day * TICKS_PER_DAY;
-      const before = state.log.length;
       runIncidents(state);
-      if (state.log.length === before) continue;
-      const entry = state.log[state.log.length - 1];
-      if (entry.key !== 'incidentRaid') continue;
+      const pending = state.pendingRaid;
+      if (!pending) continue;
+      // No need to clear the schedule here the way measureRaidPressure does -
+      // runPendingRaid below consumes it, which is the whole point of driving
+      // the warning through to arrival rather than asserting on the schedule.
+
+      // Since 段階 R-1 (issue #29) the incident only schedules; the log line
+      // this test is about is written when the raid actually lands. Drive the
+      // schedule through to arrival rather than asserting on the schedule -
+      // the claim is about what the *player reads*, so it has to keep being
+      // checked against the line they actually get.
+      const before = state.log.length;
+      state.tick = pending.atTick;
+      runPendingRaid(state);
+      const entry = state.log.slice(before).find((line) => line.key === 'incidentRaid');
+      if (!entry) continue; // no standable edge tile this roll; nobody arrived
       raids++;
       expect(entry.params?.tribe).toBe('parched');
     }

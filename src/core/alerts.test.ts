@@ -54,6 +54,20 @@ describe('alerts', () => {
     expect(hurt?.params).toEqual({ count: 1 });
   });
 
+  it('warns about a raid that has been rolled but has not arrived (段階 R-1, issue #29)', () => {
+    const harness = createHarness(813);
+    harness.state.animals = {};
+    expect(keys(harness.state)).not.toContain('raidWarning');
+
+    harness.state.pendingRaid = { atTick: harness.state.tick + 1500, size: 4, tribe: 'parched' };
+    const warning = collectAlerts(harness.state).find((a) => a.key === 'raidWarning');
+    expect(warning).toBeDefined();
+    // warning, not critical: a raid still on its way has not hurt anyone yet,
+    // and must not trip the game loop's auto-pause-on-crisis (src/game/loop.ts)
+    expect(warning?.level).toBe('warning');
+    expect(warning?.params).toEqual({ count: 4, hours: 12 }); // 1500 ticks = 12 hours
+  });
+
   it('warns about a predator near the camp but not one far away', () => {
     const harness = createHarness(811);
     harness.state.animals = {};

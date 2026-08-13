@@ -11,9 +11,12 @@ import {
   RAID_DURATION_TICKS,
   RAID_FIRST_DAY,
   RAID_LEAVE_GRACE_TICKS,
+  RAID_WARNING_TICKS,
   TICKS_PER_DAY,
+  TICKS_PER_HOUR,
   TURRET_RANGE,
 } from './constants';
+import { collectAlerts } from './alerts';
 import { INCIDENTS } from './events';
 import { BURN_TICKS_PER_CRYSTAL } from './mana';
 import { damageRaider, defends, isUnderAttack, raidSize, spawnRaid } from './raid';
@@ -96,11 +99,51 @@ describe('a raid arrives', () => {
     const raid = INCIDENTS.find((i) => i.name === 'raid')!;
     harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY - 1);
     expect(raid.apply(harness.state, mulberry32(1))).toBe(null);
+    expect(harness.state.pendingRaid).toBe(null);
     expect(Object.keys(harness.state.raiders).length).toBe(0);
 
     harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY + 1);
-    expect(raid.apply(harness.state, mulberry32(1))?.key).toBe('incidentRaid');
-    expect(Object.keys(harness.state.raiders).length).toBeGreaterThan(0);
+    // 段階 R-1 (issue #29): the roll only schedules a warning now - nobody is
+    // on the map the same tick it was rolled.
+    expect(raid.apply(harness.state, mulberry32(1))).toBe(null);
+    expect(harness.state.pendingRaid).not.toBeNull();
+    expect(Object.keys(harness.state.raiders).length).toBe(0);
+  });
+
+  it('warns before it arrives, and arrives with exactly the warned size', () => {
+    const harness = createHarness(7002);
+    idleColony(harness.state);
+    harness.state.animals = {};
+    harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY + 2);
+    const raid = INCIDENTS.find((i) => i.name === 'raid')!;
+    expect(raid.apply(harness.state, mulberry32(9))).toBe(null);
+
+    const pending = harness.state.pendingRaid;
+    expect(pending).not.toBeNull();
+    expect(pending!.size).toBeGreaterThan(0);
+    expect(pending!.atTick).toBe(harness.state.tick + RAID_WARNING_TICKS);
+
+    // nobody arrives before the warned tick, however long the run is
+    harness.run(RAID_WARNING_TICKS - 1);
+    expect(Object.keys(harness.state.raiders).length).toBe(0);
+    expect(harness.state.pendingRaid).toEqual(pending);
+
+    // and exactly the warned number arrives once it is due
+    harness.run(1);
+    expect(harness.state.pendingRaid).toBe(null);
+    expect(Object.keys(harness.state.raiders).length).toBe(pending!.size);
+  });
+
+  it('is visible as an alert while it is pending, with the size and the wait', () => {
+    const harness = createHarness(7004);
+    harness.state.pendingRaid = { atTick: harness.state.tick + 900, size: 3, tribe: 'parched' };
+    const alert = collectAlerts(harness.state).find((a) => a.key === 'raidWarning');
+    expect(alert).toBeDefined();
+    expect(alert!.level).toBe('warning'); // not critical: nothing has happened yet
+    expect(alert!.params).toEqual({ count: 3, hours: Math.round(900 / TICKS_PER_HOUR) });
+
+    harness.state.pendingRaid = null;
+    expect(collectAlerts(harness.state).some((a) => a.key === 'raidWarning')).toBe(false);
   });
 
   it('puts them on the edge of the map, on ground they can stand on', () => {
@@ -131,8 +174,33 @@ describe('a raid arrives', () => {
     const harness = createHarness(7011);
     harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY + 2);
     const raid = INCIDENTS.find((i) => i.name === 'raid')!;
-    expect(raid.apply(harness.state, mulberry32(3))).toBeTruthy();
+    expect(raid.apply(harness.state, mulberry32(3))).toBe(null);
+    expect(harness.state.pendingRaid).not.toBeNull();
+    expect(Object.keys(harness.state.raiders).length).toBe(0);
+  });
+
+  it('does not schedule a second raid while one is already pending', () => {
+    const harness = createHarness(7012);
+    harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY + 2);
+    const raid = INCIDENTS.find((i) => i.name === 'raid')!;
+    expect(raid.apply(harness.state, mulberry32(3))).toBe(null);
+    const first = harness.state.pendingRaid;
+    expect(first).not.toBeNull();
+
+    // a second roll while the first warning is still running changes nothing
     expect(raid.apply(harness.state, mulberry32(5))).toBe(null);
+    expect(harness.state.pendingRaid).toEqual(first);
+  });
+
+  it('does not schedule a second raid on top of one already under way', () => {
+    const harness = createHarness(7013);
+    idleColony(harness.state);
+    harness.state.tick = TICKS_PER_DAY * (RAID_FIRST_DAY + 2);
+    const raid = INCIDENTS.find((i) => i.name === 'raid')!;
+    spawnRaid(harness.state, 2, mulberry32(1));
+    expect(isUnderAttack(harness.state)).toBe(true);
+    expect(raid.apply(harness.state, mulberry32(3))).toBe(null);
+    expect(harness.state.pendingRaid).toBe(null);
   });
 });
 

@@ -5,7 +5,7 @@
 // tick would be wasteful, so `beginTick` shallow-copies the record containers
 // (plus the handful of always-mutated colonist/job objects) and every mutation
 // helper below replaces the individual entity object it touches.
-import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from './constants';
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, START_TICK } from './constants';
 import { emptyResearch } from './research';
 import type {
   Animal,
@@ -62,7 +62,10 @@ export function createEmptyState(
   return {
     width,
     height,
-    tick: 0,
+    // A new world's clock starts at dawn, not midnight (issue #25) - see
+    // START_TICK's comment in constants.ts for why this is a real tick and
+    // not a display-only offset.
+    tick: START_TICK,
     speed: 1,
     tiles: {},
     colonists: {},
@@ -72,6 +75,7 @@ export function createEmptyState(
     zones: {},
     animals: {},
     raiders: {},
+    pendingRaid: null,
     traders: {},
     equipment: {},
     reservations: {},
@@ -85,6 +89,7 @@ export function createEmptyState(
     deaths: [],
     log: [],
     research: emptyResearch(),
+    chronicle: [],
   };
 }
 

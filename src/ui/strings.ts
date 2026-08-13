@@ -120,6 +120,11 @@ export interface Strings {
   pauseHint: string;
   speedHint: (multiplier: number) => string;
   speedFastHint: string;
+  /** the pause button's own text (GitHub issue #27) */
+  speedPauseLabel: string;
+  /** the numbered speed buttons' own text, e.g. "3x" / "3倍" - distinct from
+   *  speedHint, whose "x倍速" phrasing is for the hover title, not the button */
+  speedLabel: (multiplier: number) => string;
   populationCount: (count: number) => string;
   jobsSummary: (active: number, queued: number) => string;
   jobsFailed: (failed: number) => string;
@@ -215,11 +220,26 @@ export interface Strings {
   panelWork: string;
   panelResources: string;
   panelLog: string;
+  // [ext] the colony's curated history panel (issue #28), separate from the
+  // notification log above
+  panelChronicle: string;
   panelMap: string;
   panelGoals: string;
   clearTitle: string;
   collapseTitle: string;
   expandTitle: string;
+
+  // --- narrow-viewport layout (issue #26, layout.ts) -------------------------
+  /** the "..." button that opens topbar__actions when the viewport is too
+   *  narrow to show save/load/scenario/map size/world map/language/sound in
+   *  the row (layout.ts's `collapseActions`) */
+  actionsMenuButton: string;
+  /** opens the build toolbar as a drawer over the board, shown only when
+   *  layout.ts's `leftDocked` is false */
+  toolbarToggleTitle: string;
+  /** opens the read-panel column (colonists/work/research/animals/log) as a
+   *  drawer over the board, shown only when layout.ts's `rightDocked` is false */
+  panelsToggleTitle: string;
 
   // --- selection panel rows -------------------------------------------------
   /** the tile panel's own heading; the wrapping Fold already says "selection"
@@ -696,6 +716,8 @@ const en: Strings = {
       `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} badly hurt`,
     colonistsIll: (p) =>
       `${p.count} ${n(p.count as number, 'colonist is', 'colonists are')} ill — needs treating`,
+    raidWarning: (p) =>
+      `A raid of ${p.count} ${n(p.count as number, 'raider is', 'raiders are')} coming, in about ${p.hours} ${n(p.hours as number, 'hour', 'hours')}`,
     predatorNear: (p) => `Predator near the camp (${enSpeciesList(p.species)})`,
     nowhereToStore: (p) =>
       `Nowhere to store ${enResourceList(p.resources)} — the stacks are lying where they fell`,
@@ -889,6 +911,8 @@ const en: Strings = {
   pauseHint: 'Pause',
   speedHint: (multiplier) => `${multiplier}x`,
   speedFastHint: '10x — a day a minute',
+  speedPauseLabel: '⏸',
+  speedLabel: (multiplier) => `${multiplier}x`,
   populationCount: (count) => `${count} ${n(count, 'colonist', 'colonists')}`,
   jobsSummary: (active, queued) => `jobs: ${active} active / ${queued} queued`,
   jobsFailed: (failed) => `${failed} failed`,
@@ -986,11 +1010,16 @@ const en: Strings = {
   panelWork: 'Work',
   panelResources: 'Resources',
   panelLog: 'Log',
+  panelChronicle: 'Chronicle',
   panelMap: 'Map',
   panelGoals: 'Next steps',
   clearTitle: 'clear',
   collapseTitle: 'collapse',
   expandTitle: 'expand',
+
+  actionsMenuButton: 'More',
+  toolbarToggleTitle: 'Build toolbar',
+  panelsToggleTitle: 'Panels',
 
   tileTitle: (x, y) => `Tile ${x}, ${y}`,
   rowSeason: 'Season',
@@ -1433,6 +1462,7 @@ const ja: Strings = {
     foodLow: (p) => `食料が残り少ない（${p.food}）`,
     colonistsHurt: (p) => `${p.count}人の入植者が重傷を負っている`,
     colonistsIll: (p) => `${p.count}人の入植者が病気だ — 治療が要る`,
+    raidWarning: (p) => `襲撃者${p.count}人が接近中 — あと約${p.hours}時間`,
     predatorNear: (p) => `野営地の近くに肉食獣（${jaSpeciesList(p.species)}）`,
     nowhereToStore: (p) =>
       `${jaResourceList(p.resources)}の置き場がない — 落ちた場所に積まれたまま`,
@@ -1609,6 +1639,8 @@ const ja: Strings = {
   pauseHint: '一時停止',
   speedHint: (multiplier) => `${multiplier}倍速`,
   speedFastHint: '10倍速 — 1分で1日',
+  speedPauseLabel: '⏸',
+  speedLabel: (multiplier) => `${multiplier}倍`,
   populationCount: (count) => `入植者${count}人`,
   jobsSummary: (active, queued) => `仕事：進行${active} / 待機${queued}`,
   jobsFailed: (failed) => `失敗${failed}`,
@@ -1705,11 +1737,16 @@ const ja: Strings = {
   panelWork: '仕事',
   panelResources: '資源',
   panelLog: '記録',
+  panelChronicle: '年代記',
   panelMap: '地図',
   panelGoals: '次の一手',
   clearTitle: '閉じる',
   collapseTitle: '折りたたむ',
   expandTitle: '開く',
+
+  actionsMenuButton: 'もっと見る',
+  toolbarToggleTitle: '建築ツールバー',
+  panelsToggleTitle: 'パネル',
 
   tileTitle: (x, y) => `タイル ${x}, ${y}`,
   rowSeason: '季節',

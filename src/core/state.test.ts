@@ -3,7 +3,28 @@
 // selectors, the PixiJS diff) silently miss changes.
 import { describe, expect, it } from 'vitest';
 import { setDesignation } from './actions';
-import { createHarness, nearestTilesWithTerrain } from './testUtils';
+import { START_HOUR } from './constants';
+import { hourOf } from './daynight';
+import { createEmptyState } from './state';
+import { createHarness, nearestTilesWithTerrain, testWorld } from './testUtils';
+
+describe('a new world starts at dawn', () => {
+  // issue #25: tick 0 -> hourOf(0) is 00:00, so the first screen a player saw
+  // was the night tint with none of the daylight terrain/cloud/farm work
+  // visible. The clock now starts partway through day one instead.
+  it('gives createEmptyState a tick whose hour is morning', () => {
+    const state = createEmptyState();
+    expect(hourOf(state.tick)).toBe(START_HOUR);
+    // clearly inside the day, not merely past the night->day ramp
+    expect(hourOf(state.tick)).toBeGreaterThanOrEqual(7);
+    expect(hourOf(state.tick)).toBeLessThan(20);
+  });
+
+  it('carries the same starting hour through world generation', () => {
+    const state = testWorld({ seed: 1 });
+    expect(hourOf(state.tick)).toBe(START_HOUR);
+  });
+});
 
 describe('tick immutability', () => {
   it('never mutates the previous state', () => {

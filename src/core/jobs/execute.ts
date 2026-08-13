@@ -4,6 +4,7 @@
 // path, then accumulate progress once in place, then apply the effect. Failure
 // paths always go through `failJob` so a job can never leak a reservation.
 import { killAnimal } from '../animals';
+import { recordChronicle } from '../chronicle';
 import {
   BLOCKS_MOVEMENT,
   BOAR_CHARGE_RANGE,
@@ -266,6 +267,7 @@ function applyJobEffect(
           unlocked: [...state.research.unlocked, current],
         };
         addLog(state, 'researchUnlocked', { tech: current });
+        recordChronicle(state, 'researchUnlocked', { tech: current }); // issue #28
       } else {
         state.research = {
           ...state.research,
@@ -418,7 +420,9 @@ function executeAnimalJob(
       activity: { kind: 'idle' },
       nextProduceTick: state.tick + profile.produceIntervalTicks,
     });
-    addLog(state, 'animalTamed', { name: animal.name, species: animal.species });
+    const tameParams = { name: animal.name, species: animal.species };
+    addLog(state, 'animalTamed', tameParams);
+    recordChronicle(state, 'animalTamed', tameParams); // a successful taming (issue #28)
   } else {
     updateAnimal(state, animal.id, {
       designation: null,

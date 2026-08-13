@@ -222,6 +222,10 @@ describe('playing badly', () => {
   it('cannot wedge the colony into a state that does not make sense', () => {
     const harness = createHarness(9501);
     const rnd = mulberry32(9501);
+    // A new world's clock starts at dawn, not at zero (START_TICK, issue #25),
+    // so what this test is actually claiming - "every round advanced the clock,
+    // nothing seized up" - is about elapsed ticks, not an absolute reading.
+    const startTick = harness.state.tick;
 
     for (let round = 0; round < 40; round++) {
       // a burst of orders, then time to carry them out
@@ -231,7 +235,7 @@ describe('playing badly', () => {
     }
 
     // and after all that the game is still running rather than seized up
-    expect(harness.state.tick).toBe(40 * 200);
+    expect(harness.state.tick - startTick).toBe(40 * 200);
     expect(Object.keys(harness.state.colonists).length).toBeGreaterThan(0);
   }, 120000);
 

@@ -10,6 +10,7 @@
 // the job layer need it, and routing it through either one would make the two
 // import each other.
 import { STACK_MAX } from './constants';
+import { recordChronicle } from './chronicle';
 import { dropEquipmentOf } from './equipment';
 import { recordDeath } from './relationships';
 import { addLog, removeColonist, updateColonist, updateJob } from './state';
@@ -64,7 +65,9 @@ export function killColonist(state: GameState, colonistId: ColonistId, cause: De
 
   recordDeath(state, colonist);
   removeColonist(state, colonistId);
-  addLog(state, cause.key, { ...cause.params, name: colonist.name });
+  const params = { ...cause.params, name: colonist.name };
+  addLog(state, cause.key, params);
+  recordChronicle(state, cause.key, params); // a colonist's death (issue #28)
   if (Object.keys(state.colonists).length === 0) {
     addLog(state, 'colonyDiedOut');
   }

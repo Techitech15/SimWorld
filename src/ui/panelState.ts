@@ -20,6 +20,9 @@ export type PanelId =
   | 'work'
   | 'animals'
   | 'log'
+  // [ext] the colony's curated history (issue #28) - a separate panel from
+  // 'log' on purpose, see ChroniclePanel.tsx's header comment
+  | 'chronicle'
   | 'resources'
   | 'map'
   | 'research'
@@ -28,7 +31,14 @@ export type PanelId =
   // [ext] the colonist/animal-selection overlay on the board, bottom-right
   // (段階 U-1: split out of 'selection' so a creature and its tile can show
   // at once - see SelectionFrame.tsx)
-  | 'selectionCreature';
+  | 'selectionCreature'
+  // [ext] whether the two sidebars, when the viewport is too narrow to dock
+  // them (layout.ts), are open as a drawer over the board (issue #26). Not
+  // covered by `defaultOpenFrom` below - App.tsx calls `usePanelFold`
+  // directly with `false`, since a drawer should start closed regardless of
+  // what the colony looks like.
+  | 'sidebarLeft'
+  | 'sidebarRight';
 
 const KEY = 'simworld.panels';
 
@@ -78,6 +88,9 @@ export function defaultOpenFrom(id: PanelId, shape: ColonyShape): boolean {
     case 'research':
       return shape.hasResearchDesk;
     case 'log':
+    case 'chronicle':
+      // both are read-back-later panels, not glance-at-always ones (see 'log'
+      // above; 'chronicle' is read even less often, once a season at most)
       return false;
     default:
       return true;

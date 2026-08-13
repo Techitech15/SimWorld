@@ -30,6 +30,7 @@ import {
   TURRET_RANGE,
 } from './constants';
 import type { SimContext } from './derived';
+import { recordChronicle } from './chronicle';
 import { killColonist } from './death';
 import { isPowered, refreshNetworks } from './mana';
 import { chase, chaseRaider } from './movement';
@@ -199,7 +200,39 @@ export function damageRaider(
       updateColonist(state, id, { activity: { kind: 'none' } });
     }
   }
-  if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
+  if (!isUnderAttack(state)) {
+    addLog(state, 'raidOver', undefined, 'incident');
+    // The raid's outcome (issue #28); its start is recorded where
+    // `incidentRaid` fires, in events.ts.
+    recordChronicle(state, 'raidOver');
+  }
+}
+
+/**
+ * The warning becomes the raid (段階 R-1, issue #29). `events.ts`'s 'raid'
+ * incident never spawns anybody - it only writes `state.pendingRaid`. This is
+ * what turns that schedule into raiders on the map, once `atTick` arrives,
+ * using the size the warning already promised (`pending.size`, rolled and
+ * frozen the moment the warning went out) rather than rolling a fresh one -
+ * the warned count and the arriving count must never disagree.
+ *
+ * Called every tick (like `runRaiders` below); the check itself is cheap
+ * (a null read) whenever nothing is pending, which is almost always.
+ */
+export function runPendingRaid(state: GameState): void {
+  const pending = state.pendingRaid;
+  if (!pending || state.tick < pending.atTick) return;
+  state.pendingRaid = null;
+  const spawned = spawnRaid(state, pending.size, raidSeed(state));
+  // No standable edge tile this attempt (a fully enclosed map, in practice
+  // never) - the warning simply passes with nobody arriving, the same as any
+  // other incident that finds nothing to act on.
+  if (spawned.length === 0) return;
+  const params = { count: spawned.length, tribe: pending.tribe };
+  addLog(state, 'incidentRaid', params, 'incident');
+  // The raid's start (issue #28); its outcome is recorded separately, at the
+  // point the raid actually ends (see `damageRaider` and `runRaiders` below).
+  recordChronicle(state, 'incidentRaid', params);
 }
 
 /** One tick of every raider on the map. */
@@ -237,7 +270,12 @@ export function runRaiders(state: GameState, ctx: SimContext): void {
         state.tick > raider.leavesAtTick + RAID_LEAVE_GRACE_TICKS;
       if (gone) {
         removeRaider(state, id);
-        if (!isUnderAttack(state)) addLog(state, 'raidOver', undefined, 'incident');
+        if (!isUnderAttack(state)) {
+          addLog(state, 'raidOver', undefined, 'incident');
+          // The raid's outcome (issue #28); its start is recorded where
+          // `incidentRaid` fires, in events.ts.
+          recordChronicle(state, 'raidOver');
+        }
       }
       continue;
     }

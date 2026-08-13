@@ -184,7 +184,13 @@ describe('illness (段階 M-1)', () => {
   });
 
   it('bumped the schema by exactly one version, with a 26 -> 27 migration in place', () => {
-    expect(SCHEMA_VERSION).toBe(27);
+    // Pinned to >= rather than the exact value M-1 shipped at (27), the same
+    // convention herb.test.ts's own version-check test uses one step earlier:
+    // issue #28 (the chronicle) bumped the schema again on top of this one,
+    // and that bump owns its own version-check test (save.test.ts). What this
+    // test is actually about - the 26 -> 27 step itself still existing in the
+    // chain - does not change when a later step is added after it.
+    expect(SCHEMA_VERSION).toBeGreaterThanOrEqual(27);
     expect(typeof migrations[26]).toBe('function');
     const harness = createHarness(3427);
     expect(createSaveFile(harness.state).schemaVersion).toBe(SCHEMA_VERSION);

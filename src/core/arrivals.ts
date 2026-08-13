@@ -12,6 +12,7 @@ import {
   ARRIVAL_INTERVAL_TICKS,
   ARRIVAL_MAX_COLONISTS,
 } from './constants';
+import { recordChronicle } from './chronicle';
 import { isWalkable } from './pathfinding';
 import { mulberry32 } from './rng';
 import { seasonOf } from './season';
@@ -91,8 +92,10 @@ export function runArrivals(state: GameState): void {
   // same newcomer the same origin line
   const flavorRnd = mulberry32(state.worldSeed * 59 + state.tick + 260001);
   const mentionsWaldkin = flavorRnd() < WALDKIN_ORIGIN_CHANCE;
-  addLog(state, 'colonistArrived', {
+  const params = {
     name: arrival.name,
     ...(mentionsWaldkin ? { tribe: 'waldkin' } : {}),
-  });
+  };
+  addLog(state, 'colonistArrived', params);
+  recordChronicle(state, 'colonistArrived', params); // a migrant's arrival (issue #28)
 }

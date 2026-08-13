@@ -5,7 +5,7 @@
 // question of what is wrong *right now*, which a scrolling log is bad at - a
 // starvation warning from four hundred ticks ago looks identical to a current
 // one once it has scrolled.
-import { COLONIST_MAX_HEALTH, RESOURCE_TYPES } from './constants';
+import { COLONIST_MAX_HEALTH, RESOURCE_TYPES, TICKS_PER_HOUR } from './constants';
 import { herdSize, isPredator, pastureCapacity } from './animals';
 import { buildNetworks } from './mana';
 import { manhattan, tileIdOf } from './state';
@@ -29,6 +29,7 @@ export type AlertKey =
   | 'foodLow' // { food }
   | 'colonistsHurt' // { count }
   | 'colonistsIll' // { count } (フェーズ14 段階 M-1)
+  | 'raidWarning' // { count, hours } (段階 R-1, issue #29)
   | 'predatorNear' // { species }
   | 'nowhereToStore' // { resources }
   | 'storageFull'
@@ -139,6 +140,22 @@ export function collectAlerts(state: GameState): Alert[] {
       key: 'colonistsIll',
       params: { count: ill.length },
       at: { ...ill[0].position },
+    });
+  }
+
+  // A raid has been rolled but has not arrived yet (段階 R-1, issue #29).
+  // `warning`, not `critical`: nothing has actually happened to the colony
+  // yet, and `critical` is reserved for a crisis already in progress (an
+  // empty larder, a starving colonist) - the level the game loop's auto-pause
+  // watches for (src/game/loop.ts). A raid still on its way must not stop the
+  // clock the way the raid itself, once it is actually hurting somebody,
+  // already does through `colonistsHurt`/`colonistsStarving` above.
+  if (state.pendingRaid) {
+    const hours = Math.max(0, Math.round((state.pendingRaid.atTick - state.tick) / TICKS_PER_HOUR));
+    alerts.push({
+      level: 'warning',
+      key: 'raidWarning',
+      params: { count: state.pendingRaid.size, hours },
     });
   }
 
